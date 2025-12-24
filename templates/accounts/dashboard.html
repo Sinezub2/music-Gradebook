@@ -1,0 +1,61 @@
+<!-- templates/accounts/dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Панель{% endblock %}
+{% block content %}
+  <h1>Панель</h1>
+
+  {% if role == "ADMIN" %}
+    <p>Роль: Администратор</p>
+    <p><a class="btn" href="/admin/">Открыть Django admin</a></p>
+    <p><a href="/courses/">Список курсов</a></p>
+  {% elif role == "STUDENT" %}
+    <p>Роль: Ученик</p>
+    <h2>Мои курсы</h2>
+    {% if courses %}
+      <ul class="list">
+        {% for c in courses %}
+          <li>
+            <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
+            <span class="tag">{{ c.get_course_type_display }}</span>
+            <a class="muted" href="/courses/{{ c.id }}/grades/">Оценки</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Нет курсов.</p>
+    {% endif %}
+  {% elif role == "PARENT" %}
+    <p>Роль: Родитель</p>
+    <h2>Дети</h2>
+    {% if children_links %}
+      <ul class="list">
+        {% for link in children_links %}
+          <li>
+            <span>{{ link.child.username }}</span>
+            <a class="muted" href="/courses/?student={{ link.child.id }}">Курсы</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Нет привязанных детей (demo: parent1 → student1).</p>
+    {% endif %}
+  {% elif role == "TEACHER" %}
+    <p>Роль: Преподаватель</p>
+    <h2>Мои курсы</h2>
+    {% if courses %}
+      <ul class="list">
+        {% for c in courses %}
+          <li>
+            <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
+            <span class="tag">{{ c.get_course_type_display }}</span>
+            <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод оценок</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Нет назначенных курсов.</p>
+    {% endif %}
+  {% else %}
+    <p class="muted">Неизвестная роль.</p>
+  {% endif %}
+{% endblock %}

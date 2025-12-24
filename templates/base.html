@@ -1,0 +1,47 @@
+<!-- templates/base.html -->
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{% block title %}Музыкальная школа — журнал{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-row">
+      <div class="brand">
+        <a href="/dashboard">Журнал (демо)</a>
+      </div>
+      <nav class="nav">
+        {% if user.is_authenticated %}
+          <a href="/courses/">Курсы</a>
+          <a href="/dashboard">Панель</a>
+          <a href="/logout">Выйти</a>
+        {% else %}
+          <a href="/login">Вход</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+          <div class="message {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>Демо-проект: музыкальная школа · Django · SQLite</small>
+    </div>
+  </footer>
+</body>
+</html>

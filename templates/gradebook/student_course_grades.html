@@ -1,0 +1,55 @@
+<!-- templates/gradebook/student_course_grades.html -->
+{% extends "base.html" %}
+{% block title %}Оценки{% endblock %}
+{% block content %}
+  <h1>Оценки</h1>
+  <p class="muted">
+    Курс: {{ course.name }} · {{ course.get_course_type_display }}<br/>
+    Ученик: {{ student.username }}
+  </p>
+
+  {% if avg_percent != None %}
+    <p><span class="tag">Средний результат: {{ avg_percent|floatformat:1 }}%</span></p>
+  {% else %}
+    <p class="muted">Средний результат: нет данных</p>
+  {% endif %}
+
+  {% if rows %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Контроль</th>
+            <th>Тип</th>
+            <th>Оценка</th>
+            <th>Max</th>
+            <th>Вес</th>
+            <th>%</th>
+            <th>Комментарий</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td>{{ r.assessment.title }}</td>
+              <td class="muted small">{{ r.assessment.get_assessment_type_display }}</td>
+              <td>{% if r.score != None %}{{ r.score }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td class="muted small">{{ r.max_score }}</td>
+              <td class="muted small">{{ r.weight }}</td>
+              <td>
+                {% if r.percent != None %}
+                  {{ r.percent|floatformat:1 }}%
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+              <td class="muted small">{% if r.comment %}{{ r.comment }}{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Нет контрольных точек.</p>
+  {% endif %}
+{% endblock %}

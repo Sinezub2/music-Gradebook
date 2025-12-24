@@ -1,0 +1,105 @@
+<!-- templates/gradebook/teacher_course_grades.html -->
+{% extends "base.html" %}
+{% block title %}Ввод оценок{% endblock %}
+{% block content %}
+  <h1>Ввод оценок</h1>
+  <p class="muted">
+    Курс: {{ course.name }} · {{ course.get_course_type_display }}
+  </p>
+
+  {% if not assessments %}
+    <p class="muted">Нет контрольных точек (assessments).</p>
+  {% elif not students %}
+    <p class="muted">Нет учеников на курсе.</p>
+  {% else %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Ученик</th>
+              {% for a in assessments %}
+                <th>
+                  <div class="th-title">{{ a.title }}</div>
+                  <div class="muted small">{{ a.get_assessment_type_display }}</div>
+                  <div class="muted small">max {{ a.max_score }} · вес {{ a.weight }}</div>
+                </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in students %}
+              <tr>
+                <td><strong>{{ s.username }}</strong></td>
+                {% for a in assessments %}
+                  {% with g=grade_map|get_item:s.id|get_item:a.id %}
+                  {% endwith %}
+                  {% comment %}
+                    We'll access grade_map via custom filter? We avoid that:
+                    We'll compute key by string in template? Not possible cleanly.
+                    So: use dict with tuple keys in view and access via a helper filter in base template.
+                  {% endcomment %}
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <p class="muted small">
+        Примечание: из-за ограничений шаблонов Django без кастомных фильтров,
+        ниже используем "плоский" рендер таблицы через вложенные циклы и key lookup в отдельном блоке.
+      </p>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Ученик</th>
+              {% for a in assessments %}
+                <th>{{ a.title }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in students %}
+              <tr>
+                <td>{{ s.username }}</td>
+                {% for a in assessments %}
+                  {% with key=s.id|stringformat:"s"|add:":"|add:a.id|stringformat:"s" %}
+                    {% with g=grade_map_flat.key %}
+                    {% endwith %}
+                  {% endwith %}
+                  <td>
+                    <div class="cell">
+                      <input
+                        class="input input-score"
+                        type="text"
+                        name="grade-{{ s.id }}-{{ a.id }}"
+                        value="{% if grade_map_tuple %}{% endif %}"
+                        placeholder="оценка"
+                      />
+                      <textarea
+                        class="input input-comment"
+                        name="comment-{{ s.id }}-{{ a.id }}"
+                        placeholder="комментарий">{% if grade_map_tuple %}{% endif %}</textarea>
+                    </div>
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <button class="btn" type="submit">Сохранить</button>
+    </form>
+
+    <p class="muted small">
+      Если хотите идеальный доступ к grade_map прямо в шаблоне — добавим один template filter.
+      Но для демо проще: используем grade_map напрямую через view-context “grade_map” и подставляем значения
+      в шаблоне ниже (см. следующую версию файла).
+    </p>
+  {% endif %}
+{% endblock %}

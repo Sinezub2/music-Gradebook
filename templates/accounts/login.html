@@ -1,0 +1,28 @@
+<!-- templates/accounts/login.html -->
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+  <h1>Вход</h1>
+  <div class="card">
+    <form method="post" class="form">
+      {% csrf_token %}
+      <div class="form-row">
+        <label>{{ form.username.label }}</label>
+        {{ form.username }}
+        {% if form.username.errors %}<div class="error">{{ form.username.errors }}</div>{% endif %}
+      </div>
+      <div class="form-row">
+        <label>{{ form.password.label }}</label>
+        {{ form.password }}
+        {% if form.password.errors %}<div class="error">{{ form.password.errors }}</div>{% endif %}
+      </div>
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+      <button class="btn" type="submit">Войти</button>
+    </form>
+  </div>
+
+  <p class="muted">
+    Для демо запустите seed_demo (см. README).<br/>
+    Примеры: teacher1/pass, student1/pass, parent1/pass, admin/adminpass
+  </p>
+{% endblock %}

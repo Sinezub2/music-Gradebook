@@ -1,0 +1,47 @@
+<!-- templates/school/course_list.html -->
+{% extends "base.html" %}
+{% block title %}Курсы{% endblock %}
+{% block content %}
+  <h1>Курсы</h1>
+
+  {% if mode == "parent_pick" %}
+    <p>Выберите ребёнка:</p>
+    {% if children_links %}
+      <ul class="list">
+        {% for link in children_links %}
+          <li>
+            <span>{{ link.child.username }}</span>
+            <a class="muted" href="/courses/?student={{ link.child.id }}">Открыть курсы</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Нет детей.</p>
+    {% endif %}
+  {% else %}
+    {% if student %}
+      <p class="muted">Ученик: {{ student.username }}</p>
+    {% endif %}
+
+    {% if courses %}
+      <ul class="list">
+        {% for c in courses %}
+          <li>
+            <a href="/courses/{{ c.id }}/{% if mode == 'parent_child' %}?student={{ student.id }}{% endif %}">{{ c.name }}</a>
+            <span class="tag">{{ c.get_course_type_display }}</span>
+
+            {% if mode == "teacher" %}
+              <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод оценок</a>
+            {% elif mode == "student" %}
+              <a class="muted" href="/courses/{{ c.id }}/grades/">Оценки</a>
+            {% elif mode == "parent_child" %}
+              <a class="muted" href="/courses/{{ c.id }}/grades/?student={{ student.id }}">Оценки</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Курсов нет.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}
