@@ -1,112 +1,150 @@
+
 from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.school.models import Course, ParentChild
-from .models import Assignment, AssignmentStatus
+from .forms import AssignmentCreateForm
+from .models import Assignment, AssignmentTarget
+from .services import create_assignment_with_targets_and_gradebook
 
 
-def _effective_status(assignment: Assignment, st: AssignmentStatus | None) -> str:
+def _effective_status(assignment: Assignment, target: AssignmentTarget | None) -> str:
     """
     Display logic:
-    - DONE stays DONE
-    - If not DONE and due_date < today -> LATE
-    - Else TODO
+    DONE stays DONE
+    else if due_date < today -> LATE (computed)
+    else TODO
     """
-    if st and st.status == AssignmentStatus.Status.DONE:
-        return AssignmentStatus.Status.DONE
+    if target and target.status == AssignmentTarget.Status.DONE:
+        return "DONE"
     if assignment.due_date < date.today():
-        return AssignmentStatus.Status.LATE
-    return AssignmentStatus.Status.TODO
+        return "LATE"
+    return "TODO"
 
 
 @login_required
 def assignment_list(request):
     profile = request.user.profile
 
-    # Base queryset
-    assignments = Assignment.objects.all().select_related("course", "created_by")
-
-    ctx = {"mode": profile.role}
-
-    if profile.role == Profile.Role.ADMIN:
-        ctx["assignments"] = assignments.order_by("due_date", "id")
-        return render(request, "homework/assignment_list.html", ctx)
-
     if profile.role == Profile.Role.TEACHER:
-        teacher_courses = Course.objects.filter(teacher=request.user)
-        ctx["assignments"] = assignments.filter(course__in=teacher_courses).order_by("due_date", "id")
-        return render(request, "homework/assignment_list.html", ctx)
-
-    if profile.role == Profile.Role.STUDENT:
-        enrolled = Course.objects.filter(enrollments__student=request.user).distinct()
-        qs = assignments.filter(course__in=enrolled).order_by("due_date", "id")
-
-        statuses = AssignmentStatus.objects.filter(student=request.user, assignment__in=qs).select_related("assignment")
-        status_map = {s.assignment_id: s for s in statuses}
-
+        qs = Assignment.objects.filter(created_by=request.user).select_related("course").order_by("due_date", "id")
         rows = []
         for a in qs:
-            st = status_map.get(a.id)
-            rows.append({"assignment": a, "status_obj": st, "status": _effective_status(a, st)})
+            count_targets = a.targets.count()
+            rows.append({"assignment": a, "count_targets": count_targets})
+        return render(request, "homework/assignment_list.html", {"mode": "TEACHER", "rows": rows})
 
-        ctx["rows"] = rows
-        ctx["student"] = request.user
-        return render(request, "homework/assignment_list.html", ctx)
+    if profile.role == Profile.Role.ADMIN:
+        qs = Assignment.objects.all().select_related("course", "created_by").order_by("due_date", "id")
+        return render(request, "homework/assignment_list.html", {"mode": "ADMIN", "assignments": qs})
+
+    if profile.role == Profile.Role.STUDENT:
+        targets = (
+            AssignmentTarget.objects.filter(student=request.user)
+            .select_related("assignment", "assignment__course")
+            .order_by("assignment__due_date", "assignment_id")
+        )
+        rows = []
+        for t in targets:
+            a = t.assignment
+            rows.append({"target": t, "assignment": a, "status": _effective_status(a, t)})
+        return render(request, "homework/assignment_list.html", {"mode": "STUDENT", "rows": rows})
 
     if profile.role == Profile.Role.PARENT:
-        children = ParentChild.objects.filter(parent=request.user).select_related("child")
+        children = ParentChild.objects.filter(parent=request.user).select_related("child").order_by("child__username")
+
         child_blocks = []
         for link in children:
             child = link.child
-            enrolled = Course.objects.filter(enrollments__student=child).distinct()
-            qs = assignments.filter(course__in=enrolled).order_by("due_date", "id")
-
-            statuses = AssignmentStatus.objects.filter(student=child, assignment__in=qs).select_related("assignment")
-            status_map = {s.assignment_id: s for s in statuses}
-
+            targets = (
+                AssignmentTarget.objects.filter(student=child)
+                .select_related("assignment", "assignment__course")
+                .order_by("assignment__due_date", "assignment_id")
+            )
             rows = []
-            for a in qs:
-                st = status_map.get(a.id)
-                rows.append({"assignment": a, "status_obj": st, "status": _effective_status(a, st)})
-
+            for t in targets:
+                a = t.assignment
+                rows.append({"target": t, "assignment": a, "status": _effective_status(a, t)})
             child_blocks.append({"child": child, "rows": rows})
 
-        ctx["child_blocks"] = child_blocks
-        return render(request, "homework/assignment_list.html", ctx)
+        return render(request, "homework/assignment_list.html", {"mode": "PARENT", "child_blocks": child_blocks})
 
-    ctx["assignments"] = []
-    return render(request, "homework/assignment_list.html", ctx)
+    return render(request, "homework/assignment_list.html", {"mode": "UNKNOWN"})
+
+
+@role_required(Profile.Role.TEACHER)
+def assignment_create(request):
+    """
+    Без JS делаем так:
+    - GET: форма + (если выбран course) показываем чекбоксы студентов
+    - POST: создаём Assignment + Assessment + Targets + Grades
+    """
+
+    selected_course = None
+    course_id = request.GET.get("course") or request.POST.get("course")
+    if course_id:
+        try:
+            selected_course = Course.objects.get(id=course_id, teacher=request.user)
+        except Course.DoesNotExist:
+            selected_course = None
+
+    if request.method == "POST":
+        form = AssignmentCreateForm(request.POST, teacher_user=request.user, course_for_students=selected_course)
+        if form.is_valid():
+            course = form.cleaned_data["course"]
+            title = form.cleaned_data["title"]
+            description = form.cleaned_data.get("description", "")
+            due_date = form.cleaned_data["due_date"]
+            student_ids = [int(x) for x in form.cleaned_data.get("students", [])]
+
+            # Create everything per spec
+            create_assignment_with_targets_and_gradebook(
+                teacher=request.user,
+                course=course,
+                title=title,
+                description=description,
+                due_date=due_date,
+                student_ids=student_ids,
+            )
+
+            messages.success(request, "Задание создано и назначено выбранным ученикам.")
+            return redirect("/assignments/")
+    else:
+        form = AssignmentCreateForm(teacher_user=request.user, course_for_students=selected_course)
+        # If course selected via GET, prefill it in the form
+        if selected_course:
+            form.initial["course"] = selected_course
+
+    return render(
+        request,
+        "homework/assignment_create.html",
+        {
+            "form": form,
+            "selected_course": selected_course,
+        },
+    )
 
 
 @require_POST
-@login_required
-def mark_done(request, assignment_id: int):
+@role_required(Profile.Role.STUDENT)
+def mark_done(request, target_id: int):
     """
-    Optional: student can mark DONE for themselves.
-    Parent/Teacher/Admin cannot use this endpoint.
+    Student marks assigned homework as DONE.
+    No grade auto-fill.
     """
-    profile = request.user.profile
-    if profile.role != Profile.Role.STUDENT:
-        messages.error(request, "Недостаточно прав.")
-        return redirect("/assignments/")
+    target = get_object_or_404(
+        AssignmentTarget.objects.select_related("assignment", "assignment__course"),
+        id=target_id,
+        student=request.user,
+    )
+    target.status = AssignmentTarget.Status.DONE
+    target.save()
 
-    assignment = get_object_or_404(Assignment, id=assignment_id)
-
-    # Ensure student is enrolled in the course
-    is_enrolled = Course.objects.filter(id=assignment.course_id, enrollments__student=request.user).exists()
-    if not is_enrolled:
-        messages.error(request, "Вы не записаны на этот курс.")
-        return redirect("/assignments/")
-
-    st, _ = AssignmentStatus.objects.get_or_create(assignment=assignment, student=request.user)
-    st.status = AssignmentStatus.Status.DONE
-    st.save()
-
-    messages.success(request, "Отмечено как DONE.")
+    messages.success(request, "Отмечено как DONE (оценка выставляется преподавателем отдельно).")
     return redirect("/assignments/")

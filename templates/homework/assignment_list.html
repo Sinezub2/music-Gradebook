@@ -2,11 +2,53 @@
 {% block title %}Задания{% endblock %}
 {% block content %}
   <h1>Задания</h1>
-  <p class="muted">Сортировка по дедлайну. Просроченные подсвечены статусом LATE.</p>
 
-  {% if mode == "STUDENT" %}
+  {% if mode == "TEACHER" %}
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <p class="muted" style="margin:0;">Ваши созданные задания и число назначений.</p>
+      <a class="btn" href="/assignments/create/">Создать задание</a>
+    </div>
+
     {% if not rows %}
-      <p class="muted">Заданий пока нет.</p>
+      <p class="muted">Вы ещё не создавали задания.</p>
+    {% else %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Дедлайн</th>
+              <th>Курс</th>
+              <th>Задание</th>
+              <th>Назначено</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+              <tr>
+                <td>{{ r.assignment.due_date|date:"d.m.Y" }}</td>
+                <td class="muted small">{{ r.assignment.course.name }}</td>
+                <td>
+                  <div>{{ r.assignment.title }}</div>
+                  {% if r.assignment.description %}
+                    <div class="muted small">{{ r.assignment.description }}</div>
+                  {% endif %}
+                </td>
+                <td><span class="tag">{{ r.count_targets }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted small">
+        Оценки выставляются в “Прогресс” → курс → “Ввод оценок”. Домашние задания появляются там автоматически.
+      </p>
+    {% endif %}
+
+  {% elif mode == "STUDENT" %}
+    <p class="muted">Показаны только задания, назначенные вам.</p>
+
+    {% if not rows %}
+      <p class="muted">Назначенных заданий пока нет.</p>
     {% else %}
       <div class="table-wrap">
         <table class="table">
@@ -34,8 +76,8 @@
                   <span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span>
                 </td>
                 <td>
-                  {% if r.status != "DONE" %}
-                    <form method="post" action="/assignments/{{ r.assignment.id }}/done/">
+                  {% if r.target.status != "DONE" %}
+                    <form method="post" action="/assignments/targets/{{ r.target.id }}/mark_done/">
                       {% csrf_token %}
                       <button class="btn" type="submit">DONE</button>
                     </form>
@@ -51,13 +93,15 @@
     {% endif %}
 
   {% elif mode == "PARENT" %}
+    <p class="muted">По каждому ребёнку показаны назначенные задания и статус.</p>
+
     {% if not child_blocks %}
       <p class="muted">Нет привязанных детей.</p>
     {% else %}
       {% for block in child_blocks %}
         <h2>Ученик: {{ block.child.username }}</h2>
         {% if not block.rows %}
-          <p class="muted">Заданий нет.</p>
+          <p class="muted">Назначенных заданий нет.</p>
         {% else %}
           <div class="table-wrap">
             <table class="table">
@@ -92,10 +136,10 @@
       {% endfor %}
     {% endif %}
 
-  {% else %}
+  {% elif mode == "ADMIN" %}
+    <p class="muted">Все задания (админ-обзор).</p>
     {% if not assignments %}
       <p class="muted">Заданий пока нет.</p>
-      <p class="muted small">Учитель создаёт задания через Django admin.</p>
     {% else %}
       <div class="table-wrap">
         <table class="table">
@@ -112,12 +156,7 @@
               <tr>
                 <td>{{ a.due_date|date:"d.m.Y" }}</td>
                 <td class="muted small">{{ a.course.name }}</td>
-                <td>
-                  <div>{{ a.title }}</div>
-                  {% if a.description %}
-                    <div class="muted small">{{ a.description }}</div>
-                  {% endif %}
-                </td>
+                <td>{{ a.title }}</td>
                 <td class="muted small">{{ a.created_by.username }}</td>
               </tr>
             {% endfor %}
@@ -125,5 +164,8 @@
         </table>
       </div>
     {% endif %}
+
+  {% else %}
+    <p class="muted">Недоступно.</p>
   {% endif %}
 {% endblock %}
