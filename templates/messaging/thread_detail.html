@@ -4,16 +4,23 @@
   <h1>Чат</h1>
   <p class="muted">Ученик: {{ thread.student.username }} · Родитель: {{ thread.parent.username }} · Преподаватель: {{ thread.teacher.username }}</p>
 
-  <div class="card" style="max-height: 55vh; overflow:auto; padding: 12px;">
+  <div class="card chat-card">
     {% if not messages %}
       <p class="muted">Сообщений нет.</p>
     {% else %}
-      {% for m in messages %}
-        <div style="margin-bottom:10px;">
-          <div class="muted small">{{ m.sender.username }} · {{ m.created_at|date:"d.m.Y H:i" }}</div>
-          <div style="white-space: pre-wrap;">{{ m.text }}</div>
-        </div>
-      {% endfor %}
+      <div class="chat-messages">
+        {% for m in messages %}
+          <div class="chat-message {% if m.sender_id == user.id %}is-me{% else %}is-them{% endif %}">
+            <div class="chat-bubble">
+              {% ifchanged m.sender_id %}
+                <div class="chat-sender">{{ m.sender.username }}</div>
+              {% endifchanged %}
+              <div class="chat-text">{{ m.text|linebreaksbr }}</div>
+              <div class="chat-meta">{{ m.created_at|date:"d.m.Y H:i" }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
     {% endif %}
   </div>
 
