@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Урок{% endblock %}
+{% block content %}
+  <h1>{{ lesson.topic }}</h1>
+  <p class="muted">{{ lesson.course.name }} · {{ lesson.date|date:"d.m.Y" }}</p>
+
+  <h2>Отчёты</h2>
+  {% if not reports %}
+    <p class="muted">Отчётов пока нет.</p>
+  {% else %}
+    {% for r in reports %}
+      <div class="card" style="margin-bottom:10px;">
+        <div class="muted small">
+          {% if r.student %}Для: {{ r.student.username }}{% else %}Общий отчёт{% endif %}
+          · {{ r.created_at|date:"d.m.Y H:i" }}
+        </div>
+        <div style="white-space: pre-wrap;">{{ r.text }}</div>
+        {% if r.media_url %}
+          <div class="muted small">Медиа: <a href="{{ r.media_url }}" target="_blank" rel="noopener noreferrer">{{ r.media_url }}</a></div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endblock %}

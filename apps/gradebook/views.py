@@ -90,6 +90,66 @@ def student_course_grades(request, course_id: int):
 
     avg_percent = compute_average_percent(assessments, grades_by_assessment_id)
 
+    # ---- Progress summary + trend ----
+    # If homework app doesn't have AssignmentTarget yet, this import will fail.
+    # In that case either create it or temporarily wrap this block in try/except.
+    from apps.homework.models import AssignmentTarget
+    from django.utils import timezone
+
+    today = timezone.localdate()
+
+    # average of non-null grade scores in this course
+    non_null_scores = [g.score for g in grades_by_assessment_id.values() if g.score is not None]
+    avg_val = None
+    if non_null_scores:
+        try:
+            avg_val = sum([float(x) for x in non_null_scores]) / len(non_null_scores)
+            avg_val = round(avg_val, 2)
+        except Exception:
+            avg_val = None
+
+    targets_qs = AssignmentTarget.objects.filter(student=student, assignment__course=course).select_related("assignment")
+    assigned_cnt = targets_qs.count()
+    done_cnt = targets_qs.filter(status=AssignmentTarget.Status.DONE).count()
+
+    next_due = (
+        targets_qs.filter(status=AssignmentTarget.Status.TODO)
+        .order_by("assignment__due_date")
+        .values_list("assignment__due_date", flat=True)
+        .first()
+    )
+    next_due_str = next_due.strftime("%d.%m.%Y") if next_due else None
+
+    # streak: how many DONE in a row among last 5 by due_date desc
+    last_targets = list(targets_qs.order_by("-assignment__due_date")[:5])
+    streak = 0
+    for t in last_targets:
+        if t.status == AssignmentTarget.Status.DONE:
+            streak += 1
+        else:
+            break
+
+    # badge: if no overdue TODO
+    late_exists = targets_qs.filter(status=AssignmentTarget.Status.TODO, assignment__due_date__lt=today).exists()
+    badge = None
+    if assigned_cnt > 0 and not late_exists:
+        badge = "Все задания вовремя (сейчас)"
+
+    trend = []
+    for a in assessments:
+        g = grades_by_assessment_id.get(a.id)
+        if g and g.score is not None:
+            trend.append({"label": f"{a.title}", "score": g.score})
+
+    summary = {
+        "avg": avg_val,
+        "assigned": assigned_cnt,
+        "done": done_cnt,
+        "next_due": next_due_str,
+        "streak": streak,
+        "badge": badge,
+    }
+
     rows = []
     for a in assessments:
         g = grades_by_assessment_id.get(a.id)
@@ -121,6 +181,7 @@ def student_course_grades(request, course_id: int):
             "student": student,
             "rows": rows,
             "avg_percent": avg_percent,
+            "summary": summary,
+            "trend": trend,
         },
     )
-

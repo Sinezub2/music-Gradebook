@@ -201,3 +201,32 @@ body {
   background: rgba(255, 106, 106, 0.10);
   border-color: rgba(255, 106, 106, 0.22);
 }
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message {
+  display: flex;
+}
+
+.message.me {
+  justify-content: flex-end;
+}
+
+.message.them {
+  justify-content: flex-start;
+}
+
+.message-bubble {
+  max-width: 70%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+}
+
+.message.me .message-bubble {
+  background: rgba(106,168,255,0.12);
+}

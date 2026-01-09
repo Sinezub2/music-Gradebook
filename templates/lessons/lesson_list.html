@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Уроки{% endblock %}
+{% block content %}
+  <h1>Уроки</h1>
+  <p class="muted">Список занятий и отчётов (медиа — ссылки).</p>
+
+  {% if user.profile.role == "TEACHER" or user.profile.role == "ADMIN" %}
+    <p><a class="btn" href="/lessons/create/">Создать урок</a></p>
+  {% endif %}
+
+  {% if not lessons %}
+    <p class="muted">Пока нет уроков.</p>
+  {% else %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th>Курс</th>
+            <th>Тема</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lessons %}
+            <tr>
+              <td>{{ l.date|date:"d.m.Y" }}</td>
+              <td class="muted small">{{ l.course.name }}</td>
+              <td><a href="/lessons/{{ l.id }}/">{{ l.topic }}</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endblock %}

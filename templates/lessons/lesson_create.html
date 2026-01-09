@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Создать урок{% endblock %}
+{% block content %}
+  <h1>Создать урок</h1>
+
+  <form method="post" class="form">
+    {% csrf_token %}
+
+    <div class="form-row"><label>Курс</label>{{ form.course }}</div>
+    <div class="form-row"><label>Дата</label>{{ form.date }}</div>
+    <div class="form-row"><label>Тема</label>{{ form.topic }}</div>
+
+    <hr style="border:0; border-top:1px solid var(--border); margin: 12px 0;"/>
+
+    <div class="form-row"><label>Отчёт (опционально)</label>{{ form.report_text }}</div>
+    <div class="form-row"><label>Ссылка на медиа (опционально)</label>{{ form.media_url }}</div>
+
+    <button class="btn" type="submit">Создать</button>
+    <a class="btn" href="/lessons/">Отмена</a>
+  </form>
+{% endblock %}

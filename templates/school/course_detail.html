@@ -3,6 +3,7 @@
 {% block title %}Курс{% endblock %}
 {% block content %}
   <h1>{{ course.name }}</h1>
+
   <p>
     <span class="tag">{{ course.get_course_type_display }}</span>
     {% if course.teacher %}
@@ -10,12 +11,16 @@
     {% endif %}
   </p>
 
-  {% if mode == "student" %}
-    <p><a class="btn" href="/courses/{{ course.id }}/grades/">Посмотреть оценки</a></p>
-  {% elif mode == "parent" %}
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin: 10px 0;">
+    <a class="btn" href="/courses/{{ course.id }}/grades/{% if mode == 'parent' %}?student={{ student.id }}{% endif %}">Оценки</a>
+    <a class="btn" href="/assignments/?course={{ course.id }}{% if mode == 'parent' %}&student={{ student.id }}{% endif %}">Задания</a>
+    <a class="btn" href="/lessons/?course={{ course.id }}{% if mode == 'parent' %}&student={{ student.id }}{% endif %}">Уроки</a>
+    <a class="btn" href="/calendar/?course={{ course.id }}{% if mode == 'parent' %}&student={{ student.id }}{% endif %}">События</a>
+  </div>
+
+  {% if mode == "parent" %}
     <p class="muted">Ученик: {{ student.username }}</p>
-    <p><a class="btn" href="/courses/{{ course.id }}/grades/?student={{ student.id }}">Посмотреть оценки</a></p>
   {% elif mode == "staff" %}
-    <p class="muted">Для преподавателя/админа ввод оценок находится в разделе "Ввод оценок".</p>
+    <p class="muted">Для преподавателя/админа ввод оценок находится в разделе «Ввод оценок».</p>
   {% endif %}
 {% endblock %}

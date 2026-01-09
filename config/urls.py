@@ -20,7 +20,13 @@ urlpatterns = [
     # new apps
     path("", include("apps.schedule.urls")),
     path("", include("apps.homework.urls")),
+    
 
-    # messages placeholder
-    path("messages/", TemplateView.as_view(template_name="messages/placeholder.html"), name="messages_placeholder"),
+    path("", include("apps.lessons.urls")),
+    path("", include("apps.messaging.urls")),
+    path("", include("apps.portfolio.urls")),
+
+
+
+
 ]

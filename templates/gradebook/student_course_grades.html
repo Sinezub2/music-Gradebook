@@ -2,11 +2,64 @@
 {% extends "base.html" %}
 {% block title %}Оценки{% endblock %}
 {% block content %}
+
   <h1>Оценки</h1>
   <p class="muted">
     Курс: {{ course.name }} · {{ course.get_course_type_display }}<br/>
     Ученик: {{ student.username }}
   </p>
+
+  <!-- ===== Progress summary ===== -->
+  <div class="card">
+    <h2>Сводка по курсу</h2>
+    <ul>
+      <li>
+        Средний результат (по оценкам):
+        <strong>{{ summary.avg|default:"—" }}</strong>
+      </li>
+      <li>
+        Задания: assigned {{ summary.assigned }} / done {{ summary.done }}
+      </li>
+      <li>
+        Ближайший дедлайн:
+        <strong>{{ summary.next_due|default:"—" }}</strong>
+      </li>
+      <li>
+        Streak DONE (последние 5):
+        <strong>{{ summary.streak }}</strong>
+      </li>
+      {% if summary.badge %}
+        <li><span class="tag">{{ summary.badge }}</span></li>
+      {% endif %}
+    </ul>
+  </div>
+
+  <!-- ===== Trend table ===== -->
+  <div class="card">
+    <h2>Тренд (оценки)</h2>
+    {% if not trend %}
+      <p class="muted">Пока нет выставленных оценок.</p>
+    {% else %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Контроль</th>
+              <th>Балл</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in trend %}
+              <tr>
+                <td class="muted small">{{ t.label }}</td>
+                <td><strong>{{ t.score }}</strong></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
 
   {% if avg_percent != None %}
     <p><span class="tag">Средний результат: {{ avg_percent|floatformat:1 }}%</span></p>
