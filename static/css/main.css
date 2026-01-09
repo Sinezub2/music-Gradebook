@@ -137,7 +137,7 @@ textarea { min-height: 70px; resize: vertical; }
 .input-score { max-width: 120px; }
 /* ===== Bottom navigation (fixed) ===== */
 body {
-  padding-bottom: 78px; /* space for bottom nav */
+  padding-bottom: 64px; /* space for bottom nav */
 }
 
 .bottom-nav {
@@ -150,47 +150,31 @@ body {
   background: rgba(17, 19, 24, 0.92);
   backdrop-filter: blur(8px);
 
-  display: flex;
-  gap: 6px;
-  padding: 8px 10px 10px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   z-index: 1000;
 }
 
 .bottom-link {
-  flex: 1;
-  min-width: 0;
   text-align: center;
-  padding: 10px 6px;
+  padding: 12px 10px;
   color: var(--muted);
-  font-size: 12px;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+  font-size: 14px;
+  border-right: 1px solid var(--border);
+}
+
+.bottom-link:last-child {
+  border-right: none;
 }
 
 .bottom-link:hover {
   color: var(--text);
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .bottom-link.active {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.bottom-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.bottom-label {
-  font-size: 11px;
-  letter-spacing: 0.2px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* ===== Status badges (TODO/DONE/LATE) ===== */
@@ -217,57 +201,32 @@ body {
   background: rgba(255, 106, 106, 0.10);
   border-color: rgba(255, 106, 106, 0.22);
 }
-.chat-card {
-  max-height: 55vh;
-  overflow: auto;
-  padding: 12px;
-}
-
-.chat-messages {
+.messages {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-.chat-message {
+.message {
   display: flex;
 }
 
-.chat-message.is-me {
+.message.me {
   justify-content: flex-end;
 }
 
-.chat-message.is-them {
+.message.them {
   justify-content: flex-start;
 }
 
-.chat-bubble {
-  max-width: min(75%, 520px);
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
+.message-bubble {
+  max-width: 70%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
   border: 1px solid var(--border);
-  display: grid;
-  gap: 6px;
 }
 
-.chat-message.is-me .chat-bubble {
-  background: rgba(106, 168, 255, 0.12);
-}
-
-.chat-sender {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.chat-text {
-  white-space: pre-wrap;
-}
-
-.chat-meta {
-  font-size: 11px;
-  color: var(--muted);
-  text-align: right;
+.message.me .message-bubble {
+  background: rgba(106,168,255,0.12);
 }
