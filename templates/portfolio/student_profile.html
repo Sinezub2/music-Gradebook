@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Профиль ученика{% endblock %}
+{% block content %}
+  <h1>Профиль: {{ student.username }}</h1>
+
+  <div class="card">
+    <h2>Курсы</h2>
+    {% if not courses %}
+      <p class="muted">Нет курсов.</p>
+    {% else %}
+      <ul>
+        {% for c in courses %}
+          <li>
+            <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
+            <span class="muted small">({{ c.get_course_type_display }})</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if user.profile.role == "PARENT" %}
+      <p><a class="btn" href="/messages/start/{{ student.id }}/">Начать чат с преподавателем</a></p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Последние задания</h2>
+    {% if not last_targets %}
+      <p class="muted">Нет назначенных заданий.</p>
+    {% else %}
+      <ul>
+        {% for t in last_targets %}
+          <li>
+            {{ t.assignment.due_date|date:"d.m.Y" }} · {{ t.assignment.course.name }} · {{ t.assignment.title }}
+            <span class="muted small">({{ t.status }})</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Последние оценки</h2>
+    {% if not last_grades %}
+      <p class="muted">Оценок пока нет.</p>
+    {% else %}
+      <ul>
+        {% for g in last_grades %}
+          <li>
+            {{ g.assessment.course.name }} · {{ g.assessment.title }} —
+            <strong>{{ g.score }}</strong>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Последние отчёты уроков</h2>
+    {% if not last_reports %}
+      <p class="muted">Отчётов пока нет.</p>
+    {% else %}
+      <ul>
+        {% for r in last_reports %}
+          <li>
+            {{ r.lesson.date|date:"d.m.Y" }} · {{ r.lesson.course.name }} · {{ r.lesson.topic }}
+            {% if r.media_url %} — <a href="{{ r.media_url }}" target="_blank" rel="noopener noreferrer">медиа</a>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Достижения</h2>
+    {% if not achievements %}
+      <p class="muted">Пока нет достижений.</p>
+    {% else %}
+      <ul>
+        {% for a in achievements %}
+          <li>
+            {% if a.date %}{{ a.date|date:"d.m.Y" }} · {% endif %}
+            {{ a.title }}
+            {% if a.description %}<div class="muted small">{{ a.description }}</div>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Медиа</h2>
+    {% if not media_links %}
+      <p class="muted">Пока нет ссылок.</p>
+    {% else %}
+      <ul>
+        {% for m in media_links %}
+          <li>
+            <span class="tag">{{ m.get_media_type_display }}</span>
+            <a href="{{ m.url }}" target="_blank" rel="noopener noreferrer">{{ m.title }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+{% endblock %}
