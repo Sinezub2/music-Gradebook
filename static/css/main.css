@@ -150,17 +150,25 @@ body {
   background: rgba(17, 19, 24, 0.92);
   backdrop-filter: blur(8px);
 
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-wrap: nowrap;
   z-index: 1000;
 }
 
 .bottom-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 12px 10px;
   color: var(--muted);
   font-size: 14px;
   border-right: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bottom-link:last-child {
@@ -201,32 +209,57 @@ body {
   background: rgba(255, 106, 106, 0.10);
   border-color: rgba(255, 106, 106, 0.22);
 }
-.messages {
+
+/* ===== Chat thread ===== */
+.chat-thread {
+  max-height: 55vh;
+  overflow: auto;
+  padding: 12px;
+}
+
+.chat-messages {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
-.message {
+.chat-message {
   display: flex;
 }
 
-.message.me {
+.chat-message.me {
   justify-content: flex-end;
 }
 
-.message.them {
+.chat-message.them {
   justify-content: flex-start;
 }
 
-.message-bubble {
+.chat-bubble {
   max-width: 70%;
   padding: 8px 12px;
   border-radius: 12px;
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--border);
+  display: grid;
+  gap: 4px;
 }
 
-.message.me .message-bubble {
+.chat-message.me .chat-bubble {
   background: rgba(106,168,255,0.12);
+}
+
+.chat-sender {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.chat-text {
+  white-space: pre-wrap;
+}
+
+.chat-time {
+  font-size: 11px;
+  color: var(--muted);
+  justify-self: end;
 }
