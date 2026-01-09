@@ -1,4 +1,3 @@
-# apps/gradebook/models.py
 from django.conf import settings
 from django.db import models
 from apps.school.models import Course
@@ -16,6 +15,15 @@ class Assessment(models.Model):
     assessment_type = models.CharField(max_length=32, choices=AssessmentType.choices)
     max_score = models.DecimalField(max_digits=6, decimal_places=2, default=100)
     weight = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+
+    # NEW: связь с homework.Assignment (один Assessment на одно Assignment)
+    source_assignment = models.OneToOneField(
+        "homework.Assignment",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assessment",
+    )
 
     class Meta:
         unique_together = ("course", "title")

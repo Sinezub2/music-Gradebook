@@ -24,16 +24,24 @@ class Assignment(models.Model):
         return f"{self.course.name}: {self.title}"
 
 
-class AssignmentStatus(models.Model):
+class AssignmentTarget(models.Model):
+    """
+    Назначение задания конкретному ученику + его статус.
+    (assignment, student) уникально.
+    """
+
     class Status(models.TextChoices):
         TODO = "TODO", "TODO"
         DONE = "DONE", "DONE"
-        LATE = "LATE", "LATE"
+        # Можно добавить SUBMITTED позже, но сейчас оставляем минимально.
+        # SUBMITTED = "SUBMITTED", "SUBMITTED"
 
-    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name="statuses")
-    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="assignment_statuses")
-    status = models.CharField(max_length=8, choices=Status.choices, default=Status.TODO)
-    comment = models.TextField(blank=True, default="")
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name="targets")
+    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="assignment_targets")
+
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.TODO)
+
+    student_comment = models.TextField(blank=True, default="")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

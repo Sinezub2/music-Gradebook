@@ -1,0 +1,24 @@
+from django.db import migrations, models
+import django.db.models.deletion
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("homework", "0001_initial"),
+        ("gradebook", "0001_initial"),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name="assessment",
+            name="source_assignment",
+            field=models.OneToOneField(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="assessment",
+                to="homework.assignment",
+            ),
+        ),
+    ]
