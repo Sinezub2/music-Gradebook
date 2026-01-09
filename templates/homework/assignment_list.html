@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Задания{% endblock %}
+{% block content %}
+  <h1>Задания</h1>
+  <p class="muted">Сортировка по дедлайну. Просроченные подсвечены статусом LATE.</p>
+
+  {% if mode == "STUDENT" %}
+    {% if not rows %}
+      <p class="muted">Заданий пока нет.</p>
+    {% else %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Дедлайн</th>
+              <th>Курс</th>
+              <th>Задание</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+              <tr>
+                <td>{{ r.assignment.due_date|date:"d.m.Y" }}</td>
+                <td class="muted small">{{ r.assignment.course.name }}</td>
+                <td>
+                  <div>{{ r.assignment.title }}</div>
+                  {% if r.assignment.description %}
+                    <div class="muted small">{{ r.assignment.description }}</div>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span>
+                </td>
+                <td>
+                  {% if r.status != "DONE" %}
+                    <form method="post" action="/assignments/{{ r.assignment.id }}/done/">
+                      {% csrf_token %}
+                      <button class="btn" type="submit">DONE</button>
+                    </form>
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
+  {% elif mode == "PARENT" %}
+    {% if not child_blocks %}
+      <p class="muted">Нет привязанных детей.</p>
+    {% else %}
+      {% for block in child_blocks %}
+        <h2>Ученик: {{ block.child.username }}</h2>
+        {% if not block.rows %}
+          <p class="muted">Заданий нет.</p>
+        {% else %}
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Дедлайн</th>
+                  <th>Курс</th>
+                  <th>Задание</th>
+                  <th>Статус</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in block.rows %}
+                  <tr>
+                    <td>{{ r.assignment.due_date|date:"d.m.Y" }}</td>
+                    <td class="muted small">{{ r.assignment.course.name }}</td>
+                    <td>
+                      <div>{{ r.assignment.title }}</div>
+                      {% if r.assignment.description %}
+                        <div class="muted small">{{ r.assignment.description }}</div>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+  {% else %}
+    {% if not assignments %}
+      <p class="muted">Заданий пока нет.</p>
+      <p class="muted small">Учитель создаёт задания через Django admin.</p>
+    {% else %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Дедлайн</th>
+              <th>Курс</th>
+              <th>Задание</th>
+              <th class="muted small">Создал</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in assignments %}
+              <tr>
+                <td>{{ a.due_date|date:"d.m.Y" }}</td>
+                <td class="muted small">{{ a.course.name }}</td>
+                <td>
+                  <div>{{ a.title }}</div>
+                  {% if a.description %}
+                    <div class="muted small">{{ a.description }}</div>
+                  {% endif %}
+                </td>
+                <td class="muted small">{{ a.created_by.username }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  {% endif %}
+{% endblock %}

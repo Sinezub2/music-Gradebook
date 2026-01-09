@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Календарь{% endblock %}
+{% block content %}
+  <h1>Календарь</h1>
+  <p class="muted">Список событий (без сетки календаря), отсортирован по дате.</p>
+
+  {% if not events %}
+    <p class="muted">Событий пока нет.</p>
+    <p class="muted small">
+      Учитель/администратор могут создавать события через Django admin.
+    </p>
+  {% else %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Дата/время</th>
+            <th>Событие</th>
+            <th>Тип</th>
+            <th>Курс</th>
+            <th class="muted small">Описание</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in events %}
+            <tr>
+              <td>
+                <div>{{ e.start_datetime|date:"d.m.Y H:i" }}</div>
+                <div class="muted small">→ {{ e.end_datetime|date:"d.m.Y H:i" }}</div>
+              </td>
+              <td>{{ e.title }}</td>
+              <td><span class="tag">{{ e.get_event_type_display }}</span></td>
+              <td>
+                {% if e.course %}
+                  {{ e.course.name }}
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+              <td class="muted small">
+                {% if e.description %}{{ e.description }}{% else %}—{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endblock %}

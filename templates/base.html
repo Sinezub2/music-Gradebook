@@ -1,4 +1,3 @@
-<!-- templates/base.html -->
 {% load static %}
 <!doctype html>
 <html lang="ru">
@@ -43,5 +42,23 @@
       <small>Демо-проект: музыкальная школа · Django · SQLite</small>
     </div>
   </footer>
+
+  {# Нижняя навигация #}
+  {% if user.is_authenticated %}
+    <nav class="bottom-nav">
+      <a class="bottom-link {% if request.path|slice:':10' == '/calendar/' %}active{% endif %}"
+         href="/calendar/">Календарь</a>
+
+      <a class="bottom-link {% if request.path|slice:':13' == '/assignments/' %}active{% endif %}"
+         href="/assignments/">Задания</a>
+
+      {# Прогресс — ведём на курсы (там дальше переход в grades) #}
+      <a class="bottom-link {% if request.path|slice:':8' == '/courses/' or '/grades/' in request.path %}active{% endif %}"
+         href="/courses/">Прогресс</a>
+
+      <a class="bottom-link {% if request.path|slice:':10' == '/messages/' %}active{% endif %}"
+         href="/messages/">Сообщения</a>
+    </nav>
+  {% endif %}
 </body>
 </html>

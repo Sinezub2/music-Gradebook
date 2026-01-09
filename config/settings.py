@@ -15,10 +15,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
     "apps.accounts",
     "apps.school",
     "apps.gradebook",
+
+    "apps.schedule",
+    "apps.homework",
 ]
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

@@ -135,3 +135,69 @@ textarea { min-height: 70px; resize: vertical; }
 
 .cell { display: grid; gap: 6px; min-width: 170px; }
 .input-score { max-width: 120px; }
+/* ===== Bottom navigation (fixed) ===== */
+body {
+  padding-bottom: 64px; /* space for bottom nav */
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  border-top: 1px solid var(--border);
+  background: rgba(17, 19, 24, 0.92);
+  backdrop-filter: blur(8px);
+
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  z-index: 1000;
+}
+
+.bottom-link {
+  text-align: center;
+  padding: 12px 10px;
+  color: var(--muted);
+  font-size: 14px;
+  border-right: 1px solid var(--border);
+}
+
+.bottom-link:last-child {
+  border-right: none;
+}
+
+.bottom-link:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.bottom-link.active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ===== Status badges (TODO/DONE/LATE) ===== */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.badge-todo {
+  background: rgba(106, 168, 255, 0.10);
+  border-color: rgba(106, 168, 255, 0.25);
+}
+
+.badge-done {
+  background: rgba(125, 255, 155, 0.10);
+  border-color: rgba(125, 255, 155, 0.22);
+}
+
+.badge-late {
+  background: rgba(255, 106, 106, 0.10);
+  border-color: rgba(255, 106, 106, 0.22);
+}
