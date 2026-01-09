@@ -44,21 +44,36 @@
   </footer>
 
   {% if user.is_authenticated %}
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="Основная навигация">
       <a class="bottom-link {% if request.path|slice:':10' == '/calendar/' %}active{% endif %}"
-       href="/calendar/">Календарь</a>
+       href="/calendar/" title="Календарь">
+        <span class="bottom-icon" aria-hidden="true">🗓️</span>
+        <span class="bottom-label">Календарь</span>
+      </a>
 
       <a class="bottom-link {% if request.path|slice:':9' == '/lessons/' %}active{% endif %}"
-       href="/lessons/">Уроки</a>
+       href="/lessons/" title="Уроки">
+        <span class="bottom-icon" aria-hidden="true">🎼</span>
+        <span class="bottom-label">Уроки</span>
+      </a>
 
       <a class="bottom-link {% if request.path|slice:':8' == '/courses/' or '/grades/' in request.path %}active{% endif %}"
-       href="/courses/">Прогресс</a>
+       href="/courses/" title="Прогресс">
+        <span class="bottom-icon" aria-hidden="true">📈</span>
+        <span class="bottom-label">Прогресс</span>
+      </a>
 
       <a class="bottom-link {% if request.path|slice:':11' == '/students/' %}active{% endif %}"
-       href="/students/{{ user.id }}/profile/">Профиль</a>
+       href="/students/{{ user.id }}/profile/" title="Профиль">
+        <span class="bottom-icon" aria-hidden="true">👤</span>
+        <span class="bottom-label">Профиль</span>
+      </a>
 
       <a class="bottom-link {% if request.path|slice:':10' == '/messages/' %}active{% endif %}"
-       href="/messages/">Сообщения</a>
+       href="/messages/" title="Сообщения">
+        <span class="bottom-icon" aria-hidden="true">💬</span>
+        <span class="bottom-label">Сообщения</span>
+      </a>
   </nav>
 {% endif %}
 
