@@ -201,3 +201,35 @@ body {
   background: rgba(255, 106, 106, 0.10);
   border-color: rgba(255, 106, 106, 0.22);
 }
+
+.chart {
+  min-height: 240px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tab-btn {
+  border: 1px solid var(--border);
+  background: #151824;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  color: var(--text);
+  border-color: #3a3f4c;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}

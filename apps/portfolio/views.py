@@ -1,3 +1,6 @@
+import json
+from collections import defaultdict
+
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -85,6 +88,30 @@ def student_profile(request, student_id: int):
     achievements = Achievement.objects.filter(student_id=student_id).order_by("-date", "-id")
     media_links = MediaLink.objects.filter(student_id=student_id).order_by("-created_at", "-id")
 
+    grade_series = (
+        Grade.objects.filter(student_id=student_id, score__isnull=False)
+        .select_related("assessment", "assessment__course")
+        .order_by("assessment__id")
+    )
+    grade_labels = [f"{g.assessment.course.name}: {g.assessment.title}" for g in grade_series]
+    grade_scores = [float(g.score) for g in grade_series]
+
+    course_totals: dict[str, list[float]] = defaultdict(list)
+    for grade in grade_series:
+        course_totals[grade.assessment.course.name].append(float(grade.score))
+    course_avg_labels = list(course_totals.keys())
+    course_avg_scores = [
+        round(sum(scores) / len(scores), 2) for scores in course_totals.values()
+    ]
+
+    chart_payload = {
+        "gradeLabels": grade_labels,
+        "gradeScores": grade_scores,
+        "courseAvgLabels": course_avg_labels,
+        "courseAvgScores": course_avg_scores,
+    }
+    chart_has_data = bool(grade_labels or course_avg_labels)
+
     return render(
         request,
         "portfolio/student_profile.html",
@@ -96,5 +123,7 @@ def student_profile(request, student_id: int):
             "last_reports": last_reports,
             "achievements": achievements,
             "media_links": media_links,
+            "chart_payload": json.dumps(chart_payload, ensure_ascii=False),
+            "chart_has_data": chart_has_data,
         },
     )
