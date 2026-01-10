@@ -1,5 +1,6 @@
+from django.contrib import messages
 from django.http import HttpResponseForbidden
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.accounts.models import Profile
 from apps.school.models import Course, Enrollment, ParentChild
@@ -11,6 +12,36 @@ from .models import Achievement, MediaLink
 
 def _teacher_can_view_student(teacher_user, student_id: int) -> bool:
     return Enrollment.objects.filter(course__teacher=teacher_user, student_id=student_id).exists()
+
+
+def my_portfolio(request):
+    if not request.user.is_authenticated:
+        return HttpResponseForbidden("Требуется вход.")
+
+    profile = getattr(request.user, "profile", None)
+    if not profile:
+        messages.error(request, "Профиль не найден.")
+        return redirect("/dashboard")
+
+    if profile.role == Profile.Role.STUDENT:
+        return redirect(f"/students/{request.user.id}/profile/")
+
+    if profile.role == Profile.Role.PARENT:
+        child_id = (
+            ParentChild.objects.filter(parent=request.user)
+            .select_related("child")
+            .order_by("child__username")
+            .values_list("child_id", flat=True)
+            .first()
+        )
+        if child_id:
+            return redirect(f"/students/{child_id}/profile/")
+
+        messages.error(request, "Нет привязанных учеников для просмотра портфолио.")
+        return redirect("/dashboard")
+
+    messages.error(request, "Портфолио доступно только ученикам и родителям.")
+    return redirect("/dashboard")
 
 
 def student_profile(request, student_id: int):
