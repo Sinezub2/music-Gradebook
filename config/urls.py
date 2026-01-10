@@ -23,7 +23,6 @@ urlpatterns = [
     
 
     path("", include("apps.lessons.urls")),
-    path("", include("apps.messaging.urls")),
     path("", include("apps.portfolio.urls")),
 
 

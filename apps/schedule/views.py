@@ -1,6 +1,8 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.shortcuts import render
+from django.http import HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.accounts.models import Profile
 from apps.school.models import Course, Enrollment, ParentChild
@@ -26,8 +28,17 @@ def calendar_list(request):
 
     if profile.role == Profile.Role.STUDENT:
         enrolled_courses = Course.objects.filter(enrollments__student=request.user)
-        events = qs.filter(Q(course__in=enrolled_courses) | Q(participants=request.user)).distinct()
-        ctx = {"events": events, "mode": "student"}
+        events = qs.filter(participants=request.user).distinct()
+        registration_events = (
+            qs.filter(Q(course__in=enrolled_courses) | Q(course__isnull=True))
+            .exclude(participants=request.user)
+            .distinct()
+        )
+        ctx = {
+            "events": events,
+            "registration_events": registration_events,
+            "mode": "student",
+        }
         return render(request, "schedule/calendar_list.html", ctx)
 
     if profile.role == Profile.Role.PARENT:
@@ -39,3 +50,21 @@ def calendar_list(request):
         return render(request, "schedule/calendar_list.html", ctx)
 
     return render(request, "schedule/calendar_list.html", {"events": [], "mode": "unknown"})
+
+
+@login_required
+def register_event(request, event_id: int):
+    if request.user.profile.role != Profile.Role.STUDENT:
+        return HttpResponseForbidden("Только ученики могут регистрироваться.")
+
+    if request.method != "POST":
+        return HttpResponseForbidden("Требуется POST.")
+
+    event = get_object_or_404(Event.objects.select_related("course"), id=event_id)
+    if event.course_id:
+        if not Enrollment.objects.filter(course=event.course, student=request.user).exists():
+            return HttpResponseForbidden("Нет доступа к этому событию.")
+
+    event.participants.add(request.user)
+    messages.success(request, "Вы зарегистрированы на событие.")
+    return redirect("/calendar/?tab=registration")
