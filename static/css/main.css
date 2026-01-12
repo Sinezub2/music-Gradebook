@@ -151,7 +151,7 @@ body {
   backdrop-filter: blur(8px);
 
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   z-index: 1000;
 }
 
@@ -201,32 +201,35 @@ body {
   background: rgba(255, 106, 106, 0.10);
   border-color: rgba(255, 106, 106, 0.22);
 }
-.messages {
+
+.chart {
+  min-height: 240px;
+}
+
+.tabs {
   display: flex;
-  flex-direction: column;
   gap: 8px;
+  margin-bottom: 16px;
 }
 
-.message {
-  display: flex;
-}
-
-.message.me {
-  justify-content: flex-end;
-}
-
-.message.them {
-  justify-content: flex-start;
-}
-
-.message-bubble {
-  max-width: 70%;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.06);
+.tab-btn {
   border: 1px solid var(--border);
+  background: #151824;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
-.message.me .message-bubble {
-  background: rgba(106,168,255,0.12);
+.tab-btn.active {
+  color: var(--text);
+  border-color: #3a3f4c;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
 }

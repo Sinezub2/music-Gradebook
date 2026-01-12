@@ -16,7 +16,6 @@
       <nav class="nav">
         {% if user.is_authenticated %}
           <a href="/courses/">Курсы</a>
-          <a href="/dashboard">Панель</a>
           <a href="/logout">Выйти</a>
         {% else %}
           <a href="/login">Вход</a>
@@ -54,11 +53,10 @@
       <a class="bottom-link {% if request.path|slice:':8' == '/courses/' or '/grades/' in request.path %}active{% endif %}"
        href="/courses/">Прогресс</a>
 
-      <a class="bottom-link {% if request.path|slice:':11' == '/students/' %}active{% endif %}"
-       href="/students/{{ user.id }}/profile/">Профиль</a>
-
-      <a class="bottom-link {% if request.path|slice:':10' == '/messages/' %}active{% endif %}"
-       href="/messages/">Сообщения</a>
+      {% if user.profile.role == "STUDENT" or user.profile.role == "PARENT" %}
+        <a class="bottom-link {% if '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}"
+         href="/portfolio/">Профиль</a>
+      {% endif %}
   </nav>
 {% endif %}
 

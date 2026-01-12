@@ -57,7 +57,7 @@ def lesson_create(request):
 
             text = (form.cleaned_data.get("report_text") or "").strip()
             media = (form.cleaned_data.get("media_url") or "").strip()
-            if text:
+            if text or media:
                 LessonReport.objects.create(lesson=lesson, student=None, text=text, media_url=media)
 
             messages.success(request, "Урок создан.")

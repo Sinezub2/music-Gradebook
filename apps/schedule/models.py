@@ -15,6 +15,7 @@ class Event(models.Model):
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
     description = models.TextField(blank=True, default="")
+    external_url = models.URLField(blank=True, default="")
 
     course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True, related_name="events")
 

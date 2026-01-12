@@ -18,9 +18,6 @@
       </ul>
     {% endif %}
 
-    {% if user.profile.role == "PARENT" %}
-      <p><a class="btn" href="/messages/start/{{ student.id }}/">Начать чат с преподавателем</a></p>
-    {% endif %}
   </div>
 
   <div class="card">
@@ -52,6 +49,48 @@
           </li>
         {% endfor %}
       </ul>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Прогресс</h2>
+    {% if chart_has_data %}
+      <div class="chart" id="grade-progress-chart"></div>
+      <div class="chart" id="course-average-chart"></div>
+      <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+      <script>
+        const payload = {{ chart_payload|safe }};
+        if (payload.gradeLabels.length) {
+          Plotly.newPlot('grade-progress-chart', [{
+            x: payload.gradeLabels,
+            y: payload.gradeScores,
+            type: 'scatter',
+            mode: 'lines+markers',
+          }], {
+            title: 'Динамика оценок',
+            margin: { t: 40, r: 20, b: 120, l: 40 },
+            paper_bgcolor: '#111318',
+            plot_bgcolor: '#0f1116',
+            font: { color: '#e8e8ea' },
+          }, { displayModeBar: false });
+        }
+
+        if (payload.courseAvgLabels.length) {
+          Plotly.newPlot('course-average-chart', [{
+            x: payload.courseAvgLabels,
+            y: payload.courseAvgScores,
+            type: 'bar',
+          }], {
+            title: 'Средний балл по курсам',
+            margin: { t: 40, r: 20, b: 80, l: 40 },
+            paper_bgcolor: '#111318',
+            plot_bgcolor: '#0f1116',
+            font: { color: '#e8e8ea' },
+          }, { displayModeBar: false });
+        }
+      </script>
+    {% else %}
+      <p class="muted">Нет данных для построения графиков.</p>
     {% endif %}
   </div>
 
