@@ -60,6 +60,12 @@
       <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
       <script>
         const payload = {{ chart_payload|safe }};
+        const darkLayout = {
+          template: 'plotly_dark',
+          paper_bgcolor: '#0f1115',
+          plot_bgcolor: '#0f1115',
+          font: { color: '#f5f5f5' },
+        };
         if (payload.gradeLabels.length) {
           Plotly.newPlot('grade-progress-chart', [{
             x: payload.gradeLabels,
@@ -69,6 +75,7 @@
           }], {
             title: 'Динамика оценок',
             margin: { t: 40, r: 20, b: 120, l: 40 },
+            ...darkLayout,
           }, { displayModeBar: false });
         }
 
@@ -80,6 +87,7 @@
           }], {
             title: 'Средний балл по курсам',
             margin: { t: 40, r: 20, b: 80, l: 40 },
+            ...darkLayout,
           }, { displayModeBar: false });
         }
       </script>
