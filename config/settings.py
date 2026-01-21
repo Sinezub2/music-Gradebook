@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     "apps.homework",
     "apps.portfolio",
     "apps.lessons",
+    "apps.goals",
 
 
 

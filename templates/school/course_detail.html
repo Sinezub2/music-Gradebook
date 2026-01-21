@@ -12,7 +12,9 @@
   </p>
 
   <div style="display:flex; gap:10px; flex-wrap:wrap; margin: 10px 0;">
-    <a class="btn" href="/courses/{{ course.id }}/grades/{% if mode == 'parent' %}?student={{ student.id }}{% endif %}">Оценки</a>
+    {% if mode != "staff" or role != "TEACHER" %}
+      <a class="btn" href="/courses/{{ course.id }}/grades/{% if mode == 'parent' %}?student={{ student.id }}{% endif %}">Оценки</a>
+    {% endif %}
     <a class="btn" href="/assignments/?course={{ course.id }}{% if mode == 'parent' %}&student={{ student.id }}{% endif %}">Задания</a>
     <a class="btn" href="/lessons/?course={{ course.id }}{% if mode == 'parent' %}&student={{ student.id }}{% endif %}">Уроки</a>
     <a class="btn" href="/calendar/?course={{ course.id }}{% if mode == 'parent' %}&student={{ student.id }}{% endif %}">События</a>
