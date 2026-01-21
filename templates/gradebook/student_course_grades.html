@@ -5,8 +5,8 @@
 
   <h1>Оценки</h1>
   <p class="muted">
-    Курс: {{ course.name }} · {{ course.get_course_type_display }}<br/>
-    Ученик: {{ student.username }}
+    Курс: {{ course.name }} · {{ course.course_type.name }}<br/>
+    Ученик: {{ student.username }} · Цикл: {{ student.profile.get_cycle_display }}
   </p>
 
   <!-- ===== Progress summary ===== -->

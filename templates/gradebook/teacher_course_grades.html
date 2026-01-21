@@ -3,8 +3,19 @@
 {% block content %}
   <h1>Ввод оценок</h1>
   <p class="muted">
-    Курс: {{ course.name }} · {{ course.get_course_type_display }}
+    Курс: {{ course.name }} · {{ course.course_type.name }}
   </p>
+
+  <form method="get" class="form-row" style="margin-bottom: 16px;">
+    <label class="muted small" for="cycle">Цикл ученика</label>
+    <select id="cycle" name="cycle" class="input" onchange="this.form.submit()">
+      <option value="">Все циклы</option>
+      {% for value, label in cycle_options %}
+        <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button class="btn" type="submit">Показать</button></noscript>
+  </form>
 
   {% if not assessments %}
     <p class="muted">Нет контрольных точек (assessments).</p>
@@ -30,7 +41,10 @@
           <tbody>
             {% for row in table_rows %}
               <tr>
-                <td><strong>{{ row.student.username }}</strong></td>
+                <td>
+                  <strong>{{ row.student.username }}</strong>
+                  <div class="muted small">Цикл: {{ row.student.profile.get_cycle_display }}</div>
+                </td>
                 {% for cell in row.cells %}
                   <td>
                     <div class="cell">

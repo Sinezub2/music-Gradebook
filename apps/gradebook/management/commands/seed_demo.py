@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 
 from apps.accounts.models import Profile
-from apps.school.models import Course, Enrollment, ParentChild
+from apps.school.models import Course, CourseType, Enrollment, ParentChild
 from apps.gradebook.models import Assessment, Grade
 
 
@@ -27,9 +27,13 @@ class Command(BaseCommand):
 
             ParentChild.objects.get_or_create(parent=parent, child=student)
 
-            c1 = self._get_or_create_course("Фортепиано (инд.)", Course.CourseType.INSTRUMENT, teacher)
-            c2 = self._get_or_create_course("Ансамбль", Course.CourseType.ENSEMBLE, teacher)
-            c3 = self._get_or_create_course("Теория музыки", Course.CourseType.THEORY, teacher)
+            instrument = self._get_or_create_course_type("Инструмент")
+            ensemble = self._get_or_create_course_type("Ансамбль")
+            theory = self._get_or_create_course_type("Теория")
+
+            c1 = self._get_or_create_course("Фортепиано (инд.)", instrument, teacher)
+            c2 = self._get_or_create_course("Ансамбль", ensemble, teacher)
+            c3 = self._get_or_create_course("Теория музыки", theory, teacher)
 
             for c in (c1, c2, c3):
                 Enrollment.objects.get_or_create(course=c, student=student)
@@ -80,10 +84,14 @@ class Command(BaseCommand):
             profile.role = role
             profile.save()
 
-    def _get_or_create_course(self, name: str, course_type: str, teacher: User) -> Course:
+    def _get_or_create_course_type(self, name: str) -> CourseType:
+        course_type, _ = CourseType.objects.get_or_create(name=name)
+        return course_type
+
+    def _get_or_create_course(self, name: str, course_type: CourseType, teacher: User) -> Course:
         course, _ = Course.objects.get_or_create(name=name, defaults={"course_type": course_type, "teacher": teacher})
         changed = False
-        if course.course_type != course_type:
+        if course.course_type_id != course_type.id:
             course.course_type = course_type
             changed = True
         if course.teacher_id != teacher.id:

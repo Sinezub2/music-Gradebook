@@ -1,6 +1,12 @@
 # apps/school/admin.py
 from django.contrib import admin
-from .models import Course, Enrollment, ParentChild
+from .models import Course, CourseType, Enrollment, ParentChild
+
+
+@admin.register(CourseType)
+class CourseTypeAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
 
 
 @admin.register(Course)

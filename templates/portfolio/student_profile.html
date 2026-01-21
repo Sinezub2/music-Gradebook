@@ -2,6 +2,7 @@
 {% block title %}Профиль ученика{% endblock %}
 {% block content %}
   <h1>Профиль: {{ student.username }}</h1>
+  <p class="muted">Цикл: {{ student.profile.get_cycle_display }}</p>
 
   <div class="card">
     <h2>Курсы</h2>
@@ -12,7 +13,7 @@
         {% for c in courses %}
           <li>
             <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
-            <span class="muted small">({{ c.get_course_type_display }})</span>
+            <span class="muted small">({{ c.course_type.name }})</span>
           </li>
         {% endfor %}
       </ul>

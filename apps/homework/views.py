@@ -31,18 +31,36 @@ def _effective_status(assignment: Assignment, target: AssignmentTarget | None) -
 @login_required
 def assignment_list(request):
     profile = request.user.profile
+    cycle = request.GET.get("cycle") or ""
 
     if profile.role == Profile.Role.TEACHER:
-        qs = Assignment.objects.filter(created_by=request.user).select_related("course").order_by("due_date", "id")
+        qs = Assignment.objects.filter(created_by=request.user).select_related("course")
+        if cycle:
+            qs = qs.filter(targets__student__profile__cycle=cycle).distinct()
+        qs = qs.order_by("due_date", "id")
         rows = []
         for a in qs:
-            count_targets = a.targets.count()
+            targets_qs = a.targets.all()
+            if cycle:
+                targets_qs = targets_qs.filter(student__profile__cycle=cycle)
+            count_targets = targets_qs.count()
             rows.append({"assignment": a, "count_targets": count_targets})
-        return render(request, "homework/assignment_list.html", {"mode": "TEACHER", "rows": rows})
+        return render(
+            request,
+            "homework/assignment_list.html",
+            {"mode": "TEACHER", "rows": rows, "cycle": cycle, "cycle_options": Profile.Cycle.choices},
+        )
 
     if profile.role == Profile.Role.ADMIN:
-        qs = Assignment.objects.all().select_related("course", "created_by").order_by("due_date", "id")
-        return render(request, "homework/assignment_list.html", {"mode": "ADMIN", "assignments": qs})
+        qs = Assignment.objects.all().select_related("course", "created_by")
+        if cycle:
+            qs = qs.filter(targets__student__profile__cycle=cycle).distinct()
+        qs = qs.order_by("due_date", "id")
+        return render(
+            request,
+            "homework/assignment_list.html",
+            {"mode": "ADMIN", "assignments": qs, "cycle": cycle, "cycle_options": Profile.Cycle.choices},
+        )
 
     if profile.role == Profile.Role.STUDENT:
         targets = (
@@ -54,7 +72,7 @@ def assignment_list(request):
         for t in targets:
             a = t.assignment
             rows.append({"target": t, "assignment": a, "status": _effective_status(a, t)})
-        return render(request, "homework/assignment_list.html", {"mode": "STUDENT", "rows": rows})
+        return render(request, "homework/assignment_list.html", {"mode": "STUDENT", "rows": rows, "student": request.user})
 
     if profile.role == Profile.Role.PARENT:
         children = ParentChild.objects.filter(parent=request.user).select_related("child").order_by("child__username")

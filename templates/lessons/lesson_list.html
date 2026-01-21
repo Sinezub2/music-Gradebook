@@ -8,24 +8,67 @@
     <p><a class="btn" href="/lessons/create/">Создать урок</a></p>
   {% endif %}
 
+  {% if students %}
+    <form method="get" class="form-row" style="margin-bottom: 16px;">
+      {% if course_id %}
+        <input type="hidden" name="course" value="{{ course_id }}"/>
+      {% endif %}
+      <label class="muted small" for="student">Ученик</label>
+      <select id="student" name="student" class="input" onchange="this.form.submit()">
+        {% if user.profile.role != "STUDENT" %}
+          <option value="">Все ученики</option>
+        {% endif %}
+        {% for s in students %}
+          <option value="{{ s.id }}"{% if student_id == s.id|stringformat:"s" %} selected{% endif %}>
+            {{ s.username }} · {{ s.profile.get_cycle_display }}
+          </option>
+        {% endfor %}
+      </select>
+      <noscript><button class="btn" type="submit">Показать</button></noscript>
+    </form>
+  {% endif %}
+
   {% if not lessons %}
     <p class="muted">Пока нет уроков.</p>
   {% else %}
+    {% if not student_id %}
+      <p class="muted small">Выберите ученика, чтобы увидеть посещаемость и результат.</p>
+    {% elif selected_student %}
+      <p class="muted small">
+        Ученик: {{ selected_student.username }} · Цикл: {{ selected_student.profile.get_cycle_display }}
+      </p>
+    {% endif %}
     <div class="table-wrap">
       <table class="table">
         <thead>
           <tr>
             <th>Дата</th>
-            <th>Курс</th>
+            <th>Посещение</th>
             <th>Тема</th>
+            <th>Результат</th>
           </tr>
         </thead>
         <tbody>
           {% for l in lessons %}
             <tr>
-              <td>{{ l.date|date:"d.m.Y" }}</td>
-              <td class="muted small">{{ l.course.name }}</td>
-              <td><a href="/lessons/{{ l.id }}/">{{ l.topic }}</a></td>
+              <td>{{ l.lesson.date|date:"d.m.Y" }}</td>
+              <td>
+                {% if l.attendance == None %}
+                  <span class="muted">—</span>
+                {% elif l.attendance %}
+                  <span class="tag">✓</span>
+                {% else %}
+                  <span class="tag">✕</span>
+                {% endif %}
+              </td>
+              <td><a href="/lessons/{{ l.lesson.id }}/">{{ l.lesson.topic }}</a></td>
+              <td>
+                {% if l.result %}
+                  {{ l.result }}
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>

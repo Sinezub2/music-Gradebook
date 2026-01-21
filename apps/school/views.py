@@ -13,10 +13,15 @@ def course_list(request):
 
     # Parent can view courses for a selected child via ?student=<id>
     student_id = request.GET.get("student")
+    cycle = request.GET.get("cycle") or ""
 
     if profile.role == Profile.Role.STUDENT:
         courses = Course.objects.filter(enrollments__student=request.user).distinct().order_by("name")
-        return render(request, "school/course_list.html", {"courses": courses, "mode": "student", "student": request.user})
+        return render(
+            request,
+            "school/course_list.html",
+            {"courses": courses, "mode": "student", "student": request.user},
+        )
 
     if profile.role == Profile.Role.PARENT:
         if not student_id:
@@ -28,12 +33,26 @@ def course_list(request):
         return render(request, "school/course_list.html", {"courses": courses, "mode": "parent_child", "student": child})
 
     if profile.role == Profile.Role.TEACHER:
-        courses = Course.objects.filter(teacher=request.user).order_by("name")
-        return render(request, "school/course_list.html", {"courses": courses, "mode": "teacher", "student": None})
+        courses = Course.objects.filter(teacher=request.user)
+        if cycle:
+            courses = courses.filter(enrollments__student__profile__cycle=cycle).distinct()
+        courses = courses.order_by("name")
+        return render(
+            request,
+            "school/course_list.html",
+            {"courses": courses, "mode": "teacher", "student": None, "cycle": cycle, "cycle_options": Profile.Cycle.choices},
+        )
 
     if profile.role == Profile.Role.ADMIN:
-        courses = Course.objects.all().order_by("name")
-        return render(request, "school/course_list.html", {"courses": courses, "mode": "admin", "student": None})
+        courses = Course.objects.all()
+        if cycle:
+            courses = courses.filter(enrollments__student__profile__cycle=cycle).distinct()
+        courses = courses.order_by("name")
+        return render(
+            request,
+            "school/course_list.html",
+            {"courses": courses, "mode": "admin", "student": None, "cycle": cycle, "cycle_options": Profile.Cycle.choices},
+        )
 
     return HttpResponseForbidden("Доступ запрещён.")
 

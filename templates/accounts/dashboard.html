@@ -10,13 +10,14 @@
     <p><a href="/courses/">Список курсов</a></p>
   {% elif role == "STUDENT" %}
     <p>Роль: Ученик</p>
+    <p class="muted">Цикл: {{ user.profile.get_cycle_display }}</p>
     <h2>Мои курсы</h2>
     {% if courses %}
       <ul class="list">
         {% for c in courses %}
           <li>
             <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
-            <span class="tag">{{ c.get_course_type_display }}</span>
+            <span class="tag">{{ c.course_type.name }}</span>
             <a class="muted" href="/courses/{{ c.id }}/grades/">Оценки</a>
           </li>
         {% endfor %}
@@ -47,7 +48,7 @@
         {% for c in courses %}
           <li>
             <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
-            <span class="tag">{{ c.get_course_type_display }}</span>
+            <span class="tag">{{ c.course_type.name }}</span>
             <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод оценок</a>
           </li>
         {% endfor %}

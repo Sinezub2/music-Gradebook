@@ -30,3 +30,20 @@ class LessonReport(models.Model):
 
     def __str__(self) -> str:
         return f"Report {self.lesson_id} ({self.student_id})"
+
+
+class LessonStudent(models.Model):
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name="student_entries")
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lesson_entries",
+    )
+    attended = models.BooleanField(default=True)
+    result = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ("lesson", "student")
+
+    def __str__(self) -> str:
+        return f"{self.lesson_id} -> {self.student_id}"
