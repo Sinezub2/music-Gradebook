@@ -5,7 +5,7 @@
   <h1>{{ course.name }}</h1>
 
   <p>
-    <span class="tag">{{ course.get_course_type_display }}</span>
+    <span class="tag">{{ course.course_type.name }}</span>
     {% if course.teacher %}
       <span class="muted">Преподаватель: {{ course.teacher.username }}</span>
     {% endif %}
@@ -19,7 +19,7 @@
   </div>
 
   {% if mode == "parent" %}
-    <p class="muted">Ученик: {{ student.username }}</p>
+    <p class="muted">Ученик: {{ student.username }} · Цикл: {{ student.profile.get_cycle_display }}</p>
   {% elif mode == "staff" %}
     <p class="muted">Для преподавателя/админа ввод оценок находится в разделе «Ввод оценок».</p>
   {% endif %}

@@ -10,8 +10,15 @@ class Profile(models.Model):
         STUDENT = "STUDENT", "Ученик"
         PARENT = "PARENT", "Родитель"
 
+    class Cycle(models.TextChoices):
+        GENERAL = "GENERAL", "Общий"
+        BASIC = "BASIC", "Базовый"
+        ACCELERATED = "ACCELERATED", "Ускоренный"
+        EXTRA = "EXTRA", "Дополнительный"
+
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=16, choices=Role.choices)
+    cycle = models.CharField(max_length=16, choices=Cycle.choices, default=Cycle.GENERAL)
 
     def __str__(self) -> str:
         return f"{self.user.username} ({self.role})"

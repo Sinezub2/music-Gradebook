@@ -15,8 +15,12 @@ from .services import compute_average_percent
 @role_required(Profile.Role.TEACHER)
 def teacher_course_grades(request, course_id: int):
     course = get_object_or_404(Course, id=course_id, teacher=request.user)
+    cycle = request.GET.get("cycle") or ""
     assessments = list(Assessment.objects.filter(course=course).order_by("id"))
-    enrollments = list(Enrollment.objects.filter(course=course).select_related("student").order_by("student__username"))
+    enrollments_qs = Enrollment.objects.filter(course=course).select_related("student", "student__profile")
+    if cycle:
+        enrollments_qs = enrollments_qs.filter(student__profile__cycle=cycle)
+    enrollments = list(enrollments_qs.order_by("student__username"))
     students = [e.student for e in enrollments]
 
     grades = Grade.objects.filter(assessment__course=course, student__in=students).select_related("assessment", "student")
@@ -62,6 +66,8 @@ def teacher_course_grades(request, course_id: int):
             "assessments": assessments,
             "students": students,
             "table_rows": table_rows,
+            "cycle": cycle,
+            "cycle_options": Profile.Cycle.choices,
         },
     )
 

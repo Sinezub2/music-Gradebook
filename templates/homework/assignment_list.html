@@ -9,6 +9,17 @@
       <a class="btn" href="/assignments/create/">Создать задание</a>
     </div>
 
+    <form method="get" class="form-row" style="margin: 12px 0;">
+      <label class="muted small" for="cycle">Цикл учеников</label>
+      <select id="cycle" name="cycle" class="input" onchange="this.form.submit()">
+        <option value="">Все циклы</option>
+        {% for value, label in cycle_options %}
+          <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button class="btn" type="submit">Показать</button></noscript>
+    </form>
+
     {% if not rows %}
       <p class="muted">Вы ещё не создавали задания.</p>
     {% else %}
@@ -46,6 +57,7 @@
 
   {% elif mode == "STUDENT" %}
     <p class="muted">Показаны только задания, назначенные вам.</p>
+    <p class="muted small">Цикл: {{ student.profile.get_cycle_display }}</p>
 
     {% if not rows %}
       <p class="muted">Назначенных заданий пока нет.</p>
@@ -100,6 +112,7 @@
     {% else %}
       {% for block in child_blocks %}
         <h2>Ученик: {{ block.child.username }}</h2>
+        <p class="muted small">Цикл: {{ block.child.profile.get_cycle_display }}</p>
         {% if not block.rows %}
           <p class="muted">Назначенных заданий нет.</p>
         {% else %}
@@ -138,6 +151,16 @@
 
   {% elif mode == "ADMIN" %}
     <p class="muted">Все задания (админ-обзор).</p>
+    <form method="get" class="form-row" style="margin: 12px 0;">
+      <label class="muted small" for="cycle">Цикл учеников</label>
+      <select id="cycle" name="cycle" class="input" onchange="this.form.submit()">
+        <option value="">Все циклы</option>
+        {% for value, label in cycle_options %}
+          <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button class="btn" type="submit">Показать</button></noscript>
+    </form>
     {% if not assignments %}
       <p class="muted">Заданий пока нет.</p>
     {% else %}

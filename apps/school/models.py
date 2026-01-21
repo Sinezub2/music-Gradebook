@@ -3,14 +3,19 @@ from django.conf import settings
 from django.db import models
 
 
-class Course(models.Model):
-    class CourseType(models.TextChoices):
-        INSTRUMENT = "INSTRUMENT", "Инструмент"
-        ENSEMBLE = "ENSEMBLE", "Ансамбль"
-        THEORY = "THEORY", "Теория"
+class CourseType(models.Model):
+    name = models.CharField(max_length=120, unique=True)
 
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Course(models.Model):
     name = models.CharField(max_length=200)
-    course_type = models.CharField(max_length=32, choices=CourseType.choices)
+    course_type = models.ForeignKey(CourseType, on_delete=models.PROTECT, related_name="courses")
     teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

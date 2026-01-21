@@ -20,7 +20,20 @@
     {% endif %}
   {% else %}
     {% if student %}
-      <p class="muted">Ученик: {{ student.username }}</p>
+      <p class="muted">Ученик: {{ student.username }} · Цикл: {{ student.profile.get_cycle_display }}</p>
+    {% endif %}
+
+    {% if mode == "teacher" or mode == "admin" %}
+      <form method="get" class="form-row" style="margin: 12px 0;">
+        <label class="muted small" for="cycle">Цикл учеников</label>
+        <select id="cycle" name="cycle" class="input" onchange="this.form.submit()">
+          <option value="">Все циклы</option>
+          {% for value, label in cycle_options %}
+            <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button class="btn" type="submit">Показать</button></noscript>
+      </form>
     {% endif %}
 
     {% if courses %}
@@ -28,7 +41,7 @@
         {% for c in courses %}
           <li>
             <a href="/courses/{{ c.id }}/{% if mode == 'parent_child' %}?student={{ student.id }}{% endif %}">{{ c.name }}</a>
-            <span class="tag">{{ c.get_course_type_display }}</span>
+            <span class="tag">{{ c.course_type.name }}</span>
 
             {% if mode == "teacher" %}
               <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод оценок</a>
