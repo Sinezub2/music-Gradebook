@@ -55,6 +55,20 @@
               <td>
                 {% if l.attendance == None %}
                   <span class="muted">—</span>
+                {% elif user.profile.role == "TEACHER" or user.profile.role == "ADMIN" %}
+                  <form method="post" class="form-row" style="gap: 8px;">
+                    {% csrf_token %}
+                    {% if course_id %}
+                      <input type="hidden" name="course" value="{{ course_id }}"/>
+                    {% endif %}
+                    <input type="hidden" name="lesson_id" value="{{ l.lesson.id }}"/>
+                    <input type="hidden" name="student_id" value="{{ student_id }}"/>
+                    <label class="muted small">
+                      <input type="checkbox" name="attended" {% if l.attendance %}checked{% endif %}/>
+                      отметка
+                    </label>
+                    <button class="btn btn-small" type="submit">Сохранить</button>
+                  </form>
                 {% elif l.attendance %}
                   <span class="tag">✓</span>
                 {% else %}
