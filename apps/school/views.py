@@ -81,6 +81,10 @@ def course_detail(request, course_id: int):
 
     # Teacher/admin: allow view course info (grades are elsewhere)
     if profile.role in (Profile.Role.TEACHER, Profile.Role.ADMIN):
-        return render(request, "school/course_detail.html", {"course": course, "mode": "staff", "student": None})
+        return render(
+            request,
+            "school/course_detail.html",
+            {"course": course, "mode": "staff", "student": None, "role": profile.role},
+        )
 
     return HttpResponseForbidden("Доступ запрещён.")

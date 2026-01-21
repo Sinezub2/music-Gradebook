@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Годовой план{% endblock %}
+{% block content %}
+  <h1>Годовой план</h1>
+  <p class="muted">Цели на семестр по месяцам, чтобы быстро подготовить печатную форму.</p>
+
+  {% if can_edit %}
+    <div class="card" style="margin-bottom: 16px;">
+      <h2>Добавить цель</h2>
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-row"><label>{{ form.student.label }}</label>{{ form.student }}</div>
+        <div class="form-row"><label>{{ form.month.label }}</label>{{ form.month }}</div>
+        <div class="form-row"><label>{{ form.title.label }}</label>{{ form.title }}</div>
+        <div class="form-row"><label>{{ form.details.label }}</label>{{ form.details }}</div>
+        <button class="btn" type="submit">Сохранить</button>
+      </form>
+    </div>
+  {% endif %}
+
+  {% if students|length > 1 %}
+    <form method="get" class="form-row" style="margin-bottom: 16px;">
+      <label class="muted small" for="student">Ученик</label>
+      <select id="student" name="student" class="input" onchange="this.form.submit()">
+        <option value="">Все ученики</option>
+        {% for student in students %}
+          <option value="{{ student.id }}"{% if selected_student_id|add:"" == student.id|add:"" %} selected{% endif %}>
+            {{ student.username }} · {{ student.profile.get_cycle_display }}
+          </option>
+        {% endfor %}
+      </select>
+      <noscript><button class="btn" type="submit">Показать</button></noscript>
+    </form>
+  {% elif selected_student %}
+    <p class="muted">Ученик: {{ selected_student.username }} · Цикл: {{ selected_student.profile.get_cycle_display }}</p>
+  {% endif %}
+
+  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom: 12px;">
+    <h2 style="margin: 0;">Цели на семестр</h2>
+    <button class="btn" type="button" onclick="window.print()">Скачать таблицу</button>
+  </div>
+
+  {% if goals %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Месяц</th>
+            <th>Цель</th>
+            <th>Комментарий</th>
+            <th>Преподаватель</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for goal in goals %}
+            <tr>
+              <td>{{ goal.month|date:"F Y" }}</td>
+              <td><strong>{{ goal.title }}</strong></td>
+              <td>{% if goal.details %}{{ goal.details }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td>{% if goal.teacher %}{{ goal.teacher.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Пока нет целей для выбранных учеников.</p>
+  {% endif %}
+{% endblock %}

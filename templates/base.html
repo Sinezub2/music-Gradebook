@@ -50,8 +50,8 @@
       <a class="bottom-link {% if request.path|slice:':9' == '/lessons/' %}active{% endif %}"
        href="/lessons/">Уроки</a>
 
-      <a class="bottom-link {% if request.path|slice:':8' == '/courses/' or '/grades/' in request.path %}active{% endif %}"
-       href="/courses/">Прогресс</a>
+      <a class="bottom-link {% if request.path|slice:':7' == '/goals/' %}active{% endif %}"
+       href="/goals/">Годовой план</a>
 
       {% if user.profile.role == "STUDENT" or user.profile.role == "PARENT" %}
         <a class="bottom-link {% if '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}"
