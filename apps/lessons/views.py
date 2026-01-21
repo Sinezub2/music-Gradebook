@@ -27,6 +27,32 @@ def lesson_list(request):
     course_id = request.GET.get("course")
     student_id = request.GET.get("student")
 
+    if request.method == "POST" and role in (Profile.Role.TEACHER, Profile.Role.ADMIN):
+        lesson_id = request.POST.get("lesson_id")
+        student_id = request.POST.get("student_id")
+        attended = request.POST.get("attended") == "on"
+        course_id = request.POST.get("course") or course_id
+        if lesson_id and student_id:
+            entry = get_object_or_404(
+                LessonStudent.objects.select_related("lesson__course"),
+                lesson_id=lesson_id,
+                student_id=student_id,
+            )
+            if role == Profile.Role.TEACHER and entry.lesson.course.teacher_id != request.user.id:
+                return HttpResponseForbidden("Нет доступа.")
+            entry.attended = attended
+            entry.save(update_fields=["attended"])
+            messages.success(request, "Посещение обновлено.")
+        redirect_url = "/lessons/"
+        params = []
+        if course_id:
+            params.append(f"course={course_id}")
+        if student_id:
+            params.append(f"student={student_id}")
+        if params:
+            redirect_url = f"{redirect_url}?{'&'.join(params)}"
+        return redirect(redirect_url)
+
     students = []
     selected_student = None
     user_model = get_user_model()
@@ -126,9 +152,10 @@ def lesson_create(request):
             )
 
             enrollments = Enrollment.objects.filter(course=course).select_related("student")
+            result = (form.cleaned_data.get("result") or "").strip()
             LessonStudent.objects.bulk_create(
                 [
-                    LessonStudent(lesson=lesson, student=enrollment.student, attended=True)
+                    LessonStudent(lesson=lesson, student=enrollment.student, attended=True, result=result)
                     for enrollment in enrollments
                 ]
             )

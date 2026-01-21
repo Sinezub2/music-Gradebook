@@ -7,6 +7,11 @@ class LessonCreateForm(forms.Form):
     course = forms.ModelChoiceField(label="Курс", queryset=Course.objects.none())
     date = forms.DateField(label="Дата", widget=forms.DateInput(attrs={"type": "date"}))
     topic = forms.CharField(label="Тема", max_length=200)
+    result = forms.CharField(
+        label="Результат (для всех учеников)",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
 
     # report (optional but encouraged)
     report_text = forms.CharField(label="Отчёт", required=False, widget=forms.Textarea(attrs={"rows": 4}))
