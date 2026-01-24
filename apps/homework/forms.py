@@ -5,6 +5,7 @@ from apps.school.models import Course
 
 
 class AssignmentCreateForm(forms.Form):
+    max_input_length = 50
     course = forms.ModelChoiceField(label="Курс", queryset=Course.objects.none())
     title = forms.CharField(label="Название", max_length=200)
     description = forms.CharField(label="Описание", required=False, widget=forms.Textarea(attrs={"rows": 4}))
@@ -33,3 +34,11 @@ class AssignmentCreateForm(forms.Form):
             self.fields["students"].choices = [(str(e.student_id), e.student.username) for e in enrollments]
         else:
             self.fields["students"].choices = []
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for field_name in ("title", "description"):
+            value = cleaned_data.get(field_name)
+            if value and len(value) >= self.max_input_length:
+                self.add_error(field_name, "Введите значение короче 50 символов.")
+        return cleaned_data

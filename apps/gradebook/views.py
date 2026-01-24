@@ -1,5 +1,5 @@
 # apps/gradebook/views.py
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponseForbidden
@@ -34,14 +34,27 @@ def teacher_course_grades(request, course_id: int):
                     comment_key = f"comment-{student.id}-{a.id}"
                     raw_score = (request.POST.get(score_key) or "").strip()
                     raw_comment = (request.POST.get(comment_key) or "").strip()
+                    if raw_comment and len(raw_comment) >= 50:
+                        messages.error(
+                            request,
+                            f"Комментарий слишком длинный (короче 50 символов): {student.username} / {a.title}",
+                        )
+                        continue
 
                     score_val = None
                     if raw_score != "":
-                        try:
-                            score_val = Decimal(raw_score.replace(",", "."))
-                        except (InvalidOperation, ValueError):
+                        if not raw_score.isdigit():
                             messages.error(request, f"Некорректная оценка: {student.username} / {a.title}")
                             continue
+                        try:
+                            score_int = int(raw_score)
+                        except ValueError:
+                            messages.error(request, f"Некорректная оценка: {student.username} / {a.title}")
+                            continue
+                        if score_int < 0 or score_int > 100:
+                            messages.error(request, f"Оценка вне диапазона 0–100: {student.username} / {a.title}")
+                            continue
+                        score_val = Decimal(score_int)
 
                     obj, _created = Grade.objects.get_or_create(assessment=a, student=student)
                     obj.score = score_val
