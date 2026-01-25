@@ -5,34 +5,11 @@
 
   <form method="post" class="form">
     {% csrf_token %}
-    {% if form.non_field_errors %}
-      <div class="message error">{{ form.non_field_errors }}</div>
-    {% endif %}
 
     <div class="form-row"><label>Курс</label>{{ form.course }}</div>
-    <div class="form-row"><label>Цикл учеников</label>{{ form.cycle }}</div>
     <div class="form-row"><label>Дата</label>{{ form.date }}</div>
     <div class="form-row"><label>Тема</label>{{ form.topic }}</div>
     <div class="form-row"><label>Результат (для всех учеников)</label>{{ form.result }}</div>
-
-    <div class="form-row">
-      <label>Ученики</label>
-      {% if not selected_course_id or not selected_cycle %}
-        <p class="muted small">Выберите курс и цикл, чтобы увидеть список учеников.</p>
-      {% elif not students %}
-        <p class="muted small">Нет учеников в выбранном цикле.</p>
-      {% else %}
-        <div class="student-picker">
-          {% for student in students %}
-            <label class="student-row">
-              <span>{{ student.get_full_name|default:student.username }}</span>
-              <input type="checkbox" name="student_ids" value="{{ student.id }}"
-                     {% if student.id in selected_student_ids %}checked{% endif %}>
-            </label>
-          {% endfor %}
-        </div>
-      {% endif %}
-    </div>
 
     <hr style="border:0; border-top:1px solid var(--border); margin: 12px 0;"/>
 
@@ -42,19 +19,4 @@
     <button class="btn" type="submit">Создать</button>
     <a class="btn" href="/lessons/">Отмена</a>
   </form>
-
-  <script>
-    const courseField = document.getElementById("id_course");
-    const cycleField = document.getElementById("id_cycle");
-    if (courseField && cycleField) {
-      const refreshList = () => {
-        const params = new URLSearchParams(window.location.search);
-        params.set("course", courseField.value);
-        params.set("cycle", cycleField.value);
-        window.location.search = params.toString();
-      };
-      courseField.addEventListener("change", refreshList);
-      cycleField.addEventListener("change", refreshList);
-    }
-  </script>
 {% endblock %}

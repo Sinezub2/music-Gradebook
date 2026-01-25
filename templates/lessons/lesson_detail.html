@@ -2,7 +2,7 @@
 {% block title %}Урок{% endblock %}
 {% block content %}
   <h1>{{ lesson.topic }}</h1>
-  <p class="muted">{{ lesson.course.name }} · {{ lesson.date|date:"d.m.Y" }} · {{ lesson.get_cycle_display }}</p>
+  <p class="muted">{{ lesson.course.name }} · {{ lesson.date|date:"d.m.Y" }}</p>
 
   <h2>Отчёты</h2>
   {% if not reports %}

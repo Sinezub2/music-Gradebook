@@ -21,9 +21,6 @@
           <a href="/login">Вход</a>
         {% endif %}
       </nav>
-      <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Переключить тему">
-        <span aria-hidden="true">🌙</span>
-      </button>
     </div>
   </header>
 
@@ -66,29 +63,5 @@
   </nav>
 {% endif %}
 
-  <script>
-    const themeToggle = document.getElementById("theme-toggle");
-    const storedTheme = localStorage.getItem("theme");
-    if (storedTheme === "light") {
-      document.body.dataset.theme = "light";
-      if (themeToggle) {
-        themeToggle.querySelector("span").textContent = "☀️";
-      }
-    }
-    if (themeToggle) {
-      themeToggle.addEventListener("click", () => {
-        const isLight = document.body.dataset.theme === "light";
-        if (isLight) {
-          delete document.body.dataset.theme;
-          localStorage.setItem("theme", "dark");
-          themeToggle.querySelector("span").textContent = "🌙";
-        } else {
-          document.body.dataset.theme = "light";
-          localStorage.setItem("theme", "light");
-          themeToggle.querySelector("span").textContent = "☀️";
-        }
-      });
-    }
-  </script>
 </body>
 </html>

@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.db import models
 
-from apps.accounts.models import Profile
 from apps.school.models import Course
 
 
@@ -9,7 +8,6 @@ class Lesson(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons")
     date = models.DateField()
     topic = models.CharField(max_length=200)
-    cycle = models.CharField(max_length=16, choices=Profile.Cycle.choices, default=Profile.Cycle.GENERAL)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="created_lessons")
 
     class Meta:
@@ -49,20 +47,3 @@ class LessonStudent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.lesson_id} -> {self.student_id}"
-
-
-class AttendanceRecord(models.Model):
-    student = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="attendance_records",
-    )
-    date = models.DateField()
-    attended = models.BooleanField(default=False)
-
-    class Meta:
-        ordering = ("-date",)
-        unique_together = ("student", "date")
-
-    def __str__(self) -> str:
-        return f"{self.student_id} {self.date} ({'✓' if self.attended else '—'})"
