@@ -6,11 +6,11 @@
   <div class="card">
     <form method="get" class="form">
       <div class="form-row">
-        <label for="course">Курс</label>
-        <select id="course" name="course">
-          <option value="">Выберите курс</option>
-          {% for c in courses %}
-            <option value="{{ c.id }}"{% if course_id|add:"" == c.id|add:"" %} selected{% endif %}>{{ c.name }}</option>
+        <label for="cycle">Цикл учеников</label>
+        <select id="cycle" name="cycle">
+          <option value="">Все циклы</option>
+          {% for value, label in cycle_options %}
+            <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -23,12 +23,10 @@
   </div>
 
   <div class="card">
-    {% if not course_id %}
-      <p class="muted">Выберите курс, чтобы увидеть журнал посещаемости.</p>
-    {% elif not students %}
-      <p class="muted">Нет учеников для выбранного курса.</p>
+    {% if not students %}
+      <p class="muted">Нет учеников для выбранного цикла.</p>
     {% elif not rows %}
-      <p class="muted">Нет уроков за выбранный месяц.</p>
+      <p class="muted">Нет учебных дней за выбранный месяц.</p>
     {% else %}
       <div class="table-wrap">
         <table class="table">
@@ -46,12 +44,31 @@
                 <td>{{ row.date|date:"d.m.Y" }}</td>
                 {% for cell in row.cells %}
                   <td class="attendance-cell">
-                    {% if cell.attended %}
-                      <span class="attendance-yes">✓</span>
-                    {% elif cell.attended == False %}
-                      <span class="attendance-no">—</span>
+                    {% if user.profile.role == "TEACHER" or user.profile.role == "ADMIN" %}
+                      <form method="post" class="form-row" style="gap: 6px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="student_id" value="{{ cell.student.id }}">
+                        <input type="hidden" name="date" value="{{ row.date|date:'Y-m-d' }}">
+                        {% if cycle %}
+                          <input type="hidden" name="cycle" value="{{ cycle }}">
+                        {% endif %}
+                        {% if month_value %}
+                          <input type="hidden" name="month" value="{{ month_value }}">
+                        {% endif %}
+                        <label class="muted small">
+                          <input type="checkbox" name="attended" {% if cell.attended %}checked{% endif %}>
+                          отметка
+                        </label>
+                        <button class="btn btn-small" type="submit">Сохранить</button>
+                      </form>
                     {% else %}
-                      <span class="attendance-empty">—</span>
+                      {% if cell.attended %}
+                        <span class="attendance-yes">✓</span>
+                      {% elif cell.attended == False %}
+                        <span class="attendance-no">—</span>
+                      {% else %}
+                        <span class="attendance-empty">—</span>
+                      {% endif %}
                     {% endif %}
                   </td>
                 {% endfor %}
