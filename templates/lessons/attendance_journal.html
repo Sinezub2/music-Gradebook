@@ -6,11 +6,11 @@
   <div class="card">
     <form method="get" class="form">
       <div class="form-row">
-        <label for="course">Курс</label>
-        <select id="course" name="course">
-          <option value="">Выберите курс</option>
-          {% for c in courses %}
-            <option value="{{ c.id }}"{% if course_id|add:"" == c.id|add:"" %} selected{% endif %}>{{ c.name }}</option>
+        <label for="cycle">Цикл учеников</label>
+        <select id="cycle" name="cycle">
+          <option value="">Все циклы</option>
+          {% for value, label in cycle_options %}
+            <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -23,12 +23,10 @@
   </div>
 
   <div class="card">
-    {% if not course_id %}
-      <p class="muted">Выберите курс, чтобы увидеть журнал посещаемости.</p>
-    {% elif not students %}
-      <p class="muted">Нет учеников для выбранного курса.</p>
+    {% if not students %}
+      <p class="muted">Нет учеников для выбранного цикла.</p>
     {% elif not rows %}
-      <p class="muted">Нет уроков за выбранный месяц.</p>
+      <p class="muted">Нет учебных дней за выбранный месяц.</p>
     {% else %}
       <div class="table-wrap">
         <table class="table">
@@ -58,17 +56,8 @@
               </tr>
             {% endfor %}
           </tbody>
-          <tfoot>
-            <tr>
-              <th>Итого (месяц)</th>
-              {% for total in totals %}
-                <th class="attendance-cell">{{ total.label }}</th>
-              {% endfor %}
-            </tr>
-          </tfoot>
         </table>
       </div>
-      <p class="muted small">Общее рабочее время за месяц: {{ overall_total_label }}.</p>
     {% endif %}
   </div>
 {% endblock %}
