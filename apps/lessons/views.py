@@ -2,8 +2,9 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from datetime import date, datetime, timedelta
 
 from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
@@ -131,6 +132,118 @@ def lesson_list(request):
             "students": students,
             "student_id": str(student_id) if student_id else "",
             "selected_student": selected_student,
+        },
+    )
+
+
+@login_required
+def attendance_journal(request):
+    role = request.user.profile.role
+    course_id = request.GET.get("course")
+    course_id_int = None
+    if course_id:
+        try:
+            course_id_int = int(course_id)
+        except ValueError:
+            course_id_int = None
+    month_value = request.GET.get("month")
+
+    today = date.today()
+    try:
+        month_start = datetime.strptime(month_value, "%Y-%m").date().replace(day=1) if month_value else today.replace(day=1)
+    except ValueError:
+        month_start = today.replace(day=1)
+        month_value = None
+    month_end = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_input_value = (month_value or month_start.strftime("%Y-%m"))
+
+    user_model = get_user_model()
+    students = []
+    allowed_courses = Course.objects.none()
+
+    if role == Profile.Role.ADMIN:
+        allowed_courses = Course.objects.all()
+    elif role == Profile.Role.TEACHER:
+        allowed_courses = Course.objects.filter(teacher=request.user)
+    else:
+        student_ids = _student_ids_for_user(request)
+        allowed_courses = Course.objects.filter(enrollments__student_id__in=student_ids).distinct()
+
+    allowed_courses = allowed_courses.order_by("name")
+    allowed_course_ids = set(allowed_courses.values_list("id", flat=True))
+
+    if course_id_int:
+        if course_id_int not in allowed_course_ids:
+            return HttpResponseForbidden("Нет доступа.")
+        lessons_qs = Lesson.objects.filter(course_id=course_id_int)
+    else:
+        lessons_qs = Lesson.objects.none()
+
+    if course_id_int:
+        if role in (Profile.Role.ADMIN, Profile.Role.TEACHER):
+            student_ids = Enrollment.objects.filter(course_id=course_id_int).values_list("student_id", flat=True).distinct()
+        else:
+            allowed_student_ids = _student_ids_for_user(request)
+            student_ids = Enrollment.objects.filter(course_id=course_id_int, student_id__in=allowed_student_ids).values_list("student_id", flat=True).distinct()
+        students = list(user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("username"))
+
+    lessons_qs = lessons_qs.filter(date__gte=month_start, date__lt=month_end).select_related("course")
+    lesson_dates = list(lessons_qs.order_by("date").values_list("date", flat=True).distinct())
+
+    attendance_entries = (
+        LessonStudent.objects.filter(lesson__in=lessons_qs, student__in=students)
+        .select_related("lesson", "student")
+    )
+
+    attendance_map = {}
+    for entry in attendance_entries:
+        attendance_map.setdefault(entry.lesson.date, {})[entry.student_id] = entry.attended
+
+    attendance_counts = (
+        LessonStudent.objects.filter(lesson__in=lessons_qs, student__in=students, attended=True)
+        .values("student_id")
+        .annotate(total=Count("id"))
+    )
+    total_minutes_by_student = {row["student_id"]: row["total"] * 40 for row in attendance_counts}
+    overall_minutes = sum(total_minutes_by_student.values())
+
+    def _format_minutes(total_minutes: int) -> str:
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+        if hours and minutes:
+            return f"{hours} ч {minutes} мин"
+        if hours:
+            return f"{hours} ч"
+        return f"{minutes} мин"
+
+    rows = []
+    for lesson_date in lesson_dates:
+        cells = []
+        for student in students:
+            attended = attendance_map.get(lesson_date, {}).get(student.id)
+            cells.append({"student": student, "attended": attended})
+        rows.append({"date": lesson_date, "cells": cells})
+
+    totals = [
+        {
+            "student": student,
+            "minutes": total_minutes_by_student.get(student.id, 0),
+            "label": _format_minutes(total_minutes_by_student.get(student.id, 0)),
+        }
+        for student in students
+    ]
+
+    return render(
+        request,
+        "lessons/attendance_journal.html",
+        {
+            "courses": allowed_courses,
+            "course_id": str(course_id_int) if course_id_int else "",
+            "month_value": month_input_value,
+            "rows": rows,
+            "students": students,
+            "totals": totals,
+            "overall_total_label": _format_minutes(overall_minutes),
         },
     )
 

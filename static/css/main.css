@@ -233,3 +233,17 @@ body {
 .tab-panel.active {
   display: block;
 }
+
+.attendance-cell {
+  text-align: center;
+}
+
+.attendance-yes {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.attendance-no,
+.attendance-empty {
+  color: var(--muted);
+}
