@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from datetime import date, datetime, timedelta
 
@@ -281,8 +281,6 @@ def attendance_journal(request):
             "month_value": month_input_value,
             "rows": rows,
             "students": students,
-            "totals": totals,
-            "overall_total_label": _format_minutes(overall_minutes),
         },
     )
 

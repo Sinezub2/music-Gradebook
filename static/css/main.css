@@ -10,6 +10,17 @@
   --ok: #7dff9b;
 }
 
+body[data-theme="light"] {
+  --bg: #f6f6f8;
+  --panel: #ffffff;
+  --text: #1c1f26;
+  --muted: #5c6270;
+  --border: #d5d9e1;
+  --accent: #2f64ff;
+  --error: #d84b4b;
+  --ok: #2f9f4d;
+}
+
 * { box-sizing: border-box; }
 
 body {

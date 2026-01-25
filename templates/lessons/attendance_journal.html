@@ -75,17 +75,8 @@
               </tr>
             {% endfor %}
           </tbody>
-          <tfoot>
-            <tr>
-              <th>Итого (месяц)</th>
-              {% for total in totals %}
-                <th class="attendance-cell">{{ total.label }}</th>
-              {% endfor %}
-            </tr>
-          </tfoot>
         </table>
       </div>
-      <p class="muted small">Общее рабочее время за месяц: {{ overall_total_label }}.</p>
     {% endif %}
   </div>
 {% endblock %}
