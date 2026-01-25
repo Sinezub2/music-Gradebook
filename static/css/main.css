@@ -10,17 +10,6 @@
   --ok: #7dff9b;
 }
 
-body[data-theme="light"] {
-  --bg: #f6f6f8;
-  --panel: #ffffff;
-  --text: #1c1f26;
-  --muted: #5c6270;
-  --border: #d5d9e1;
-  --accent: #2f64ff;
-  --error: #d84b4b;
-  --ok: #2f9f4d;
-}
-
 * { box-sizing: border-box; }
 
 body {
@@ -61,23 +50,6 @@ a:hover { text-decoration: underline; }
   color: var(--muted);
 }
 .nav a:hover { color: var(--text); }
-
-.theme-toggle {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  border-radius: 999px;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.theme-toggle:hover {
-  border-color: #3a3f4c;
-}
 
 .site-footer {
   border-top: 1px solid var(--border);
@@ -274,23 +246,4 @@ body {
 .attendance-no,
 .attendance-empty {
   color: var(--muted);
-}
-
-.student-picker {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.student-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.student-row:last-child {
-  border-bottom: none;
 }
