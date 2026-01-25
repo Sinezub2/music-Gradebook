@@ -50,6 +50,9 @@
       <a class="bottom-link {% if request.path|slice:':9' == '/lessons/' %}active{% endif %}"
        href="/lessons/">Уроки</a>
 
+      <a class="bottom-link {% if request.path|slice:':12' == '/attendance/' %}active{% endif %}"
+       href="/attendance/">Посещаемость</a>
+
       <a class="bottom-link {% if request.path|slice:':7' == '/goals/' %}active{% endif %}"
        href="/goals/">Годовой план</a>
 

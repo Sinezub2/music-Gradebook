@@ -3,6 +3,9 @@
 {% block content %}
   <h1>Профиль: {{ student.username }}</h1>
   <p class="muted">Цикл: {{ student.profile.get_cycle_display }}</p>
+  {% if student.profile.school_grade %}
+    <p class="muted">Класс: {{ student.profile.school_grade }}</p>
+  {% endif %}
 
   <div class="card">
     <h2>Курсы</h2>
