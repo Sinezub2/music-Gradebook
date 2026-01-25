@@ -1,4 +1,5 @@
 from django import forms
+from apps.accounts.models import Profile
 from apps.school.models import Course
 from .models import Lesson, LessonReport
 
@@ -6,6 +7,7 @@ from .models import Lesson, LessonReport
 class LessonCreateForm(forms.Form):
     max_input_length = 50
     course = forms.ModelChoiceField(label="Курс", queryset=Course.objects.none())
+    cycle = forms.ChoiceField(label="Цикл", choices=Profile.Cycle.choices)
     date = forms.DateField(label="Дата", widget=forms.DateInput(attrs={"type": "date"}))
     topic = forms.CharField(label="Тема", max_length=200)
     result = forms.CharField(

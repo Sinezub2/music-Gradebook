@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from datetime import date, datetime, timedelta
 
@@ -10,7 +10,7 @@ from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.school.models import Course, Enrollment, ParentChild
 from .forms import LessonCreateForm
-from .models import Lesson, LessonReport, LessonStudent
+from .models import AttendanceRecord, Lesson, LessonReport, LessonStudent
 
 
 def _student_ids_for_user(request):
@@ -139,13 +139,7 @@ def lesson_list(request):
 @login_required
 def attendance_journal(request):
     role = request.user.profile.role
-    course_id = request.GET.get("course")
-    course_id_int = None
-    if course_id:
-        try:
-            course_id_int = int(course_id)
-        except ValueError:
-            course_id_int = None
+    cycle = request.GET.get("cycle") or ""
     month_value = request.GET.get("month")
 
     today = date.today()
@@ -159,131 +153,164 @@ def attendance_journal(request):
 
     user_model = get_user_model()
     students = []
-    allowed_courses = Course.objects.none()
 
     if role == Profile.Role.ADMIN:
-        allowed_courses = Course.objects.all()
+        students = list(
+            user_model.objects.filter(profile__role=Profile.Role.STUDENT)
+            .select_related("profile")
+            .order_by("username")
+        )
     elif role == Profile.Role.TEACHER:
-        allowed_courses = Course.objects.filter(teacher=request.user)
+        student_ids = (
+            Enrollment.objects.filter(course__teacher=request.user).values_list("student_id", flat=True).distinct()
+        )
+        students = list(
+            user_model.objects.filter(id__in=student_ids)
+            .select_related("profile")
+            .order_by("username")
+        )
     else:
         student_ids = _student_ids_for_user(request)
-        allowed_courses = Course.objects.filter(enrollments__student_id__in=student_ids).distinct()
+        students = list(
+            user_model.objects.filter(id__in=student_ids)
+            .select_related("profile")
+            .order_by("username")
+        )
 
-    allowed_courses = allowed_courses.order_by("name")
-    allowed_course_ids = set(allowed_courses.values_list("id", flat=True))
+    if cycle:
+        students = [student for student in students if student.profile.cycle == cycle]
 
-    if course_id_int:
-        if course_id_int not in allowed_course_ids:
-            return HttpResponseForbidden("Нет доступа.")
-        lessons_qs = Lesson.objects.filter(course_id=course_id_int)
-    else:
-        lessons_qs = Lesson.objects.none()
-
-    if course_id_int:
-        if role in (Profile.Role.ADMIN, Profile.Role.TEACHER):
-            student_ids = Enrollment.objects.filter(course_id=course_id_int).values_list("student_id", flat=True).distinct()
-        else:
-            allowed_student_ids = _student_ids_for_user(request)
-            student_ids = Enrollment.objects.filter(course_id=course_id_int, student_id__in=allowed_student_ids).values_list("student_id", flat=True).distinct()
-        students = list(user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("username"))
-
-    lessons_qs = lessons_qs.filter(date__gte=month_start, date__lt=month_end).select_related("course")
-    lesson_dates = list(lessons_qs.order_by("date").values_list("date", flat=True).distinct())
-
-    attendance_entries = (
-        LessonStudent.objects.filter(lesson__in=lessons_qs, student__in=students)
-        .select_related("lesson", "student")
-    )
+    attendance_entries = AttendanceRecord.objects.filter(
+        student__in=students,
+        date__gte=month_start,
+        date__lt=month_end,
+    ).select_related("student")
 
     attendance_map = {}
     for entry in attendance_entries:
-        attendance_map.setdefault(entry.lesson.date, {})[entry.student_id] = entry.attended
+        attendance_map.setdefault(entry.date, {})[entry.student_id] = entry.attended
 
-    attendance_counts = (
-        LessonStudent.objects.filter(lesson__in=lessons_qs, student__in=students, attended=True)
-        .values("student_id")
-        .annotate(total=Count("id"))
-    )
-    total_minutes_by_student = {row["student_id"]: row["total"] * 40 for row in attendance_counts}
-    overall_minutes = sum(total_minutes_by_student.values())
-
-    def _format_minutes(total_minutes: int) -> str:
-        hours = total_minutes // 60
-        minutes = total_minutes % 60
-        if hours and minutes:
-            return f"{hours} ч {minutes} мин"
-        if hours:
-            return f"{hours} ч"
-        return f"{minutes} мин"
-
+    day_pointer = month_start
     rows = []
-    for lesson_date in lesson_dates:
-        cells = []
-        for student in students:
-            attended = attendance_map.get(lesson_date, {}).get(student.id)
-            cells.append({"student": student, "attended": attended})
-        rows.append({"date": lesson_date, "cells": cells})
-
-    totals = [
-        {
-            "student": student,
-            "minutes": total_minutes_by_student.get(student.id, 0),
-            "label": _format_minutes(total_minutes_by_student.get(student.id, 0)),
-        }
-        for student in students
-    ]
+    while day_pointer < month_end:
+        if day_pointer.weekday() < 5:
+            cells = []
+            for student in students:
+                attended = attendance_map.get(day_pointer, {}).get(student.id, False)
+                cells.append({"student": student, "attended": attended})
+            rows.append({"date": day_pointer, "cells": cells})
+        day_pointer += timedelta(days=1)
 
     return render(
         request,
         "lessons/attendance_journal.html",
         {
-            "courses": allowed_courses,
-            "course_id": str(course_id_int) if course_id_int else "",
+            "cycle": cycle,
+            "cycle_options": Profile.Cycle.choices,
             "month_value": month_input_value,
             "rows": rows,
             "students": students,
-            "totals": totals,
-            "overall_total_label": _format_minutes(overall_minutes),
         },
     )
 
 
 @role_required(Profile.Role.TEACHER, Profile.Role.ADMIN)
 def lesson_create(request):
+    course_value = request.GET.get("course") or ""
+    cycle_value = request.GET.get("cycle") or ""
+    selected_course = None
     if request.method == "POST":
-        form = LessonCreateForm(request.POST, teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None))
+        form = LessonCreateForm(
+            request.POST,
+            teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None),
+        )
         if form.is_valid():
             course = form.cleaned_data["course"]
+            cycle = form.cleaned_data["cycle"]
             if request.user.profile.role == Profile.Role.TEACHER and course.teacher_id != request.user.id:
                 return HttpResponseForbidden("Нельзя создавать уроки для чужого курса.")
 
-            lesson = Lesson.objects.create(
-                course=course,
-                date=form.cleaned_data["date"],
-                topic=form.cleaned_data["topic"],
-                created_by=request.user,
+            available_student_ids = set(
+                Enrollment.objects.filter(course=course, student__profile__cycle=cycle).values_list(
+                    "student_id",
+                    flat=True,
+                )
             )
+            student_ids = []
+            for raw_id in request.POST.getlist("student_ids"):
+                try:
+                    student_ids.append(int(raw_id))
+                except ValueError:
+                    continue
+            selected_student_ids = [student_id for student_id in student_ids if student_id in available_student_ids]
+            if not selected_student_ids:
+                form.add_error(None, "Выберите хотя бы одного ученика.")
+            elif len(selected_student_ids) != len(student_ids):
+                return HttpResponseForbidden("Некорректный список учеников.")
+            else:
+                lesson = Lesson.objects.create(
+                    course=course,
+                    date=form.cleaned_data["date"],
+                    topic=form.cleaned_data["topic"],
+                    cycle=cycle,
+                    created_by=request.user,
+                )
 
-            enrollments = Enrollment.objects.filter(course=course).select_related("student")
-            result = (form.cleaned_data.get("result") or "").strip()
-            LessonStudent.objects.bulk_create(
-                [
-                    LessonStudent(lesson=lesson, student=enrollment.student, attended=True, result=result)
-                    for enrollment in enrollments
-                ]
-            )
+                result = (form.cleaned_data.get("result") or "").strip()
+                selected_students = get_user_model().objects.filter(id__in=selected_student_ids)
+                LessonStudent.objects.bulk_create(
+                    [
+                        LessonStudent(lesson=lesson, student=student, attended=True, result=result)
+                        for student in selected_students
+                    ]
+                )
 
-            text = (form.cleaned_data.get("report_text") or "").strip()
-            media = (form.cleaned_data.get("media_url") or "").strip()
-            if text or media:
-                LessonReport.objects.create(lesson=lesson, student=None, text=text, media_url=media)
+                text = (form.cleaned_data.get("report_text") or "").strip()
+                media = (form.cleaned_data.get("media_url") or "").strip()
+                if text or media:
+                    LessonReport.objects.create(lesson=lesson, student=None, text=text, media_url=media)
 
-            messages.success(request, "Урок создан.")
-            return redirect(f"/lessons/{lesson.id}/")
+                messages.success(request, "Урок создан.")
+                return redirect(f"/lessons/{lesson.id}/")
     else:
-        form = LessonCreateForm(teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None))
+        form = LessonCreateForm(
+            teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None),
+            initial={"course": course_value, "cycle": cycle_value},
+        )
+        if course_value:
+            try:
+                selected_course = Course.objects.select_related("teacher").get(id=int(course_value))
+            except (Course.DoesNotExist, ValueError):
+                selected_course = None
+        if selected_course and request.user.profile.role == Profile.Role.TEACHER and selected_course.teacher_id != request.user.id:
+            return HttpResponseForbidden("Нельзя создавать уроки для чужого курса.")
 
-    return render(request, "lessons/lesson_create.html", {"form": form})
+    if request.method == "POST":
+        selected_course = form.cleaned_data.get("course") if form.is_valid() else None
+        cycle_value = request.POST.get("cycle") or ""
+
+    students = []
+    if selected_course and cycle_value:
+        students = list(
+            get_user_model()
+            .objects.filter(enrollments__course=selected_course, profile__cycle=cycle_value)
+            .select_related("profile")
+            .order_by("username")
+        )
+
+    selected_student_ids = [int(value) for value in request.POST.getlist("student_ids") if value.isdigit()]
+
+    return render(
+        request,
+        "lessons/lesson_create.html",
+        {
+            "form": form,
+            "students": students,
+            "selected_course_id": str(selected_course.id) if selected_course else "",
+            "selected_cycle": cycle_value,
+            "selected_student_ids": selected_student_ids,
+        },
+    )
 
 
 @login_required
