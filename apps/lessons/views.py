@@ -141,6 +141,46 @@ def attendance_journal(request):
     role = request.user.profile.role
     cycle = request.GET.get("cycle") or ""
     month_value = request.GET.get("month")
+    if request.method == "POST":
+        if role not in (Profile.Role.TEACHER, Profile.Role.ADMIN):
+            return HttpResponseForbidden("Нет доступа.")
+        student_id = request.POST.get("student_id")
+        date_value = request.POST.get("date")
+        attended = request.POST.get("attended") == "on"
+        if not student_id or not date_value:
+            return HttpResponseForbidden("Некорректные данные.")
+        try:
+            student_id_int = int(student_id)
+            record_date = datetime.strptime(date_value, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return HttpResponseForbidden("Некорректные данные.")
+
+        if role == Profile.Role.TEACHER:
+            allowed_student_ids = set(
+                Enrollment.objects.filter(course__teacher=request.user).values_list("student_id", flat=True)
+            )
+        else:
+            allowed_student_ids = set(
+                get_user_model().objects.filter(profile__role=Profile.Role.STUDENT).values_list("id", flat=True)
+            )
+        if student_id_int not in allowed_student_ids:
+            return HttpResponseForbidden("Нет доступа.")
+
+        AttendanceRecord.objects.update_or_create(
+            student_id=student_id_int,
+            date=record_date,
+            defaults={"attended": attended},
+        )
+        messages.success(request, "Посещение обновлено.")
+        redirect_params = []
+        if cycle:
+            redirect_params.append(f"cycle={cycle}")
+        if month_value:
+            redirect_params.append(f"month={month_value}")
+        redirect_url = "/attendance/"
+        if redirect_params:
+            redirect_url = f"{redirect_url}?{'&'.join(redirect_params)}"
+        return redirect(redirect_url)
 
     today = date.today()
     try:
@@ -190,6 +230,28 @@ def attendance_journal(request):
     for entry in attendance_entries:
         attendance_map.setdefault(entry.date, {})[entry.student_id] = entry.attended
 
+    attendance_counts = (
+        AttendanceRecord.objects.filter(
+            student__in=students,
+            date__gte=month_start,
+            date__lt=month_end,
+            attended=True,
+        )
+        .values("student_id")
+        .annotate(total=Count("id"))
+    )
+    total_minutes_by_student = {row["student_id"]: row["total"] * 40 for row in attendance_counts}
+    overall_minutes = sum(total_minutes_by_student.values())
+
+    def _format_minutes(total_minutes: int) -> str:
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+        if hours and minutes:
+            return f"{hours} ч {minutes} мин"
+        if hours:
+            return f"{hours} ч"
+        return f"{minutes} мин"
+
     day_pointer = month_start
     rows = []
     while day_pointer < month_end:
@@ -200,6 +262,15 @@ def attendance_journal(request):
                 cells.append({"student": student, "attended": attended})
             rows.append({"date": day_pointer, "cells": cells})
         day_pointer += timedelta(days=1)
+
+    totals = [
+        {
+            "student": student,
+            "minutes": total_minutes_by_student.get(student.id, 0),
+            "label": _format_minutes(total_minutes_by_student.get(student.id, 0)),
+        }
+        for student in students
+    ]
 
     return render(
         request,

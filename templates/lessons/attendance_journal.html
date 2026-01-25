@@ -44,12 +44,31 @@
                 <td>{{ row.date|date:"d.m.Y" }}</td>
                 {% for cell in row.cells %}
                   <td class="attendance-cell">
-                    {% if cell.attended %}
-                      <span class="attendance-yes">✓</span>
-                    {% elif cell.attended == False %}
-                      <span class="attendance-no">—</span>
+                    {% if user.profile.role == "TEACHER" or user.profile.role == "ADMIN" %}
+                      <form method="post" class="form-row" style="gap: 6px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="student_id" value="{{ cell.student.id }}">
+                        <input type="hidden" name="date" value="{{ row.date|date:'Y-m-d' }}">
+                        {% if cycle %}
+                          <input type="hidden" name="cycle" value="{{ cycle }}">
+                        {% endif %}
+                        {% if month_value %}
+                          <input type="hidden" name="month" value="{{ month_value }}">
+                        {% endif %}
+                        <label class="muted small">
+                          <input type="checkbox" name="attended" {% if cell.attended %}checked{% endif %}>
+                          отметка
+                        </label>
+                        <button class="btn btn-small" type="submit">Сохранить</button>
+                      </form>
                     {% else %}
-                      <span class="attendance-empty">—</span>
+                      {% if cell.attended %}
+                        <span class="attendance-yes">✓</span>
+                      {% elif cell.attended == False %}
+                        <span class="attendance-no">—</span>
+                      {% else %}
+                        <span class="attendance-empty">—</span>
+                      {% endif %}
                     {% endif %}
                   </td>
                 {% endfor %}

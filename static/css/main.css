@@ -62,22 +62,6 @@ a:hover { text-decoration: underline; }
 }
 .nav a:hover { color: var(--text); }
 
-.theme-toggle {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  border-radius: 999px;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.theme-toggle:hover {
-  border-color: #3a3f4c;
-}
 
 .site-footer {
   border-top: 1px solid var(--border);
