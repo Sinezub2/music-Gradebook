@@ -43,6 +43,9 @@
                   {% if r.assignment.description %}
                     <div class="muted small">{{ r.assignment.description }}</div>
                   {% endif %}
+                  {% if r.assignment.attachment %}
+                    <div class="muted small"><a href="{{ r.assignment.attachment.url }}">Материалы</a></div>
+                  {% endif %}
                 </td>
                 <td><span class="tag">{{ r.count_targets }}</span></td>
               </tr>
@@ -51,7 +54,7 @@
         </table>
       </div>
       <p class="muted small">
-        Оценки выставляются в “Прогресс” → курс → “Ввод оценок”. Домашние задания появляются там автоматически.
+        Результаты выставляются в “Прогресс” → курс → “Ввод результатов”. Домашние задания появляются там автоматически.
       </p>
     {% endif %}
 
@@ -82,6 +85,9 @@
                   <div>{{ r.assignment.title }}</div>
                   {% if r.assignment.description %}
                     <div class="muted small">{{ r.assignment.description }}</div>
+                  {% endif %}
+                  {% if r.assignment.attachment %}
+                    <div class="muted small"><a href="{{ r.assignment.attachment.url }}">Материалы</a></div>
                   {% endif %}
                 </td>
                 <td>
@@ -136,6 +142,9 @@
                       {% if r.assignment.description %}
                         <div class="muted small">{{ r.assignment.description }}</div>
                       {% endif %}
+                      {% if r.assignment.attachment %}
+                        <div class="muted small"><a href="{{ r.assignment.attachment.url }}">Материалы</a></div>
+                      {% endif %}
                     </td>
                     <td>
                       <span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span>
@@ -179,7 +188,12 @@
               <tr>
                 <td>{{ a.due_date|date:"d.m.Y" }}</td>
                 <td class="muted small">{{ a.course.name }}</td>
-                <td>{{ a.title }}</td>
+                <td>
+                  <div>{{ a.title }}</div>
+                  {% if a.attachment %}
+                    <div class="muted small"><a href="{{ a.attachment.url }}">Материалы</a></div>
+                  {% endif %}
+                </td>
                 <td class="muted small">{{ a.created_by.username }}</td>
               </tr>
             {% endfor %}

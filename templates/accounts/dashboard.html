@@ -18,7 +18,7 @@
           <li>
             <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
             <span class="tag">{{ c.course_type.name }}</span>
-            <a class="muted" href="/courses/{{ c.id }}/grades/">Оценки</a>
+            <a class="muted" href="/courses/{{ c.id }}/grades/">Результаты</a>
           </li>
         {% endfor %}
       </ul>
@@ -49,7 +49,7 @@
           <li>
             <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
             <span class="tag">{{ c.course_type.name }}</span>
-            <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод оценок</a>
+            <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод результатов</a>
           </li>
         {% endfor %}
       </ul>

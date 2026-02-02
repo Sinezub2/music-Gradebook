@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Создать годовую цель{% endblock %}
+{% block content %}
+  <h1>Создать годовую цель</h1>
+
+  <div class="card" style="margin-bottom: 16px;">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-row"><label>{{ form.student.label }}</label>{{ form.student }}</div>
+      <div class="form-row"><label>{{ form.month.label }}</label>{{ form.month }}</div>
+      <div class="form-row"><label>{{ form.title.label }}</label>{{ form.title }}</div>
+      <div class="form-row"><label>{{ form.details.label }}</label>{{ form.details }}</div>
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+      <button class="btn" type="submit">Сохранить</button>
+      <a class="btn" href="/goals/{% if selected_student_id %}?student={{ selected_student_id }}{% endif %}">Отмена</a>
+    </form>
+  </div>
+{% endblock %}

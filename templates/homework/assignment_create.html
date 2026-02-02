@@ -4,7 +4,7 @@
   <h1>Создать задание</h1>
 
   <div class="card">
-    <form method="post" class="form">
+    <form method="post" class="form" enctype="multipart/form-data">
       {% csrf_token %}
 
       <div class="form-row">
@@ -44,6 +44,12 @@
         <label>{{ form.due_date.label }}</label>
         {{ form.due_date }}
         {% if form.due_date.errors %}<div class="error">{{ form.due_date.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.attachment.label }}</label>
+        {{ form.attachment }}
+        {% if form.attachment.errors %}<div class="error">{{ form.attachment.errors }}</div>{% endif %}
       </div>
 
       <div class="form-row">

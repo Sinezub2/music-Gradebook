@@ -9,6 +9,7 @@ class Assignment(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, default="")
     due_date = models.DateField()
+    attachment = models.FileField(upload_to="assignments/", blank=True, null=True)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

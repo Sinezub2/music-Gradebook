@@ -13,6 +13,7 @@ class LessonCreateForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),
     )
+    attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
 
     # report (optional but encouraged)
     report_text = forms.CharField(label="Отчёт", required=False, widget=forms.Textarea(attrs={"rows": 4}))
