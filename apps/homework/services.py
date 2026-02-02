@@ -13,6 +13,7 @@ def create_assignment_with_targets_and_gradebook(
     title: str,
     description: str,
     due_date,
+    attachment,
     student_ids: list[int],
 ) -> Assignment:
     """
@@ -30,6 +31,7 @@ def create_assignment_with_targets_and_gradebook(
         title=title,
         description=description or "",
         due_date=due_date,
+        attachment=attachment,
         created_by=teacher,
     )
 

@@ -54,32 +54,61 @@ def goal_list(request):
 
     goals = goals.order_by("month", "student__username", "created_at")
 
-    form = None
-    if can_edit:
-        if request.method == "POST":
-            form = GoalForm(request.POST)
-            form.fields["student"].queryset = students
-            if form.is_valid():
-                goal = form.save(commit=False)
-                goal.teacher = request.user
-                goal.save()
-                messages.success(request, "Цель добавлена.")
-                redirect_url = "/goals/"
-                if selected_student_id:
-                    redirect_url = f"/goals/?student={selected_student_id}"
-                return redirect(redirect_url)
-        else:
-            form = GoalForm()
-            form.fields["student"].queryset = students
-            if selected_student:
-                form.fields["student"].initial = selected_student
-
     ctx = {
         "goals": goals,
         "students": students,
         "selected_student": selected_student,
         "selected_student_id": selected_student_id,
-        "form": form,
         "can_edit": can_edit,
     }
     return render(request, "goals/goal_list.html", ctx)
+
+
+@login_required
+def goal_create(request):
+    profile = request.user.profile
+    if profile.role not in (Profile.Role.TEACHER, Profile.Role.ADMIN):
+        return HttpResponseForbidden("Доступ запрещён.")
+
+    selected_student_id = request.GET.get("student") or ""
+    students = User.objects.none()
+
+    if profile.role == Profile.Role.TEACHER:
+        teacher_courses = Course.objects.filter(teacher=request.user)
+        students = (
+            User.objects.filter(enrollments__course__in=teacher_courses)
+            .select_related("profile")
+            .distinct()
+        )
+    elif profile.role == Profile.Role.ADMIN:
+        students = User.objects.filter(profile__role=Profile.Role.STUDENT).select_related("profile")
+
+    selected_student = None
+    if selected_student_id:
+        selected_student = students.filter(id=selected_student_id).first()
+        if not selected_student:
+            selected_student_id = ""
+
+    if request.method == "POST":
+        form = GoalForm(request.POST)
+        form.fields["student"].queryset = students
+        if form.is_valid():
+            goal = form.save(commit=False)
+            goal.teacher = request.user
+            goal.save()
+            messages.success(request, "Цель добавлена.")
+            redirect_url = "/goals/"
+            if selected_student_id:
+                redirect_url = f"/goals/?student={selected_student_id}"
+            return redirect(redirect_url)
+    else:
+        form = GoalForm()
+        form.fields["student"].queryset = students
+        if selected_student:
+            form.fields["student"].initial = selected_student
+
+    ctx = {
+        "form": form,
+        "selected_student_id": selected_student_id,
+    }
+    return render(request, "goals/goal_create.html", ctx)

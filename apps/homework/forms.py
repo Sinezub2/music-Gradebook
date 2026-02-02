@@ -10,6 +10,7 @@ class AssignmentCreateForm(forms.Form):
     title = forms.CharField(label="Название", max_length=200)
     description = forms.CharField(label="Описание", required=False, widget=forms.Textarea(attrs={"rows": 4}))
     due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
+    attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
 
     # Students чекбоксы подставляем динамически
     students = forms.MultipleChoiceField(

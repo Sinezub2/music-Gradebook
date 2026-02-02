@@ -41,9 +41,9 @@
   </div>
 
   <div class="card">
-    <h2>Последние оценки</h2>
+    <h2>Последние результаты</h2>
     {% if not last_grades %}
-      <p class="muted">Оценок пока нет.</p>
+      <p class="muted">Результатов пока нет.</p>
     {% else %}
       <ul>
         {% for g in last_grades %}
@@ -77,7 +77,7 @@
             type: 'scatter',
             mode: 'lines+markers',
           }], {
-            title: 'Динамика оценок',
+            title: 'Динамика результатов',
             margin: { t: 40, r: 20, b: 120, l: 40 },
             ...darkLayout,
           }, { displayModeBar: false });

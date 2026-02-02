@@ -44,11 +44,11 @@
             <span class="tag">{{ c.course_type.name }}</span>
 
             {% if mode == "teacher" %}
-              <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод оценок</a>
+              <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод результатов</a>
             {% elif mode == "student" %}
-              <a class="muted" href="/courses/{{ c.id }}/grades/">Оценки</a>
+              <a class="muted" href="/courses/{{ c.id }}/grades/">Результаты</a>
             {% elif mode == "parent_child" %}
-              <a class="muted" href="/courses/{{ c.id }}/grades/?student={{ student.id }}">Оценки</a>
+              <a class="muted" href="/courses/{{ c.id }}/grades/?student={{ student.id }}">Результаты</a>
             {% endif %}
           </li>
         {% endfor %}

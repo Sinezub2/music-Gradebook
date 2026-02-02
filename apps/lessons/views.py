@@ -204,17 +204,11 @@ def attendance_journal(request):
         .values("student_id")
         .annotate(total=Count("id"))
     )
-    total_minutes_by_student = {row["student_id"]: row["total"] * 40 for row in attendance_counts}
-    overall_minutes = sum(total_minutes_by_student.values())
+    total_lessons_by_student = {row["student_id"]: row["total"] for row in attendance_counts}
+    overall_lessons = sum(total_lessons_by_student.values())
 
-    def _format_minutes(total_minutes: int) -> str:
-        hours = total_minutes // 60
-        minutes = total_minutes % 60
-        if hours and minutes:
-            return f"{hours} ч {minutes} мин"
-        if hours:
-            return f"{hours} ч"
-        return f"{minutes} мин"
+    def _format_minutes(total_lessons: int) -> str:
+        return str(total_lessons)
 
     rows = []
     for lesson_date in lesson_dates:
@@ -227,8 +221,8 @@ def attendance_journal(request):
     totals = [
         {
             "student": student,
-            "minutes": total_minutes_by_student.get(student.id, 0),
-            "label": _format_minutes(total_minutes_by_student.get(student.id, 0)),
+            "minutes": total_lessons_by_student.get(student.id, 0),
+            "label": _format_minutes(total_lessons_by_student.get(student.id, 0)),
         }
         for student in students
     ]
@@ -243,7 +237,7 @@ def attendance_journal(request):
             "rows": rows,
             "students": students,
             "totals": totals,
-            "overall_total_label": _format_minutes(overall_minutes),
+            "overall_total_label": _format_minutes(overall_lessons),
         },
     )
 
@@ -251,7 +245,7 @@ def attendance_journal(request):
 @role_required(Profile.Role.TEACHER, Profile.Role.ADMIN)
 def lesson_create(request):
     if request.method == "POST":
-        form = LessonCreateForm(request.POST, teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None))
+        form = LessonCreateForm(request.POST, request.FILES, teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None))
         if form.is_valid():
             course = form.cleaned_data["course"]
             if request.user.profile.role == Profile.Role.TEACHER and course.teacher_id != request.user.id:
@@ -262,6 +256,7 @@ def lesson_create(request):
                 date=form.cleaned_data["date"],
                 topic=form.cleaned_data["topic"],
                 created_by=request.user,
+                attachment=form.cleaned_data.get("attachment"),
             )
 
             enrollments = Enrollment.objects.filter(course=course).select_related("student")

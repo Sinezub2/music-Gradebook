@@ -1,9 +1,9 @@
 <!-- templates/gradebook/student_course_grades.html -->
 {% extends "base.html" %}
-{% block title %}Оценки{% endblock %}
+{% block title %}Результаты{% endblock %}
 {% block content %}
 
-  <h1>Оценки</h1>
+  <h1>Результаты</h1>
   <p class="muted">
     Курс: {{ course.name }} · {{ course.course_type.name }}<br/>
     Ученик: {{ student.username }} · Цикл: {{ student.profile.get_cycle_display }}
@@ -14,7 +14,7 @@
     <h2>Сводка по курсу</h2>
     <ul>
       <li>
-        Средний результат (по оценкам):
+        Средний результат (по результатам):
         <strong>{{ summary.avg|default:"—" }}</strong>
       </li>
       <li>
@@ -36,9 +36,9 @@
 
   <!-- ===== Trend table ===== -->
   <div class="card">
-    <h2>Тренд (оценки)</h2>
+    <h2>Тренд (результат)</h2>
     {% if not trend %}
-      <p class="muted">Пока нет выставленных оценок.</p>
+      <p class="muted">Пока нет выставленных результатов.</p>
     {% else %}
       <div class="table-wrap">
         <table class="table">
@@ -74,7 +74,7 @@
           <tr>
             <th>Контроль</th>
             <th>Тип</th>
-            <th>Оценка</th>
+            <th>Результат</th>
             <th>Max</th>
             <th>Вес</th>
             <th>%</th>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Ввод оценок{% endblock %}
+{% block title %}Ввод результатов{% endblock %}
 {% block content %}
-  <h1>Ввод оценок</h1>
+  <h1>Ввод результатов</h1>
   <p class="muted">
     Курс: {{ course.name }} · {{ course.course_type.name }}
   </p>
@@ -53,7 +53,7 @@
                         type="text"
                         name="grade-{{ row.student.id }}-{{ cell.assessment.id }}"
                         value="{% if cell.grade and cell.grade.score != None %}{{ cell.grade.score }}{% endif %}"
-                        placeholder="оценка"
+                        placeholder="результат"
                       />
                       <textarea
                         class="input input-comment"

@@ -9,6 +9,7 @@ class Lesson(models.Model):
     date = models.DateField()
     topic = models.CharField(max_length=200)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="created_lessons")
+    attachment = models.FileField(upload_to="lessons/", blank=True, null=True)
 
     class Meta:
         ordering = ("-date", "-id")
