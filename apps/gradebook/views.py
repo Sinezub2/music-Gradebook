@@ -44,15 +44,15 @@ def teacher_course_grades(request, course_id: int):
                     score_val = None
                     if raw_score != "":
                         if not raw_score.isdigit():
-                            messages.error(request, f"Некорректная оценка: {student.username} / {a.title}")
+                            messages.error(request, f"Некорректный результат: {student.username} / {a.title}")
                             continue
                         try:
                             score_int = int(raw_score)
                         except ValueError:
-                            messages.error(request, f"Некорректная оценка: {student.username} / {a.title}")
+                            messages.error(request, f"Некорректный результат: {student.username} / {a.title}")
                             continue
                         if score_int < 0 or score_int > 100:
-                            messages.error(request, f"Оценка вне диапазона 0–100: {student.username} / {a.title}")
+                            messages.error(request, f"Результат вне диапазона 0–100: {student.username} / {a.title}")
                             continue
                         score_val = Decimal(score_int)
 
@@ -61,7 +61,7 @@ def teacher_course_grades(request, course_id: int):
                     obj.comment = raw_comment
                     obj.save()
 
-        messages.success(request, "Оценки сохранены.")
+        messages.success(request, "Результаты сохранены.")
         return redirect(f"/teacher/courses/{course.id}/grades/")
 
     table_rows = []

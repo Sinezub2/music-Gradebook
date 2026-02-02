@@ -13,7 +13,7 @@
 
   <div style="display:flex; gap:10px; flex-wrap:wrap; margin: 10px 0;">
     {% if mode != "staff" or role != "TEACHER" %}
-      <a class="btn" href="/courses/{{ course.id }}/grades/{% if mode == 'parent' %}?student={{ student.id }}{% endif %}">Оценки</a>
+      <a class="btn" href="/courses/{{ course.id }}/grades/{% if mode == 'parent' %}?student={{ student.id }}{% endif %}">Результаты</a>
     {% endif %}
     <a class="btn" href="/assignments/?course={{ course.id }}{% if mode == 'parent' %}&student={{ student.id }}{% endif %}">Задания</a>
     <a class="btn" href="/lessons/?course={{ course.id }}{% if mode == 'parent' %}&student={{ student.id }}{% endif %}">Уроки</a>
@@ -23,6 +23,6 @@
   {% if mode == "parent" %}
     <p class="muted">Ученик: {{ student.username }} · Цикл: {{ student.profile.get_cycle_display }}</p>
   {% elif mode == "staff" %}
-    <p class="muted">Для преподавателя/админа ввод оценок находится в разделе «Ввод оценок».</p>
+    <p class="muted">Для преподавателя/админа ввод результатов находится в разделе «Ввод результатов».</p>
   {% endif %}
 {% endblock %}

@@ -137,5 +137,5 @@ class Command(BaseCommand):
                     ms = 100.0
                 score = round(ms * (0.7 + 0.05 * (idx % 4)), 2)  # 0.70..0.85
                 g.score = str(score)
-                g.comment = "Демо-оценка"
+                g.comment = "Демо-результат"
                 g.save()

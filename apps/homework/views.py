@@ -113,12 +113,13 @@ def assignment_create(request):
             selected_course = None
 
     if request.method == "POST":
-        form = AssignmentCreateForm(request.POST, teacher_user=request.user, course_for_students=selected_course)
+        form = AssignmentCreateForm(request.POST, request.FILES, teacher_user=request.user, course_for_students=selected_course)
         if form.is_valid():
             course = form.cleaned_data["course"]
             title = form.cleaned_data["title"]
             description = form.cleaned_data.get("description", "")
             due_date = form.cleaned_data["due_date"]
+            attachment = form.cleaned_data.get("attachment")
             student_ids = [int(x) for x in form.cleaned_data.get("students", [])]
 
             # Create everything per spec
@@ -128,6 +129,7 @@ def assignment_create(request):
                 title=title,
                 description=description,
                 due_date=due_date,
+                attachment=attachment,
                 student_ids=student_ids,
             )
 
@@ -164,5 +166,5 @@ def mark_done(request, target_id: int):
     target.status = AssignmentTarget.Status.DONE
     target.save()
 
-    messages.success(request, "Отмечено как DONE (оценка выставляется преподавателем отдельно).")
+    messages.success(request, "Отмечено как DONE (результат выставляется преподавателем отдельно).")
     return redirect("/assignments/")
