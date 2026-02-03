@@ -1,0 +1,57 @@
+# Python
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+
+# Virtual environments
+
+venv/
+.venv/
+env/
+ENV/
+.env
+.env.*
+
+
+# Django – local
+
+# Database
+db.sqlite3
+*.sqlite3
+
+# Local settings
+settings_local.py
+local_settings.py
+
+# Media & collected static
+media/
+staticfiles/
+
+# Django cache / temp
+.cache/
+*.log
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+
+# OS / IDE
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+
+# Build / dist
+
+build/
+dist/
+*.egg-info/
