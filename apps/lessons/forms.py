@@ -19,9 +19,11 @@ class LessonCreateForm(forms.Form):
     report_text = forms.CharField(label="Отчёт", required=False, widget=forms.Textarea(attrs={"rows": 4}))
     media_url = forms.URLField(label="Ссылка на медиа", required=False)
 
-    def __init__(self, *args, teacher_user=None, **kwargs):
+    def __init__(self, *args, teacher_user=None, course_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if teacher_user is not None:
+        if course_queryset is not None:
+            self.fields["course"].queryset = course_queryset
+        elif teacher_user is not None:
             self.fields["course"].queryset = Course.objects.filter(teacher=teacher_user).order_by("name")
         else:
             self.fields["course"].queryset = Course.objects.all().order_by("name")

@@ -20,11 +20,13 @@ class AssignmentCreateForm(forms.Form):
         choices=[],
     )
 
-    def __init__(self, *args, teacher_user=None, course_for_students=None, **kwargs):
+    def __init__(self, *args, teacher_user=None, course_for_students=None, course_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Teacher sees only their courses (admin can be supported later; сейчас по ТЗ teacher-only create view)
-        if teacher_user is not None:
+        if course_queryset is not None:
+            self.fields["course"].queryset = course_queryset
+        elif teacher_user is not None:
             self.fields["course"].queryset = Course.objects.filter(teacher=teacher_user).order_by("name")
         else:
             self.fields["course"].queryset = Course.objects.all().order_by("name")

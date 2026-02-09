@@ -5,6 +5,13 @@
   <p class="muted">
     Курс: {{ course.name }} · {{ course.course_type.name }}
   </p>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
+    {% if not select_mode %}
+      <a class="btn" href="{{ clear_select_url }}">Очистить</a>
+    {% else %}
+      <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+    {% endif %}
+  </div>
 
   <form method="get" class="form-row" style="margin-bottom: 16px;">
     <label class="muted small" for="cycle">Цикл ученика</label>
@@ -21,6 +28,53 @@
     <p class="muted">Нет контрольных точек (assessments).</p>
   {% elif not table_rows %}
     <p class="muted">Нет учеников на курсе.</p>
+  {% elif select_mode %}
+    <form method="post" action="/teacher/courses/{{ course.id }}/grades/bulk-clear/" onsubmit="return confirm('Очистить выбранные результаты?')">
+      {% csrf_token %}
+      {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}"/>{% endif %}
+      <div style="margin-bottom: 10px;">
+        <button class="btn" type="submit">Очистить выбранное</button>
+        <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Ученик</th>
+              {% for a in assessments %}
+                <th>
+                  <label style="display:block;">
+                    <input type="checkbox" name="selected_ids" value="{{ a.id }}"/>
+                    <span class="th-title">{{ a.title }}</span>
+                  </label>
+                  <div class="muted small">{{ a.get_assessment_type_display }}</div>
+                  <div class="muted small">max {{ a.max_score }} · вес {{ a.weight }}</div>
+                </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in table_rows %}
+              <tr>
+                <td>
+                  <strong>{{ row.student.username }}</strong>
+                  <div class="muted small">Цикл: {{ row.student.profile.get_cycle_display }}</div>
+                </td>
+                {% for cell in row.cells %}
+                  <td>
+                    {% if cell.grade and cell.grade.score != None %}
+                      {{ cell.grade.score }}
+                    {% else %}
+                      <span class="muted">—</span>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </form>
   {% else %}
     <form method="post">
       {% csrf_token %}

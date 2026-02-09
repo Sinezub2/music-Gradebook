@@ -3,17 +3,27 @@
 {% block content %}
   <h1>Журнал посещаемости</h1>
 
+  {% if no_class_message %}
+    <div class="card">
+      <p class="muted">{{ no_class_message }}</p>
+    </div>
+  {% endif %}
+
   <div class="card">
     <form method="get" class="form">
-      <div class="form-row">
-        <label for="course">Курс</label>
-        <select id="course" name="course">
-          <option value="">Выберите курс</option>
-          {% for c in courses %}
-            <option value="{{ c.id }}"{% if course_id|add:"" == c.id|add:"" %} selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
+      {% if show_course_selector %}
+        <div class="form-row">
+          <label for="course">Курс</label>
+          <select id="course" name="course">
+            <option value="">Выберите курс</option>
+            {% for c in courses %}
+              <option value="{{ c.id }}"{% if course_id|add:"" == c.id|add:"" %} selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% elif selected_course %}
+        <p class="muted">Класс: {{ selected_course.name }}</p>
+      {% endif %}
       <div class="form-row">
         <label for="month">Месяц</label>
         <input id="month" type="month" name="month" value="{{ month_value }}">
@@ -23,7 +33,9 @@
   </div>
 
   <div class="card">
-    {% if not course_id %}
+    {% if no_class_message %}
+      <p class="muted">{{ no_class_message }}</p>
+    {% elif show_course_selector and not course_id %}
       <p class="muted">Выберите курс, чтобы увидеть журнал посещаемости.</p>
     {% elif not students %}
       <p class="muted">Нет учеников для выбранного курса.</p>

@@ -1,61 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Годовой план{% endblock %}
 {% block content %}
-  <h1>Годовой план</h1>
-  <p class="muted">Цели на год, чтобы быстро подготовить печатную форму.</p>
-
   {% if can_edit %}
     <div style="margin-bottom: 16px;">
       <a class="btn" href="/goals/create/{% if selected_student_id %}?student={{ selected_student_id }}{% endif %}">Создать годовую цель</a>
+      {% if can_bulk_delete and not select_mode %}
+        <a class="btn" href="{{ select_url }}">Удалить</a>
+      {% endif %}
+      {% if can_bulk_delete and select_mode %}
+        <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+      {% endif %}
     </div>
   {% endif %}
 
-  {% if students|length > 1 %}
-    <form method="get" class="form-row" style="margin-bottom: 16px;">
-      <label class="muted small" for="student">Ученик</label>
-      <select id="student" name="student" class="input" onchange="this.form.submit()">
-        <option value="">Все ученики</option>
-        {% for student in students %}
-          <option value="{{ student.id }}"{% if selected_student_id|add:"" == student.id|add:"" %} selected{% endif %}>
-            {{ student.username }} · {{ student.profile.get_cycle_display }}
-          </option>
-        {% endfor %}
-      </select>
-      <noscript><button class="btn" type="submit">Показать</button></noscript>
-    </form>
-  {% elif selected_student %}
-    <p class="muted">Ученик: {{ selected_student.username }} · Цикл: {{ selected_student.profile.get_cycle_display }}</p>
-  {% endif %}
-
-  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom: 12px;">
-    <h2 style="margin: 0;">Цели на год</h2>
-    <button class="btn" type="button" onclick="window.print()">Скачать таблицу</button>
-  </div>
-
   {% if goals %}
+    {% if select_mode %}
+      <form method="post" action="/goals/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
+        {% csrf_token %}
+        {% if selected_student_id %}
+          <input type="hidden" name="student" value="{{ selected_student_id }}"/>
+        {% endif %}
+        <div style="margin: 0 0 10px;">
+          <button class="btn" type="submit">Удалить выбранное</button>
+          <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+        </div>
+    {% endif %}
     <div class="table-wrap">
       <table class="table">
         <thead>
           <tr>
-            <th>Месяц</th>
-            <th>Цель</th>
+            {% if select_mode and can_bulk_delete %}
+              <th></th>
+            {% endif %}
+            <th>Годовая цель</th>
             <th>Комментарий</th>
             <th>Преподаватель</th>
           </tr>
         </thead>
         <tbody>
-          {% for goal in goals %}
+          {% for row in goals %}
             <tr>
-              <td>{{ goal.month|date:"F Y" }}</td>
-              <td><strong>{{ goal.title }}</strong></td>
-              <td>{% if goal.details %}{{ goal.details }}{% else %}<span class="muted">—</span>{% endif %}</td>
-              <td>{% if goal.teacher %}{{ goal.teacher.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              {% if select_mode and can_bulk_delete %}
+                <td>
+                  {% if row.can_delete %}
+                    <input type="checkbox" name="selected_ids" value="{{ row.goal.id }}"/>
+                  {% endif %}
+                </td>
+              {% endif %}
+              <td><strong>{{ row.goal.title }}</strong></td>
+              <td>{% if row.goal.details %}{{ row.goal.details }}{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td>{% if row.goal.teacher %}{{ row.goal.teacher.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% if select_mode %}
+      </form>
+    {% endif %}
   {% else %}
-    <p class="muted">Пока нет целей для выбранных учеников.</p>
+    <p class="muted">Пока нет годовых целей.</p>
   {% endif %}
 {% endblock %}

@@ -7,6 +7,12 @@
     <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
       <p class="muted" style="margin:0;">Ваши созданные задания и число назначений.</p>
       <a class="btn" href="/assignments/create/">Создать задание</a>
+      {% if can_bulk_delete and not select_mode %}
+        <a class="btn" href="{{ select_url }}">Удалить</a>
+      {% endif %}
+      {% if can_bulk_delete and select_mode %}
+        <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+      {% endif %}
     </div>
 
     <form method="get" class="form-row" style="margin: 12px 0;">
@@ -23,10 +29,22 @@
     {% if not rows %}
       <p class="muted">Вы ещё не создавали задания.</p>
     {% else %}
+      {% if select_mode %}
+        <form method="post" action="/assignments/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
+          {% csrf_token %}
+          {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}"/>{% endif %}
+          <div style="margin: 0 0 10px;">
+            <button class="btn" type="submit">Удалить выбранное</button>
+            <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+          </div>
+      {% endif %}
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
+              {% if select_mode and can_bulk_delete %}
+                <th></th>
+              {% endif %}
               <th>Дедлайн</th>
               <th>Курс</th>
               <th>Задание</th>
@@ -36,6 +54,13 @@
           <tbody>
             {% for r in rows %}
               <tr>
+                {% if select_mode and can_bulk_delete %}
+                  <td>
+                    {% if r.can_delete %}
+                      <input type="checkbox" name="selected_ids" value="{{ r.assignment.id }}"/>
+                    {% endif %}
+                  </td>
+                {% endif %}
                 <td>{{ r.assignment.due_date|date:"d.m.Y" }}</td>
                 <td class="muted small">{{ r.assignment.course.name }}</td>
                 <td>
@@ -53,6 +78,9 @@
           </tbody>
         </table>
       </div>
+      {% if select_mode %}
+        </form>
+      {% endif %}
       <p class="muted small">
         Результаты выставляются в “Прогресс” → курс → “Ввод результатов”. Домашние задания появляются там автоматически.
       </p>
@@ -159,7 +187,15 @@
     {% endif %}
 
   {% elif mode == "ADMIN" %}
-    <p class="muted">Все задания (админ-обзор).</p>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <p class="muted" style="margin:0;">Все задания (админ-обзор).</p>
+      {% if can_bulk_delete and not select_mode %}
+        <a class="btn" href="{{ select_url }}">Удалить</a>
+      {% endif %}
+      {% if can_bulk_delete and select_mode %}
+        <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+      {% endif %}
+    </div>
     <form method="get" class="form-row" style="margin: 12px 0;">
       <label class="muted small" for="cycle">Цикл учеников</label>
       <select id="cycle" name="cycle" class="input" onchange="this.form.submit()">
@@ -173,10 +209,22 @@
     {% if not assignments %}
       <p class="muted">Заданий пока нет.</p>
     {% else %}
+      {% if select_mode %}
+        <form method="post" action="/assignments/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
+          {% csrf_token %}
+          {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}"/>{% endif %}
+          <div style="margin: 0 0 10px;">
+            <button class="btn" type="submit">Удалить выбранное</button>
+            <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+          </div>
+      {% endif %}
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
+              {% if select_mode and can_bulk_delete %}
+                <th></th>
+              {% endif %}
               <th>Дедлайн</th>
               <th>Курс</th>
               <th>Задание</th>
@@ -184,22 +232,32 @@
             </tr>
           </thead>
           <tbody>
-            {% for a in assignments %}
+            {% for row in assignments %}
               <tr>
-                <td>{{ a.due_date|date:"d.m.Y" }}</td>
-                <td class="muted small">{{ a.course.name }}</td>
+                {% if select_mode and can_bulk_delete %}
+                  <td>
+                    {% if row.can_delete %}
+                      <input type="checkbox" name="selected_ids" value="{{ row.assignment.id }}"/>
+                    {% endif %}
+                  </td>
+                {% endif %}
+                <td>{{ row.assignment.due_date|date:"d.m.Y" }}</td>
+                <td class="muted small">{{ row.assignment.course.name }}</td>
                 <td>
-                  <div>{{ a.title }}</div>
-                  {% if a.attachment %}
-                    <div class="muted small"><a href="{{ a.attachment.url }}">Материалы</a></div>
+                  <div>{{ row.assignment.title }}</div>
+                  {% if row.assignment.attachment %}
+                    <div class="muted small"><a href="{{ row.assignment.attachment.url }}">Материалы</a></div>
                   {% endif %}
                 </td>
-                <td class="muted small">{{ a.created_by.username }}</td>
+                <td class="muted small">{{ row.assignment.created_by.username }}</td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      {% if select_mode %}
+        </form>
+      {% endif %}
     {% endif %}
 
   {% else %}

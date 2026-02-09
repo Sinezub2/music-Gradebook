@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Чат{% endblock %}
+{% block content %}
+
+  {# DEBUG: remove after you identify the source #}
+  <pre style="padding:8px; border:1px solid #ccc; overflow:auto;">
+DEBUG flash_messages_count={{ messages|length }}
+DEBUG flash_messages_list:
+{% for _msg in messages %}
+- tags="{{ _msg.tags }}" text="{{ _msg }}"
+{% empty %}
+- (no flash messages)
+{% endfor %}
+  </pre>
+  {# END DEBUG #}
+
+  <h1>Чат</h1>
+  <p class="muted">
+    Ученик: {{ thread.student.username }} · Родитель: {{ thread.parent.username }} · Преподаватель: {{ thread.teacher.username }}
+  </p>
+
+  <div class="card" style="max-height: 55vh; overflow:auto; padding: 12px;">
+    {% if not chat_messages %}
+      <p class="muted">Сообщений нет.</p>
+    {% else %}
+      {% for m in chat_messages %}
+        <div style="margin-bottom:10px;">
+          <div class="muted small">{{ m.sender.username }} · {{ m.created_at|date:"d.m.Y H:i" }}</div>
+          <div style="white-space: pre-wrap;">{{ m.text }}</div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <form method="post" class="form" style="margin-top:12px;">
+    {% csrf_token %}
+    {{ form.text }}
+    <button class="btn" type="submit">Отправить</button>
+  </form>
+{% endblock %}

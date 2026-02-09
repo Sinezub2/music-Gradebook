@@ -3,12 +3,16 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from urllib.parse import urlencode
 
 from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
+from apps.gradebook.models import Assessment
 from apps.school.models import Course, ParentChild
+from apps.school.utils import get_user_single_class
 from .forms import AssignmentCreateForm
 from .models import Assignment, AssignmentTarget
 from .services import create_assignment_with_targets_and_gradebook
@@ -28,10 +32,26 @@ def _effective_status(assignment: Assignment, target: AssignmentTarget | None) -
     return "TODO"
 
 
+def _can_delete_assignment(user, role: str, assignment: Assignment) -> bool:
+    if role == Profile.Role.ADMIN:
+        return True
+    if role != Profile.Role.TEACHER:
+        return False
+    return assignment.created_by_id == user.id or assignment.course.teacher_id == user.id
+
+
+def _build_assignments_url(cycle: str) -> str:
+    params = {}
+    if cycle:
+        params["cycle"] = cycle
+    return f"/assignments/?{urlencode(params)}" if params else "/assignments/"
+
+
 @login_required
 def assignment_list(request):
     profile = request.user.profile
     cycle = request.GET.get("cycle") or ""
+    select_mode = request.GET.get("select") == "1"
 
     if profile.role == Profile.Role.TEACHER:
         qs = Assignment.objects.filter(created_by=request.user).select_related("course")
@@ -44,11 +64,27 @@ def assignment_list(request):
             if cycle:
                 targets_qs = targets_qs.filter(student__profile__cycle=cycle)
             count_targets = targets_qs.count()
-            rows.append({"assignment": a, "count_targets": count_targets})
+            rows.append(
+                {
+                    "assignment": a,
+                    "count_targets": count_targets,
+                    "can_delete": _can_delete_assignment(request.user, profile.role, a),
+                }
+            )
+        base_url = _build_assignments_url(cycle)
         return render(
             request,
             "homework/assignment_list.html",
-            {"mode": "TEACHER", "rows": rows, "cycle": cycle, "cycle_options": Profile.Cycle.choices},
+            {
+                "mode": "TEACHER",
+                "rows": rows,
+                "cycle": cycle,
+                "cycle_options": Profile.Cycle.choices,
+                "select_mode": select_mode,
+                "can_bulk_delete": True,
+                "select_url": f"{base_url}{'&' if '?' in base_url else '?'}select=1",
+                "cancel_select_url": base_url,
+            },
         )
 
     if profile.role == Profile.Role.ADMIN:
@@ -56,10 +92,25 @@ def assignment_list(request):
         if cycle:
             qs = qs.filter(targets__student__profile__cycle=cycle).distinct()
         qs = qs.order_by("due_date", "id")
+        assignments = []
+        for assignment in qs:
+            assignments.append(
+                {"assignment": assignment, "can_delete": _can_delete_assignment(request.user, profile.role, assignment)}
+            )
+        base_url = _build_assignments_url(cycle)
         return render(
             request,
             "homework/assignment_list.html",
-            {"mode": "ADMIN", "assignments": qs, "cycle": cycle, "cycle_options": Profile.Cycle.choices},
+            {
+                "mode": "ADMIN",
+                "assignments": assignments,
+                "cycle": cycle,
+                "cycle_options": Profile.Cycle.choices,
+                "select_mode": select_mode,
+                "can_bulk_delete": True,
+                "select_url": f"{base_url}{'&' if '?' in base_url else '?'}select=1",
+                "cancel_select_url": base_url,
+            },
         )
 
     if profile.role == Profile.Role.STUDENT:
@@ -96,26 +147,77 @@ def assignment_list(request):
     return render(request, "homework/assignment_list.html", {"mode": "UNKNOWN"})
 
 
+@require_POST
+@role_required(Profile.Role.TEACHER, Profile.Role.ADMIN)
+def assignment_bulk_delete(request):
+    role = request.user.profile.role
+    selected_ids = []
+    for raw_id in request.POST.getlist("selected_ids"):
+        try:
+            selected_ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+
+    cycle = request.POST.get("cycle") or ""
+    redirect_url = _build_assignments_url(cycle)
+
+    if not selected_ids:
+        messages.info(request, "Ничего не выбрано для удаления.")
+        return redirect(redirect_url)
+
+    assignments = list(Assignment.objects.filter(id__in=selected_ids).select_related("course", "created_by"))
+    unauthorized = [a.id for a in assignments if not _can_delete_assignment(request.user, role, a)]
+    if unauthorized:
+        return HttpResponseForbidden("Нет доступа к удалению выбранных заданий.")
+
+    Assessment.objects.filter(source_assignment__in=assignments).delete()
+    deleted_count = 0
+    for assignment in assignments:
+        assignment.delete()
+        deleted_count += 1
+
+    messages.success(request, f"Удалено заданий: {deleted_count}.")
+    return redirect(redirect_url)
+
+
 @role_required(Profile.Role.TEACHER)
 def assignment_create(request):
     """
-    Без JS делаем так:
-    - GET: форма + (если выбран course) показываем чекбоксы студентов
+    Без JS:
+    - при одном классе у преподавателя курс подставляется автоматически
+    - при нескольких классах сохраняется fallback-выбор курса
     - POST: создаём Assignment + Assessment + Targets + Grades
     """
 
     selected_course = None
-    course_id = request.GET.get("course") or request.POST.get("course")
-    if course_id:
-        try:
-            selected_course = Course.objects.get(id=course_id, teacher=request.user)
-        except Course.DoesNotExist:
-            selected_course = None
+    fixed_course = None
+    class_resolution = get_user_single_class(request.user)
+    if class_resolution.status == "none":
+        messages.error(request, "Класс не назначен. Обратитесь к администратору.")
+        return redirect("/assignments/")
+    if class_resolution.status == "single":
+        fixed_course = class_resolution.course
+        selected_course = fixed_course
+    else:
+        course_id = request.GET.get("course") or request.POST.get("course")
+        if course_id:
+            try:
+                selected_course = Course.objects.get(id=course_id, teacher=request.user)
+            except Course.DoesNotExist:
+                selected_course = None
+
+    course_queryset = Course.objects.filter(id=fixed_course.id) if fixed_course else None
 
     if request.method == "POST":
-        form = AssignmentCreateForm(request.POST, request.FILES, teacher_user=request.user, course_for_students=selected_course)
+        form = AssignmentCreateForm(
+            request.POST,
+            request.FILES,
+            teacher_user=request.user,
+            course_for_students=selected_course,
+            course_queryset=course_queryset,
+        )
         if form.is_valid():
-            course = form.cleaned_data["course"]
+            course = fixed_course or form.cleaned_data["course"]
             title = form.cleaned_data["title"]
             description = form.cleaned_data.get("description", "")
             due_date = form.cleaned_data["due_date"]
@@ -136,7 +238,11 @@ def assignment_create(request):
             messages.success(request, "Задание создано и назначено выбранным ученикам.")
             return redirect("/assignments/")
     else:
-        form = AssignmentCreateForm(teacher_user=request.user, course_for_students=selected_course)
+        form = AssignmentCreateForm(
+            teacher_user=request.user,
+            course_for_students=selected_course,
+            course_queryset=course_queryset,
+        )
         # If course selected via GET, prefill it in the form
         if selected_course:
             form.initial["course"] = selected_course
@@ -147,6 +253,7 @@ def assignment_create(request):
         {
             "form": form,
             "selected_course": selected_course,
+            "fixed_course": fixed_course,
         },
     )
 

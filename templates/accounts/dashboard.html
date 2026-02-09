@@ -11,50 +11,22 @@
   {% elif role == "STUDENT" %}
     <p>Роль: Ученик</p>
     <p class="muted">Цикл: {{ user.profile.get_cycle_display }}</p>
-    <h2>Мои курсы</h2>
+    <h2>Мой класс</h2>
     {% if courses %}
-      <ul class="list">
-        {% for c in courses %}
-          <li>
-            <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
-            <span class="tag">{{ c.course_type.name }}</span>
-            <a class="muted" href="/courses/{{ c.id }}/grades/">Результаты</a>
-          </li>
-        {% endfor %}
-      </ul>
+      <p><a class="btn" href="/courses/">Открыть класс</a></p>
     {% else %}
-      <p class="muted">Нет курсов.</p>
+      <p class="muted">Класс не назначен. Обратитесь к администратору.</p>
     {% endif %}
   {% elif role == "PARENT" %}
     <p>Роль: Родитель</p>
-    <h2>Дети</h2>
-    {% if children_links %}
-      <ul class="list">
-        {% for link in children_links %}
-          <li>
-            <span>{{ link.child.username }}</span>
-            <a class="muted" href="/courses/?student={{ link.child.id }}">Курсы</a>
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p class="muted">Нет привязанных детей (demo: parent1 → student1).</p>
-    {% endif %}
+    <p><a class="btn" href="/courses/">Открыть класс</a></p>
   {% elif role == "TEACHER" %}
     <p>Роль: Преподаватель</p>
-    <h2>Мои курсы</h2>
+    <h2>Мой класс</h2>
     {% if courses %}
-      <ul class="list">
-        {% for c in courses %}
-          <li>
-            <a href="/courses/{{ c.id }}/">{{ c.name }}</a>
-            <span class="tag">{{ c.course_type.name }}</span>
-            <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод результатов</a>
-          </li>
-        {% endfor %}
-      </ul>
+      <p><a class="btn" href="/courses/">Открыть класс</a></p>
     {% else %}
-      <p class="muted">Нет назначенных курсов.</p>
+      <p class="muted">Класс не назначен. Обратитесь к администратору.</p>
     {% endif %}
   {% else %}
     <p class="muted">Неизвестная роль.</p>

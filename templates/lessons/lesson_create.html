@@ -6,7 +6,15 @@
   <form method="post" class="form" enctype="multipart/form-data">
     {% csrf_token %}
 
-    <div class="form-row"><label>Курс</label>{{ form.course }}</div>
+    {% if fixed_course %}
+      <div class="form-row">
+        <label>Класс</label>
+        <div>{{ fixed_course.name }}</div>
+        <input type="hidden" name="course" value="{{ fixed_course.id }}"/>
+      </div>
+    {% else %}
+      <div class="form-row"><label>Курс</label>{{ form.course }}</div>
+    {% endif %}
     <div class="form-row"><label>Дата</label>{{ form.date }}</div>
     <div class="form-row"><label>Тема</label>{{ form.topic }}</div>
     <div class="form-row"><label>Результат (для всех учеников)</label>{{ form.result }}</div>

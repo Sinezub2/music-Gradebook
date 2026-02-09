@@ -1,15 +1,27 @@
 # apps/school/views.py
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 
 from apps.accounts.models import Profile
 from .models import Course, Enrollment, ParentChild
+from .utils import get_user_single_class
 
 
 @login_required
 def course_list(request):
     profile = request.user.profile
+    single_class = get_user_single_class(request.user)
+
+    if profile.role != Profile.Role.ADMIN:
+        if single_class.status == "single":
+            return redirect(f"/courses/{single_class.course.id}/")
+        if single_class.status == "none":
+            return render(
+                request,
+                "school/course_list.html",
+                {"mode": "no_class", "no_class_message": "Класс не назначен. Обратитесь к администратору."},
+            )
 
     # Parent can view courses for a selected child via ?student=<id>
     student_id = request.GET.get("student")
@@ -71,10 +83,21 @@ def course_detail(request, course_id: int):
     # Parent: must be linked to the child and child must be enrolled. Child passed by ?student=<id>
     if profile.role == Profile.Role.PARENT:
         student_id = request.GET.get("student")
-        if not student_id:
-            return HttpResponseForbidden("Не выбран ученик.")
-        link = get_object_or_404(ParentChild, parent=request.user, child_id=student_id)
-        child = link.child
+        if student_id:
+            link = get_object_or_404(ParentChild, parent=request.user, child_id=student_id)
+            child = link.child
+        else:
+            child_ids = ParentChild.objects.filter(parent=request.user).values_list("child_id", flat=True)
+            enrolled_child_ids = list(
+                Enrollment.objects.filter(course=course, student_id__in=child_ids)
+                .values_list("student_id", flat=True)
+                .distinct()[:2]
+            )
+            if not enrolled_child_ids:
+                return HttpResponseForbidden("Ребёнок не записан на этот курс.")
+            if len(enrolled_child_ids) > 1:
+                return HttpResponseForbidden("Выберите ученика.")
+            child = get_object_or_404(ParentChild.objects.select_related("child"), parent=request.user, child_id=enrolled_child_ids[0]).child
         if not Enrollment.objects.filter(course=course, student=child).exists():
             return HttpResponseForbidden("Ребёнок не записан на этот курс.")
         return render(request, "school/course_detail.html", {"course": course, "mode": "parent", "student": child})

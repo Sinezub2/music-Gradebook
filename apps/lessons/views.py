@@ -3,12 +3,15 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.db.models import Count, Q
+from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404, redirect, render
 from datetime import date, datetime, timedelta
+from urllib.parse import urlencode
 
 from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.school.models import Course, Enrollment, ParentChild
+from apps.school.utils import get_user_single_class
 from .forms import LessonCreateForm
 from .models import Lesson, LessonReport, LessonStudent
 
@@ -22,11 +25,37 @@ def _student_ids_for_user(request):
     return []
 
 
+def _can_delete_lesson(user, role: str, lesson: Lesson) -> bool:
+    if role == Profile.Role.ADMIN:
+        return True
+    if role != Profile.Role.TEACHER:
+        return False
+    return lesson.created_by_id == user.id or lesson.course.teacher_id == user.id
+
+
+def _build_lessons_url(*, course_id, student_id):
+    params = {}
+    if course_id:
+        params["course"] = course_id
+    if student_id:
+        params["student"] = student_id
+    return f"/lessons/?{urlencode(params)}" if params else "/lessons/"
+
+
 @login_required
 def lesson_list(request):
     role = request.user.profile.role
     course_id = request.GET.get("course")
     student_id = request.GET.get("student")
+    no_class_message = ""
+    select_mode = request.GET.get("select") == "1"
+
+    if role != Profile.Role.ADMIN:
+        class_resolution = get_user_single_class(request.user)
+        if class_resolution.status == "none":
+            no_class_message = "Класс не назначен. Обратитесь к администратору."
+        elif class_resolution.status == "single":
+            course_id = str(class_resolution.course.id)
 
     if request.method == "POST" and role in (Profile.Role.TEACHER, Profile.Role.ADMIN):
         lesson_id = request.POST.get("lesson_id")
@@ -57,7 +86,9 @@ def lesson_list(request):
     students = []
     selected_student = None
     user_model = get_user_model()
-    if role == Profile.Role.ADMIN:
+    if no_class_message:
+        lessons_qs = Lesson.objects.none()
+    elif role == Profile.Role.ADMIN:
         lessons_qs = Lesson.objects.all().select_related("course", "created_by")
         student_ids = Enrollment.objects.values_list("student_id", flat=True).distinct()
         students = list(user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("username"))
@@ -110,6 +141,7 @@ def lesson_list(request):
                 or student_report_map.get(entry.lesson_id)
                 or general_report_map.get(entry.lesson_id)
                 or "",
+                "can_delete": _can_delete_lesson(request.user, role, entry.lesson),
             }
             for entry in entries_qs.order_by("-lesson__date", "-lesson_id")
         ]
@@ -119,9 +151,13 @@ def lesson_list(request):
                 "lesson": lesson,
                 "attendance": None,
                 "result": "",
+                "can_delete": _can_delete_lesson(request.user, role, lesson),
             }
             for lesson in lessons_qs.order_by("-date", "-id")
         ]
+
+    base_url = _build_lessons_url(course_id=course_id, student_id=student_id)
+    select_url = f"{base_url}{'&' if '?' in base_url else '?'}select=1"
 
     return render(
         request,
@@ -132,8 +168,46 @@ def lesson_list(request):
             "students": students,
             "student_id": str(student_id) if student_id else "",
             "selected_student": selected_student,
+            "no_class_message": no_class_message,
+            "can_bulk_delete": role in (Profile.Role.TEACHER, Profile.Role.ADMIN),
+            "select_mode": select_mode,
+            "select_url": select_url,
+            "cancel_select_url": base_url,
         },
     )
+
+
+@require_POST
+@role_required(Profile.Role.TEACHER, Profile.Role.ADMIN)
+def lesson_bulk_delete(request):
+    role = request.user.profile.role
+    selected_ids = []
+    for raw_id in request.POST.getlist("selected_ids"):
+        try:
+            selected_ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+
+    course_id = request.POST.get("course") or ""
+    student_id = request.POST.get("student") or ""
+    redirect_url = _build_lessons_url(course_id=course_id, student_id=student_id)
+
+    if not selected_ids:
+        messages.info(request, "Ничего не выбрано для удаления.")
+        return redirect(redirect_url)
+
+    lessons = list(Lesson.objects.filter(id__in=selected_ids).select_related("course", "created_by"))
+    unauthorized = [lesson.id for lesson in lessons if not _can_delete_lesson(request.user, role, lesson)]
+    if unauthorized:
+        return HttpResponseForbidden("Нет доступа к удалению выбранных уроков.")
+
+    deleted_count = 0
+    for lesson in lessons:
+        lesson.delete()
+        deleted_count += 1
+
+    messages.success(request, f"Удалено уроков: {deleted_count}.")
+    return redirect(redirect_url)
 
 
 @login_required
@@ -141,11 +215,9 @@ def attendance_journal(request):
     role = request.user.profile.role
     course_id = request.GET.get("course")
     course_id_int = None
-    if course_id:
-        try:
-            course_id_int = int(course_id)
-        except ValueError:
-            course_id_int = None
+    selected_course = None
+    show_course_selector = False
+    no_class_message = ""
     month_value = request.GET.get("month")
 
     today = date.today()
@@ -163,14 +235,31 @@ def attendance_journal(request):
 
     if role == Profile.Role.ADMIN:
         allowed_courses = Course.objects.all()
-    elif role == Profile.Role.TEACHER:
-        allowed_courses = Course.objects.filter(teacher=request.user)
+        show_course_selector = True
     else:
-        student_ids = _student_ids_for_user(request)
-        allowed_courses = Course.objects.filter(enrollments__student_id__in=student_ids).distinct()
+        class_resolution = get_user_single_class(request.user)
+        if class_resolution.status == "none":
+            no_class_message = "Класс не назначен. Обратитесь к администратору."
+        elif class_resolution.status == "single":
+            selected_course = class_resolution.course
+            course_id_int = selected_course.id
+            allowed_courses = Course.objects.filter(id=selected_course.id)
+        else:
+            show_course_selector = True
+            if role == Profile.Role.TEACHER:
+                allowed_courses = Course.objects.filter(teacher=request.user)
+            else:
+                student_ids = _student_ids_for_user(request)
+                allowed_courses = Course.objects.filter(enrollments__student_id__in=student_ids).distinct()
 
     allowed_courses = allowed_courses.order_by("name")
     allowed_course_ids = set(allowed_courses.values_list("id", flat=True))
+
+    if show_course_selector and course_id:
+        try:
+            course_id_int = int(course_id)
+        except ValueError:
+            course_id_int = None
 
     if course_id_int:
         if course_id_int not in allowed_course_ids:
@@ -238,16 +327,35 @@ def attendance_journal(request):
             "students": students,
             "totals": totals,
             "overall_total_label": _format_minutes(overall_lessons),
+            "show_course_selector": show_course_selector,
+            "selected_course": selected_course,
+            "no_class_message": no_class_message,
         },
     )
 
 
 @role_required(Profile.Role.TEACHER, Profile.Role.ADMIN)
 def lesson_create(request):
+    fixed_course = None
+    if request.user.profile.role == Profile.Role.TEACHER:
+        class_resolution = get_user_single_class(request.user)
+        if class_resolution.status == "none":
+            messages.error(request, "Класс не назначен. Обратитесь к администратору.")
+            return redirect("/lessons/")
+        if class_resolution.status == "single":
+            fixed_course = class_resolution.course
+
+    course_queryset = Course.objects.filter(id=fixed_course.id) if fixed_course else None
+
     if request.method == "POST":
-        form = LessonCreateForm(request.POST, request.FILES, teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None))
+        form = LessonCreateForm(
+            request.POST,
+            request.FILES,
+            teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None),
+            course_queryset=course_queryset,
+        )
         if form.is_valid():
-            course = form.cleaned_data["course"]
+            course = fixed_course or form.cleaned_data["course"]
             if request.user.profile.role == Profile.Role.TEACHER and course.teacher_id != request.user.id:
                 return HttpResponseForbidden("Нельзя создавать уроки для чужого курса.")
 
@@ -276,9 +384,14 @@ def lesson_create(request):
             messages.success(request, "Урок создан.")
             return redirect(f"/lessons/{lesson.id}/")
     else:
-        form = LessonCreateForm(teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None))
+        form = LessonCreateForm(
+            teacher_user=(request.user if request.user.profile.role == Profile.Role.TEACHER else None),
+            course_queryset=course_queryset,
+        )
+        if fixed_course:
+            form.initial["course"] = fixed_course
 
-    return render(request, "lessons/lesson_create.html", {"form": form})
+    return render(request, "lessons/lesson_create.html", {"form": form, "fixed_course": fixed_course})
 
 
 @login_required

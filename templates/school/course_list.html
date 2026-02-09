@@ -4,7 +4,9 @@
 {% block content %}
   <h1>Курсы</h1>
 
-  {% if mode == "parent_pick" %}
+  {% if mode == "no_class" %}
+    <p class="muted">{{ no_class_message }}</p>
+  {% elif mode == "parent_pick" %}
     <p>Выберите ребёнка:</p>
     {% if children_links %}
       <ul class="list">
@@ -42,10 +44,7 @@
           <li>
             <a href="/courses/{{ c.id }}/{% if mode == 'parent_child' %}?student={{ student.id }}{% endif %}">{{ c.name }}</a>
             <span class="tag">{{ c.course_type.name }}</span>
-
-            {% if mode == "teacher" %}
-              <a class="muted" href="/teacher/courses/{{ c.id }}/grades/">Ввод результатов</a>
-            {% elif mode == "student" %}
+            {% if mode == "student" %}
               <a class="muted" href="/courses/{{ c.id }}/grades/">Результаты</a>
             {% elif mode == "parent_child" %}
               <a class="muted" href="/courses/{{ c.id }}/grades/?student={{ student.id }}">Результаты</a>

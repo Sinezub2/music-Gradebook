@@ -8,23 +8,31 @@
       {% csrf_token %}
 
       <div class="form-row">
-        <label>{{ form.course.label }}</label>
-        {{ form.course }}
-        {% if form.course.errors %}<div class="error">{{ form.course.errors }}</div>{% endif %}
-        <div class="muted small">
-          Чтобы выбрать учеников, сначала выберите курс и обновите страницу.
-        </div>
-        <div class="muted small">
-          Быстрый способ: выберите курс → нажмите “Обновить список учеников”.
-        </div>
+        {% if fixed_course %}
+          <label>Класс</label>
+          <div>{{ fixed_course.name }}</div>
+          <input type="hidden" name="course" value="{{ fixed_course.id }}"/>
+        {% else %}
+          <label>{{ form.course.label }}</label>
+          {{ form.course }}
+          {% if form.course.errors %}<div class="error">{{ form.course.errors }}</div>{% endif %}
+          <div class="muted small">
+            Чтобы выбрать учеников, сначала выберите курс и обновите страницу.
+          </div>
+          <div class="muted small">
+            Быстрый способ: выберите курс → нажмите “Обновить список учеников”.
+          </div>
+        {% endif %}
       </div>
 
-      <div class="form-row">
-        <button class="btn" type="button"
-                onclick="window.location.href='/assignments/create/?course=' + document.getElementById('id_course').value;">
-          Обновить список учеников
-        </button>
-      </div>
+      {% if not fixed_course %}
+        <div class="form-row">
+          <button class="btn" type="button"
+                  onclick="window.location.href='/assignments/create/?course=' + document.getElementById('id_course').value;">
+            Обновить список учеников
+          </button>
+        </div>
+      {% endif %}
 
       <hr style="border:0; border-top:1px solid var(--border); margin: 8px 0 12px;"/>
 
@@ -57,7 +65,11 @@
         {% if form.students.field.choices %}
           {{ form.students }}
         {% else %}
-          <div class="muted">Сначала выберите курс, чтобы увидеть учеников.</div>
+          {% if fixed_course %}
+            <div class="muted">В классе пока нет учеников.</div>
+          {% else %}
+            <div class="muted">Сначала выберите курс, чтобы увидеть учеников.</div>
+          {% endif %}
         {% endif %}
         {% if form.students.errors %}<div class="error">{{ form.students.errors }}</div>{% endif %}
       </div>
