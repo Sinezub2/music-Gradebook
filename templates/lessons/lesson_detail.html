@@ -9,7 +9,7 @@
     {% for block in play_blocks %}
       <div class="card" style="margin-bottom:10px;">
         <div class="muted small" style="margin-bottom: 8px;">
-          {% if block.student %}Ученик: {{ block.student.username }}{% else %}Ученик не указан{% endif %}
+          {% if block.student %}Ученик: {{ block.student.get_full_name|default:"Без имени" }}{% else %}Ученик не указан{% endif %}
         </div>
         {% for play in block.plays %}
           <div style="margin-bottom: 8px;">
@@ -35,7 +35,7 @@
       {% if r.media_url %}
         <div class="card" style="margin-bottom:10px;">
           <div class="muted small">
-            {% if r.student %}Для: {{ r.student.username }}{% else %}Общее медиа{% endif %}
+            {% if r.student %}Для: {{ r.student.get_full_name|default:"Без имени" }}{% else %}Общее медиа{% endif %}
             · {{ r.created_at|date:"d.m.Y H:i" }}
           </div>
           <div class="muted small">Ссылка: <a href="{{ r.media_url }}" target="_blank" rel="noopener noreferrer">{{ r.media_url }}</a></div>

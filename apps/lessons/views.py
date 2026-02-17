@@ -188,13 +188,17 @@ def lesson_list(request):
     elif role == Profile.Role.ADMIN:
         lessons_qs = Lesson.objects.all().select_related("course", "created_by")
         student_ids = Enrollment.objects.values_list("student_id", flat=True).distinct()
-        students = list(user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("username"))
+        students = list(
+            user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("first_name", "last_name", "username")
+        )
     elif role == Profile.Role.TEACHER:
         lessons_qs = Lesson.objects.filter(course__teacher=request.user).select_related("course", "created_by")
         student_ids = (
             Enrollment.objects.filter(course__teacher=request.user).values_list("student_id", flat=True).distinct()
         )
-        students = list(user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("username"))
+        students = list(
+            user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("first_name", "last_name", "username")
+        )
     else:
         student_ids = _student_ids_for_user(request)
         if role == Profile.Role.PARENT and student_id:
@@ -207,7 +211,9 @@ def lesson_list(request):
         lessons_qs = Lesson.objects.filter(course_id__in=course_ids).select_related("course", "created_by")
         if student_ids:
             students = list(
-                user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("username")
+                user_model.objects.filter(id__in=student_ids)
+                .select_related("profile")
+                .order_by("first_name", "last_name", "username")
             )
 
     if course_id:
@@ -384,7 +390,9 @@ def attendance_journal(request):
         else:
             allowed_student_ids = _student_ids_for_user(request)
             student_ids = Enrollment.objects.filter(course_id=course_id_int, student_id__in=allowed_student_ids).values_list("student_id", flat=True).distinct()
-        students = list(user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("username"))
+        students = list(
+            user_model.objects.filter(id__in=student_ids).select_related("profile").order_by("first_name", "last_name", "username")
+        )
 
     lessons_qs = lessons_qs.filter(date__gte=month_start, date__lt=month_end).select_related("course")
     lesson_dates = list(lessons_qs.order_by("date").values_list("date", flat=True).distinct())
@@ -621,7 +629,7 @@ def lesson_detail(request, lesson_id: int):
     student_entries = (
         LessonStudent.objects.filter(lesson=lesson)
         .select_related("student")
-        .order_by("student__username", "id")
+        .order_by("student__first_name", "student__last_name", "student__username", "id")
     )
     play_blocks = []
     for entry in student_entries:

@@ -12,7 +12,7 @@
       <ul class="list">
         {% for link in children_links %}
           <li>
-            <span>{{ link.child.username }}</span>
+            <span>{{ link.child.get_full_name|default:"Без имени" }}</span>
             <a class="muted" href="/courses/?student={{ link.child.id }}">Открыть курсы</a>
           </li>
         {% endfor %}
@@ -22,7 +22,7 @@
     {% endif %}
   {% else %}
     {% if student %}
-      <p class="muted">Ученик: {{ student.username }} · Цикл: {{ student.profile.get_cycle_display }}</p>
+      <p class="muted">Ученик: {{ student.get_full_name|default:"Без имени" }} · Цикл: {{ student.profile.get_cycle_display }}</p>
     {% endif %}
 
     {% if mode == "teacher" or mode == "admin" %}

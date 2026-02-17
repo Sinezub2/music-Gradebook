@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Приглашение ученика{% endblock %}
+{% block content %}
+  <h1>Добавить ученика</h1>
+  <p class="muted">Класс: {{ course.name }}</p>
+
+  <div class="card" style="max-width: 520px;">
+    <form method="post" class="form">
+      {% csrf_token %}
+      <div class="form-row">
+        <label>{{ form.first_name.label }}</label>
+        {{ form.first_name }}
+        {% if form.first_name.errors %}<div class="error">{{ form.first_name.errors }}</div>{% endif %}
+      </div>
+      <div class="form-row">
+        <label>{{ form.last_name.label }}</label>
+        {{ form.last_name }}
+        {% if form.last_name.errors %}<div class="error">{{ form.last_name.errors }}</div>{% endif %}
+      </div>
+      <div class="form-row">
+        <label>{{ form.school_grade.label }}</label>
+        {{ form.school_grade }}
+        {% if form.school_grade.errors %}<div class="error">{{ form.school_grade.errors }}</div>{% endif %}
+      </div>
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+      <button class="btn" type="submit">Создать ссылку</button>
+    </form>
+  </div>
+
+  {% if registration_url %}
+    <div class="card" style="margin-top: 16px;">
+      <h2>Ссылка для регистрации</h2>
+      <p class="muted">
+        {{ created_invitation.first_name }} {{ created_invitation.last_name }}
+        {% if created_invitation.school_grade %}· Класс: {{ created_invitation.school_grade }}{% endif %}
+      </p>
+      <p><code>{{ registration_url }}</code></p>
+      <p class="muted small">Ссылка одноразовая и действует до {{ created_invitation.expires_at|date:"d.m.Y H:i" }}.</p>
+    </div>
+  {% endif %}
+{% endblock %}

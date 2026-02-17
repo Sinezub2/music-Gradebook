@@ -112,7 +112,7 @@ def goal_list(request):
         else:
             selected_student_id = ""
 
-    goals = goals.order_by("-month", "student__username", "created_at")
+    goals = goals.order_by("-month", "student__first_name", "student__last_name", "student__username", "created_at")
     base_url = _build_goals_url(selected_student_id)
     grouped_goals = []
     groups = {}

@@ -33,7 +33,7 @@ def my_portfolio(request):
         child_id = (
             ParentChild.objects.filter(parent=request.user)
             .select_related("child")
-            .order_by("child__username")
+            .order_by("child__first_name", "child__last_name", "child__username")
             .values_list("child_id", flat=True)
             .first()
         )

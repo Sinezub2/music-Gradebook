@@ -46,7 +46,11 @@ def course_list(request):
 
     if profile.role == Profile.Role.PARENT:
         if not student_id:
-            children = ParentChild.objects.filter(parent=request.user).select_related("child").order_by("child__username")
+            children = (
+                ParentChild.objects.filter(parent=request.user)
+                .select_related("child")
+                .order_by("child__first_name", "child__last_name", "child__username")
+            )
             return render(request, "school/course_list.html", {"children_links": children, "mode": "parent_pick"})
         link = get_object_or_404(ParentChild, parent=request.user, child_id=student_id)
         child = link.child

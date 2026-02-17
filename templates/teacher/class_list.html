@@ -2,6 +2,7 @@
 {% block title %}Класс{% endblock %}
 {% block content %}
   <h1>Класс</h1>
+  <p><a class="btn" href="/teacher/students/invite/">Добавить ученика</a></p>
 
   <form method="get" class="form-row" style="margin: 12px 0;">
     <label class="muted small" for="cycle">Цикл учеников</label>
@@ -19,7 +20,7 @@
       {% for student in students %}
         <li>
           <div>
-            <div>{{ student.username }}</div>
+            <div>{{ student.get_full_name|default:"Без имени" }}</div>
             <div class="muted small">Цикл: {{ student.profile.get_cycle_display }}</div>
           </div>
           <a class="btn" href="/teacher/students/{{ student.id }}/">Открыть</a>

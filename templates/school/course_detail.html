@@ -7,7 +7,7 @@
   <p>
     <span class="tag">{{ course.course_type.name }}</span>
     {% if course.teacher %}
-      <span class="muted">Преподаватель: {{ course.teacher.username }}</span>
+      <span class="muted">Преподаватель: {{ course.teacher.get_full_name|default:"Без имени" }}</span>
     {% endif %}
   </p>
 
@@ -25,6 +25,6 @@
   </div>
 
   {% if mode == "parent" %}
-    <p class="muted">Ученик: {{ student.username }} · Цикл: {{ student.profile.get_cycle_display }}</p>
+    <p class="muted">Ученик: {{ student.get_full_name|default:"Без имени" }} · Цикл: {{ student.profile.get_cycle_display }}</p>
   {% endif %}
 {% endblock %}

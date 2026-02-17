@@ -43,4 +43,5 @@ class Grade(models.Model):
         unique_together = ("assessment", "student")
 
     def __str__(self) -> str:
-        return f"{self.student.username} - {self.assessment.title}: {self.score}"
+        student_name = (self.student.get_full_name() or "").strip() or "Без имени"
+        return f"{student_name} - {self.assessment.title}: {self.score}"

@@ -51,7 +51,7 @@ def get_teacher_students(user, *, cycle: str = ""):
         )
         .select_related("profile")
         .distinct()
-        .order_by("username")
+        .order_by("first_name", "last_name", "username")
     )
     if cycle:
         students = students.filter(profile__cycle=cycle)

@@ -36,7 +36,8 @@ class Enrollment(models.Model):
         unique_together = ("course", "student")
 
     def __str__(self) -> str:
-        return f"{self.student.username} -> {self.course.name}"
+        student_name = (self.student.get_full_name() or "").strip() or "Без имени"
+        return f"{student_name} -> {self.course.name}"
 
 
 class ParentChild(models.Model):
@@ -47,4 +48,6 @@ class ParentChild(models.Model):
         unique_together = ("parent", "child")
 
     def __str__(self) -> str:
-        return f"{self.parent.username} -> {self.child.username}"
+        parent_name = (self.parent.get_full_name() or "").strip() or "Без имени"
+        child_name = (self.child.get_full_name() or "").strip() or "Без имени"
+        return f"{parent_name} -> {child_name}"

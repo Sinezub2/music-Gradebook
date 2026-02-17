@@ -49,4 +49,5 @@ class AssignmentTarget(models.Model):
         unique_together = ("assignment", "student")
 
     def __str__(self) -> str:
-        return f"{self.student.username} - {self.assignment.title}: {self.status}"
+        student_name = (self.student.get_full_name() or "").strip() or "Без имени"
+        return f"{student_name} - {self.assignment.title}: {self.status}"

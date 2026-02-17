@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+  <h1>Профиль</h1>
+  <p class="muted">{{ display_name }} · Роль: {{ user.profile.get_role_display }}</p>
+
+  <div class="card" style="max-width: 520px; margin-bottom: 16px;">
+    <h2>Изменить логин</h2>
+    <form method="post" action="/profile/change-username/" class="form">
+      {% csrf_token %}
+      <div class="form-row">
+        <label>{{ username_form.username.label }}</label>
+        {{ username_form.username }}
+        {% if username_form.username.errors %}<div class="error">{{ username_form.username.errors }}</div>{% endif %}
+      </div>
+      {% if username_form.non_field_errors %}<div class="error">{{ username_form.non_field_errors }}</div>{% endif %}
+      <button class="btn" type="submit">Сохранить логин</button>
+    </form>
+  </div>
+
+  <div class="card" style="max-width: 520px;">
+    <h2>Изменить пароль</h2>
+    <form method="post" action="/profile/change-password/" class="form">
+      {% csrf_token %}
+      <div class="form-row">
+        <label>{{ password_form.old_password.label }}</label>
+        {{ password_form.old_password }}
+        {% if password_form.old_password.errors %}<div class="error">{{ password_form.old_password.errors }}</div>{% endif %}
+      </div>
+      <div class="form-row">
+        <label>{{ password_form.new_password1.label }}</label>
+        {{ password_form.new_password1 }}
+        {% if password_form.new_password1.errors %}<div class="error">{{ password_form.new_password1.errors }}</div>{% endif %}
+      </div>
+      <div class="form-row">
+        <label>{{ password_form.new_password2.label }}</label>
+        {{ password_form.new_password2 }}
+        {% if password_form.new_password2.errors %}<div class="error">{{ password_form.new_password2.errors }}</div>{% endif %}
+      </div>
+      {% if password_form.non_field_errors %}<div class="error">{{ password_form.non_field_errors }}</div>{% endif %}
+      <button class="btn" type="submit">Сохранить пароль</button>
+    </form>
+  </div>
+{% endblock %}

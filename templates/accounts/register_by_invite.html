@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Регистрация ученика{% endblock %}
+{% block content %}
+  <h1>Регистрация ученика</h1>
+
+  {% if invite_invalid %}
+    <div class="card">
+      <p>Ссылка недействительна, уже использована или истекла.</p>
+      <p><a class="btn" href="/login">Перейти к входу</a></p>
+    </div>
+  {% else %}
+    <div class="card" style="margin-bottom: 16px;">
+      <p><strong>Имя:</strong> {{ invitation.first_name }}</p>
+      <p><strong>Фамилия:</strong> {{ invitation.last_name }}</p>
+      <p><strong>Класс:</strong> {% if invitation.school_grade %}{{ invitation.school_grade }}{% else %}<span class="muted">—</span>{% endif %}</p>
+      <p><strong>Курс:</strong> {{ invitation.course.name }}</p>
+    </div>
+
+    <div class="card" style="max-width: 520px;">
+      <form method="post" class="form">
+        {% csrf_token %}
+        <div class="form-row">
+          <label>{{ form.username.label }}</label>
+          {{ form.username }}
+          {% if form.username.errors %}<div class="error">{{ form.username.errors }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+          <label>{{ form.password1.label }}</label>
+          {{ form.password1 }}
+          {% if form.password1.errors %}<div class="error">{{ form.password1.errors }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+          <label>{{ form.password2.label }}</label>
+          {{ form.password2 }}
+          {% if form.password2.errors %}<div class="error">{{ form.password2.errors }}</div>{% endif %}
+        </div>
+        {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+        <button class="btn" type="submit">Завершить регистрацию</button>
+      </form>
+    </div>
+  {% endif %}
+{% endblock %}

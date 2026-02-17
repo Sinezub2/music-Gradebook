@@ -48,7 +48,7 @@
             <tr>
               <th>Дата</th>
               {% for student in students %}
-                <th>{{ student.get_full_name|default:student.username }}</th>
+                <th>{{ student.get_full_name|default:"Без имени" }}</th>
               {% endfor %}
             </tr>
           </thead>

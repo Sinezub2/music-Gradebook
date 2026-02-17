@@ -47,7 +47,7 @@
                         {% endif %}
                       </td>
                       <td><strong>{{ row.goal.title }}</strong></td>
-                      <td>{% if row.goal.teacher %}{{ row.goal.teacher.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                      <td>{% if row.goal.teacher %}{{ row.goal.teacher.get_full_name|default:"Без имени" }}{% else %}<span class="muted">—</span>{% endif %}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -75,7 +75,7 @@
               {% for row in group.rows %}
                 <tr>
                   <td><strong>{{ row.goal.title }}</strong></td>
-                  <td>{% if row.goal.teacher %}{{ row.goal.teacher.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                  <td>{% if row.goal.teacher %}{{ row.goal.teacher.get_full_name|default:"Без имени" }}{% else %}<span class="muted">—</span>{% endif %}</td>
                 </tr>
               {% endfor %}
             </tbody>

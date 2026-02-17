@@ -1,6 +1,7 @@
 from django import forms
 from django.utils import timezone
 
+from apps.accounts.utils import get_user_display_name
 from apps.school.models import Course
 
 
@@ -33,8 +34,14 @@ class AssignmentCreateForm(forms.Form):
 
         if course_for_students is not None:
             # course_for_students: Course instance
-            enrollments = course_for_students.enrollments.select_related("student").order_by("student__username")
-            self.fields["students"].choices = [(str(e.student_id), e.student.username) for e in enrollments]
+            enrollments = (
+                course_for_students.enrollments.select_related("student")
+                .order_by("student__first_name", "student__last_name", "student__username")
+            )
+            self.fields["students"].choices = [
+                (str(e.student_id), get_user_display_name(e.student))
+                for e in enrollments
+            ]
         else:
             self.fields["students"].choices = []
 

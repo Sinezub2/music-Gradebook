@@ -24,4 +24,5 @@ class Goal(models.Model):
         ordering = ["month", "student__username"]
 
     def __str__(self) -> str:
-        return f"{self.student.username}: {self.title}"
+        student_name = (self.student.get_full_name() or "").strip() or "Без имени"
+        return f"{student_name}: {self.title}"

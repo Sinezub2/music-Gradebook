@@ -2,7 +2,7 @@
 {% block title %}Новый урок{% endblock %}
 {% block content %}
   <h1>Новый урок</h1>
-  <p class="muted">Ученик: {{ student.username }} · Курс: {{ course.name }}</p>
+  <p class="muted">Ученик: {{ student.get_full_name|default:"Без имени" }} · Курс: {{ course.name }}</p>
 
   <div class="card">
     <form method="post" class="form" enctype="multipart/form-data">

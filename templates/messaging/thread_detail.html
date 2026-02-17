@@ -16,7 +16,7 @@ DEBUG flash_messages_list:
 
   <h1>Чат</h1>
   <p class="muted">
-    Ученик: {{ thread.student.username }} · Родитель: {{ thread.parent.username }} · Преподаватель: {{ thread.teacher.username }}
+    Ученик: {{ thread.student.get_full_name|default:"Без имени" }} · Родитель: {{ thread.parent.get_full_name|default:"Без имени" }} · Преподаватель: {{ thread.teacher.get_full_name|default:"Без имени" }}
   </p>
 
   <div class="card" style="max-height: 55vh; overflow:auto; padding: 12px;">
@@ -25,7 +25,7 @@ DEBUG flash_messages_list:
     {% else %}
       {% for m in chat_messages %}
         <div style="margin-bottom:10px;">
-          <div class="muted small">{{ m.sender.username }} · {{ m.created_at|date:"d.m.Y H:i" }}</div>
+          <div class="muted small">{{ m.sender.get_full_name|default:"Без имени" }} · {{ m.created_at|date:"d.m.Y H:i" }}</div>
           <div style="white-space: pre-wrap;">{{ m.text }}</div>
         </div>
       {% endfor %}

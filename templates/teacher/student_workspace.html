@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Ученик{% endblock %}
 {% block content %}
-  <h1>{{ student.username }}</h1>
+  <h1>{{ student.get_full_name|default:"Без имени" }}</h1>
 
   <div class="card" style="margin-bottom: 16px;">
     <p class="muted">Цикл: {{ student.profile.get_cycle_display }}</p>
@@ -111,7 +111,7 @@
           <div>
             <div>{{ goal.title }}</div>
             <div class="muted small">
-              {% if goal.teacher %}{{ goal.teacher.username }} · {% endif %}
+              {% if goal.teacher %}{{ goal.teacher.get_full_name|default:"Без имени" }} · {% endif %}
               {{ goal.created_at|date:"d.m.Y" }}
             </div>
           </div>

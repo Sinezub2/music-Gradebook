@@ -12,7 +12,8 @@ class Achievement(models.Model):
         ordering = ("-date", "-id")
 
     def __str__(self) -> str:
-        return f"{self.student.username}: {self.title}"
+        student_name = (self.student.get_full_name() or "").strip() or "Без имени"
+        return f"{student_name}: {self.title}"
 
 
 class MediaLink(models.Model):
@@ -31,4 +32,5 @@ class MediaLink(models.Model):
         ordering = ("-created_at", "-id")
 
     def __str__(self) -> str:
-        return f"{self.student.username}: {self.title}"
+        student_name = (self.student.get_full_name() or "").strip() or "Без имени"
+        return f"{student_name}: {self.title}"

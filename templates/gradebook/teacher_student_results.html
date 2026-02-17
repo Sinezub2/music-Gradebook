@@ -2,7 +2,7 @@
 {% block title %}Результаты{% endblock %}
 {% block content %}
   <h1>Результаты</h1>
-  <p class="muted">Ученик: {{ student.username }} · Курс: {{ course.name }}</p>
+  <p class="muted">Ученик: {{ student.get_full_name|default:"Без имени" }} · Курс: {{ course.name }}</p>
 
   {% if rows %}
     <form method="post">

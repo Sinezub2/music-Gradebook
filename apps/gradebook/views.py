@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
+from apps.accounts.utils import get_user_display_name
 from apps.school.models import Course, Enrollment, ParentChild
 from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
 from .models import Assessment, Grade
@@ -36,7 +37,7 @@ def teacher_course_grades(request, course_id: int):
     enrollments_qs = Enrollment.objects.filter(course=course).select_related("student", "student__profile")
     if cycle:
         enrollments_qs = enrollments_qs.filter(student__profile__cycle=cycle)
-    enrollments = list(enrollments_qs.order_by("student__username"))
+    enrollments = list(enrollments_qs.order_by("student__first_name", "student__last_name", "student__username"))
     students = [e.student for e in enrollments]
 
     grades = Grade.objects.filter(assessment__course=course, student__in=students).select_related("assessment", "student")
@@ -51,24 +52,26 @@ def teacher_course_grades(request, course_id: int):
                     raw_score = (request.POST.get(score_key) or "").strip()
                     raw_comment = (request.POST.get(comment_key) or "").strip()
                     if raw_comment and len(raw_comment) >= 50:
+                        student_name = get_user_display_name(student)
                         messages.error(
                             request,
-                            f"Комментарий слишком длинный (короче 50 символов): {student.username} / {a.title}",
+                            f"Комментарий слишком длинный (короче 50 символов): {student_name} / {a.title}",
                         )
                         continue
 
                     score_val = None
                     if raw_score != "":
+                        student_name = get_user_display_name(student)
                         if not raw_score.isdigit():
-                            messages.error(request, f"Некорректный результат: {student.username} / {a.title}")
+                            messages.error(request, f"Некорректный результат: {student_name} / {a.title}")
                             continue
                         try:
                             score_int = int(raw_score)
                         except ValueError:
-                            messages.error(request, f"Некорректный результат: {student.username} / {a.title}")
+                            messages.error(request, f"Некорректный результат: {student_name} / {a.title}")
                             continue
                         if score_int < 0 or score_int > 100:
-                            messages.error(request, f"Результат вне диапазона 0–100: {student.username} / {a.title}")
+                            messages.error(request, f"Результат вне диапазона 0–100: {student_name} / {a.title}")
                             continue
                         score_val = Decimal(score_int)
 

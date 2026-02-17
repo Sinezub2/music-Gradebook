@@ -2,7 +2,7 @@
 {% block title %}Цели на полугодие{% endblock %}
 {% block content %}
   <h1>Цели на полугодие</h1>
-  <p class="muted">Ученик: {{ student.username }}</p>
+  <p class="muted">Ученик: {{ student.get_full_name|default:"Без имени" }}</p>
 
   <div class="card">
     <form method="post" class="form" id="student-goal-create-form">

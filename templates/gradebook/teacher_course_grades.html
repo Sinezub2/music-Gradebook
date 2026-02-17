@@ -57,7 +57,7 @@
             {% for row in table_rows %}
               <tr>
                 <td>
-                  <strong>{{ row.student.username }}</strong>
+                  <strong>{{ row.student.get_full_name|default:"Без имени" }}</strong>
                   <div class="muted small">Цикл: {{ row.student.profile.get_cycle_display }}</div>
                 </td>
                 {% for cell in row.cells %}
@@ -96,7 +96,7 @@
             {% for row in table_rows %}
               <tr>
                 <td>
-                  <strong>{{ row.student.username }}</strong>
+                  <strong>{{ row.student.get_full_name|default:"Без имени" }}</strong>
                   <div class="muted small">Цикл: {{ row.student.profile.get_cycle_display }}</div>
                 </td>
                 {% for cell in row.cells %}

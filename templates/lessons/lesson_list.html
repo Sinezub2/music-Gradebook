@@ -33,7 +33,7 @@
         {% endif %}
         {% for s in students %}
           <option value="{{ s.id }}"{% if student_id == s.id|stringformat:"s" %} selected{% endif %}>
-            {{ s.username }} · {{ s.profile.get_cycle_display }}
+            {{ s.get_full_name|default:"Без имени" }} · {{ s.profile.get_cycle_display }}
           </option>
         {% endfor %}
       </select>
@@ -48,7 +48,7 @@
       <p class="muted small">Выберите ученика, чтобы увидеть посещаемость и результат.</p>
     {% elif selected_student %}
       <p class="muted small">
-        Ученик: {{ selected_student.username }} · Цикл: {{ selected_student.profile.get_cycle_display }}
+        Ученик: {{ selected_student.get_full_name|default:"Без имени" }} · Цикл: {{ selected_student.profile.get_cycle_display }}
       </p>
     {% endif %}
     <form id="lesson-bulk-delete-form" method="post" action="/lessons/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">

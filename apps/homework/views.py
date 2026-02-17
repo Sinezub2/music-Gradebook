@@ -127,7 +127,11 @@ def assignment_list(request):
         return render(request, "homework/assignment_list.html", {"mode": "STUDENT", "rows": rows, "student": request.user})
 
     if profile.role == Profile.Role.PARENT:
-        children = ParentChild.objects.filter(parent=request.user).select_related("child").order_by("child__username")
+        children = (
+            ParentChild.objects.filter(parent=request.user)
+            .select_related("child")
+            .order_by("child__first_name", "child__last_name", "child__username")
+        )
 
         child_blocks = []
         for link in children:
