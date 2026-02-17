@@ -1,68 +1,110 @@
 {% extends "base.html" %}
-{% block title %}Годовой план{% endblock %}
+{% block title %}План по полугодиям{% endblock %}
 {% block content %}
+  <h1>План по полугодиям</h1>
+
   {% if can_edit %}
-    <div style="margin-bottom: 16px;">
+    <div id="goals-delete-root" style="margin-bottom: 16px;">
       {% if user.profile.role == "TEACHER" %}
         <a class="btn" href="/teacher/class/">Выбрать ученика</a>
       {% else %}
-        <a class="btn" href="/goals/create/{% if selected_student_id %}?student={{ selected_student_id }}{% endif %}">Создать годовую цель</a>
+        {% if selected_student_id %}
+          <a class="btn" href="/goals/create/?student={{ selected_student_id }}">Добавить цель</a>
+        {% else %}
+          <span class="muted small">Сначала выберите ученика.</span>
+        {% endif %}
       {% endif %}
-      {% if can_bulk_delete and not select_mode %}
-        <a class="btn" href="{{ select_url }}">Удалить</a>
+      {% if can_bulk_delete %}
+        <button class="btn" type="button" data-delete-toggle>Режим удаления</button>
       {% endif %}
-      {% if can_bulk_delete and select_mode %}
-        <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+
+      {% if goal_groups %}
+        {% for group in goal_groups %}
+          <h2>{{ group.label }}</h2>
+          <form method="post" action="/goals/bulk-delete/" class="delete-bulk-form" onsubmit="return confirm('Удалить выбранные элементы?')">
+            {% csrf_token %}
+            {% if selected_student_id %}
+              <input type="hidden" name="student" value="{{ selected_student_id }}"/>
+            {% endif %}
+            <div class="delete-mode-only" style="margin: 0 0 10px; display: none;">
+              <button class="btn" type="submit">Удалить выбранное</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th class="delete-mode-only" style="display: none;"></th>
+                    <th>Цель</th>
+                    <th>Преподаватель</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in group.rows %}
+                    <tr>
+                      <td class="delete-mode-only" style="display: none;">
+                        {% if row.can_delete %}
+                          <input type="checkbox" name="selected_ids" value="{{ row.goal.id }}"/>
+                        {% endif %}
+                      </td>
+                      <td><strong>{{ row.goal.title }}</strong></td>
+                      <td>{% if row.goal.teacher %}{{ row.goal.teacher.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </form>
+        {% endfor %}
+      {% else %}
+        <p class="muted">Пока нет целей.</p>
       {% endif %}
     </div>
+  {% else %}
+    {% if goal_groups %}
+      {% for group in goal_groups %}
+        <h2>{{ group.label }}</h2>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Цель</th>
+                <th>Преподаватель</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in group.rows %}
+                <tr>
+                  <td><strong>{{ row.goal.title }}</strong></td>
+                  <td>{% if row.goal.teacher %}{{ row.goal.teacher.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">Пока нет целей.</p>
+    {% endif %}
   {% endif %}
 
-  {% if goals %}
-    {% if select_mode %}
-      <form method="post" action="/goals/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
-        {% csrf_token %}
-        {% if selected_student_id %}
-          <input type="hidden" name="student" value="{{ selected_student_id }}"/>
-        {% endif %}
-        <div style="margin: 0 0 10px;">
-          <button class="btn" type="submit">Удалить выбранное</button>
-          <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
-        </div>
-    {% endif %}
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            {% if select_mode and can_bulk_delete %}
-              <th></th>
-            {% endif %}
-            <th>Годовая цель</th>
-            <th>Комментарий</th>
-            <th>Преподаватель</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in goals %}
-            <tr>
-              {% if select_mode and can_bulk_delete %}
-                <td>
-                  {% if row.can_delete %}
-                    <input type="checkbox" name="selected_ids" value="{{ row.goal.id }}"/>
-                  {% endif %}
-                </td>
-              {% endif %}
-              <td><strong>{{ row.goal.title }}</strong></td>
-              <td>{% if row.goal.details %}{{ row.goal.details }}{% else %}<span class="muted">—</span>{% endif %}</td>
-              <td>{% if row.goal.teacher %}{{ row.goal.teacher.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% if select_mode %}
-      </form>
-    {% endif %}
-  {% else %}
-    <p class="muted">Пока нет годовых целей.</p>
-  {% endif %}
+  <script>
+    (function () {
+      const root = document.getElementById("goals-delete-root");
+      if (!root) return;
+      const toggle = root.querySelector("[data-delete-toggle]");
+      if (!toggle) return;
+      toggle.addEventListener("click", function () {
+        root.classList.toggle("delete-mode");
+        const visible = root.classList.contains("delete-mode");
+        toggle.textContent = visible ? "Скрыть удаление" : "Режим удаления";
+        root.querySelectorAll(".delete-mode-only").forEach(function (el) {
+          if (el.tagName === "TH" || el.tagName === "TD") {
+            el.style.display = visible ? "table-cell" : "none";
+          } else {
+            el.style.display = visible ? "block" : "none";
+          }
+        });
+      });
+    })();
+  </script>
 {% endblock %}

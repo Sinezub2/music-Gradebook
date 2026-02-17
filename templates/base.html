@@ -58,7 +58,7 @@
        href="/attendance/">Посещаемость</a>
 
       <a class="bottom-link {% if request.path|slice:':7' == '/goals/' %}active{% endif %}"
-       href="/goals/">Годовой план</a>
+       href="/goals/">Полугодия</a>
 
       {% if user.profile.role == "STUDENT" or user.profile.role == "PARENT" %}
         <a class="bottom-link {% if '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}"

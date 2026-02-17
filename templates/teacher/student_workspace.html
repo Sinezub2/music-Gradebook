@@ -20,7 +20,7 @@
     {% else %}
       <span class="muted small">Для заданий/уроков/результатов нужен один ваш курс для этого ученика.</span>
     {% endif %}
-    <a class="btn" href="/teacher/students/{{ student.id }}/goals/create/">Добавить цель (годовой план)</a>
+    <a class="btn" href="/teacher/students/{{ student.id }}/goals/create/">Добавить цель (полугодие)</a>
   </div>
 
   <h2>Недавние задания</h2>
@@ -103,7 +103,7 @@
     <p class="muted">Пока нет результатов.</p>
   {% endif %}
 
-  <h2>Годовой план</h2>
+  <h2>План по полугодиям</h2>
   {% if goals %}
     <ul class="list">
       {% for goal in goals %}

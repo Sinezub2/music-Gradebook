@@ -4,14 +4,11 @@
   <h1>Задания</h1>
 
   {% if mode == "TEACHER" %}
-    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <div id="homework-delete-root" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
       <p class="muted" style="margin:0;">Ваши созданные задания и число назначений.</p>
       <a class="btn" href="/teacher/class/">Выбрать ученика</a>
-      {% if can_bulk_delete and not select_mode %}
-        <a class="btn" href="{{ select_url }}">Удалить</a>
-      {% endif %}
-      {% if can_bulk_delete and select_mode %}
-        <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+      {% if can_bulk_delete %}
+        <button class="btn" type="button" data-delete-toggle>Режим удаления</button>
       {% endif %}
     </div>
 
@@ -29,22 +26,17 @@
     {% if not rows %}
       <p class="muted">Вы ещё не создавали задания.</p>
     {% else %}
-      {% if select_mode %}
-        <form method="post" action="/assignments/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
-          {% csrf_token %}
-          {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}"/>{% endif %}
-          <div style="margin: 0 0 10px;">
-            <button class="btn" type="submit">Удалить выбранное</button>
-            <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
-          </div>
-      {% endif %}
+      <form method="post" action="/assignments/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
+        {% csrf_token %}
+        {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}"/>{% endif %}
+        <div class="delete-mode-only" style="margin: 0 0 10px; display: none;">
+          <button class="btn" type="submit">Удалить выбранное</button>
+        </div>
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
-              {% if select_mode and can_bulk_delete %}
-                <th></th>
-              {% endif %}
+              <th class="delete-mode-only" style="display: none;"></th>
               <th>Дедлайн</th>
               <th>Курс</th>
               <th>Задание</th>
@@ -54,13 +46,11 @@
           <tbody>
             {% for r in rows %}
               <tr>
-                {% if select_mode and can_bulk_delete %}
-                  <td>
-                    {% if r.can_delete %}
-                      <input type="checkbox" name="selected_ids" value="{{ r.assignment.id }}"/>
-                    {% endif %}
-                  </td>
-                {% endif %}
+                <td class="delete-mode-only" style="display: none;">
+                  {% if r.can_delete %}
+                    <input type="checkbox" name="selected_ids" value="{{ r.assignment.id }}"/>
+                  {% endif %}
+                </td>
                 <td>{{ r.assignment.due_date|date:"d.m.Y" }}</td>
                 <td class="muted small">{{ r.assignment.course.name }}</td>
                 <td>
@@ -78,9 +68,7 @@
           </tbody>
         </table>
       </div>
-      {% if select_mode %}
-        </form>
-      {% endif %}
+      </form>
       <p class="muted small">
         Результаты выставляются в “Прогресс” → курс → “Ввод результатов”. Домашние задания появляются там автоматически.
       </p>
@@ -187,13 +175,10 @@
     {% endif %}
 
   {% elif mode == "ADMIN" %}
-    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <div id="homework-delete-root" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
       <p class="muted" style="margin:0;">Все задания (админ-обзор).</p>
-      {% if can_bulk_delete and not select_mode %}
-        <a class="btn" href="{{ select_url }}">Удалить</a>
-      {% endif %}
-      {% if can_bulk_delete and select_mode %}
-        <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+      {% if can_bulk_delete %}
+        <button class="btn" type="button" data-delete-toggle>Режим удаления</button>
       {% endif %}
     </div>
     <form method="get" class="form-row" style="margin: 12px 0;">
@@ -209,22 +194,17 @@
     {% if not assignments %}
       <p class="muted">Заданий пока нет.</p>
     {% else %}
-      {% if select_mode %}
-        <form method="post" action="/assignments/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
-          {% csrf_token %}
-          {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}"/>{% endif %}
-          <div style="margin: 0 0 10px;">
-            <button class="btn" type="submit">Удалить выбранное</button>
-            <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
-          </div>
-      {% endif %}
+      <form method="post" action="/assignments/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
+        {% csrf_token %}
+        {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}"/>{% endif %}
+        <div class="delete-mode-only" style="margin: 0 0 10px; display: none;">
+          <button class="btn" type="submit">Удалить выбранное</button>
+        </div>
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
-              {% if select_mode and can_bulk_delete %}
-                <th></th>
-              {% endif %}
+              <th class="delete-mode-only" style="display: none;"></th>
               <th>Дедлайн</th>
               <th>Курс</th>
               <th>Задание</th>
@@ -234,13 +214,11 @@
           <tbody>
             {% for row in assignments %}
               <tr>
-                {% if select_mode and can_bulk_delete %}
-                  <td>
-                    {% if row.can_delete %}
-                      <input type="checkbox" name="selected_ids" value="{{ row.assignment.id }}"/>
-                    {% endif %}
-                  </td>
-                {% endif %}
+                <td class="delete-mode-only" style="display: none;">
+                  {% if row.can_delete %}
+                    <input type="checkbox" name="selected_ids" value="{{ row.assignment.id }}"/>
+                  {% endif %}
+                </td>
                 <td>{{ row.assignment.due_date|date:"d.m.Y" }}</td>
                 <td class="muted small">{{ row.assignment.course.name }}</td>
                 <td>
@@ -255,12 +233,32 @@
           </tbody>
         </table>
       </div>
-      {% if select_mode %}
-        </form>
-      {% endif %}
+      </form>
     {% endif %}
 
   {% else %}
     <p class="muted">Недоступно.</p>
   {% endif %}
+
+  <script>
+    (function () {
+      const root = document.getElementById("homework-delete-root");
+      if (!root) return;
+      const toggle = root.querySelector("[data-delete-toggle]");
+      if (!toggle) return;
+      const controls = document.querySelectorAll(".delete-mode-only");
+      toggle.addEventListener("click", function () {
+        root.classList.toggle("delete-mode");
+        const visible = root.classList.contains("delete-mode");
+        toggle.textContent = visible ? "Скрыть удаление" : "Режим удаления";
+        controls.forEach(function (el) {
+          if (el.tagName === "TH" || el.tagName === "TD") {
+            el.style.display = visible ? "table-cell" : "none";
+          } else {
+            el.style.display = visible ? "block" : "none";
+          }
+        });
+      });
+    })();
+  </script>
 {% endblock %}

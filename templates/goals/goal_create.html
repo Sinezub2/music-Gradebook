@@ -1,17 +1,46 @@
 {% extends "base.html" %}
-{% block title %}Создать годовую цель{% endblock %}
+{% block title %}Цели на полугодие{% endblock %}
 {% block content %}
-  <h1>Создать годовую цель</h1>
+  <h1>Цели на полугодие</h1>
+  <p class="muted">Ученик: {{ selected_student.username }}</p>
 
   <div class="card" style="margin-bottom: 16px;">
-    <form method="post">
+    <form method="post" id="goal-create-form">
       {% csrf_token %}
-      <div class="form-row"><label>{{ form.student.label }}</label>{{ form.student }}</div>
-      <div class="form-row"><label>{{ form.title.label }}</label>{{ form.title }}</div>
-      <div class="form-row"><label>{{ form.details.label }}</label>{{ form.details }}</div>
-      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+      <div id="goal-input-list">
+        {% for value in entered_titles %}
+          <div class="form-row" data-goal-row>
+            <label>Цель</label>
+            <input class="input" type="text" name="goal_titles" value="{{ value }}" placeholder="Цель на полугодие"/>
+          </div>
+        {% endfor %}
+      </div>
+
+      <button class="btn" type="button" id="goal-add-row">+</button>
+
+      {% if title_errors %}
+        {% for error in title_errors %}
+          <div class="error">{{ error }}</div>
+        {% endfor %}
+      {% endif %}
+
       <button class="btn" type="submit">Сохранить</button>
-      <a class="btn" href="/goals/{% if selected_student_id %}?student={{ selected_student_id }}{% endif %}">Отмена</a>
+      <a class="btn" href="/goals/?student={{ selected_student.id }}">Отмена</a>
     </form>
   </div>
+
+  <script>
+    (function () {
+      const addButton = document.getElementById("goal-add-row");
+      const list = document.getElementById("goal-input-list");
+      if (!addButton || !list) return;
+      addButton.addEventListener("click", function () {
+        const row = document.createElement("div");
+        row.className = "form-row";
+        row.setAttribute("data-goal-row", "1");
+        row.innerHTML = '<label>Цель</label><input class="input" type="text" name="goal_titles" placeholder="Цель на полугодие"/>';
+        list.appendChild(row);
+      });
+    })();
+  </script>
 {% endblock %}

@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404, redirect, render
 from datetime import date, datetime, timedelta
 from urllib.parse import urlencode
+import json
 
 from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
@@ -15,6 +16,9 @@ from apps.school.utils import get_user_single_class
 from .forms import LessonCreateForm, StudentLessonCreateForm
 from .models import Lesson, LessonReport, LessonStudent
 from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
+
+
+PLAYS_PREFIX = "__plays__:"
 
 
 def _student_ids_for_user(request):
@@ -41,6 +45,98 @@ def _build_lessons_url(*, course_id, student_id):
     if student_id:
         params["student"] = student_id
     return f"/lessons/?{urlencode(params)}" if params else "/lessons/"
+
+
+def _parse_play_entries(raw_result: str) -> list[dict]:
+    value = (raw_result or "").strip()
+    if not value.startswith(PLAYS_PREFIX):
+        return []
+    try:
+        payload = json.loads(value[len(PLAYS_PREFIX) :])
+    except json.JSONDecodeError:
+        return []
+    plays = []
+    for item in payload if isinstance(payload, list) else []:
+        name = str(item.get("name", "")).strip()
+        if not name:
+            continue
+        plays.append(
+            {
+                "name": name,
+                "completed": bool(item.get("completed")),
+                "comment": str(item.get("comment", "")).strip(),
+            }
+        )
+    return plays
+
+
+def _serialize_play_entries(plays: list[dict]) -> str:
+    cleaned = []
+    for play in plays:
+        name = str(play.get("name", "")).strip()
+        if not name:
+            continue
+        cleaned.append(
+            {
+                "name": name,
+                "completed": bool(play.get("completed")),
+                "comment": str(play.get("comment", "")).strip(),
+            }
+        )
+    return f"{PLAYS_PREFIX}{json.dumps(cleaned, ensure_ascii=False)}"
+
+
+def _collect_play_entries(request) -> list[dict]:
+    names = request.POST.getlist("play_name")
+    comments = request.POST.getlist("play_comment")
+    completed_indexes = set()
+    for value in request.POST.getlist("play_completed"):
+        try:
+            completed_indexes.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    plays = []
+    for index, raw_name in enumerate(names):
+        name = (raw_name or "").strip()
+        comment = (comments[index] if index < len(comments) else "").strip()
+        if not name:
+            continue
+        plays.append(
+            {
+                "name": name,
+                "completed": index in completed_indexes,
+                "comment": comment,
+            }
+        )
+    return plays
+
+
+def _plays_to_summary(plays: list[dict]) -> str:
+    if not plays:
+        return ""
+    return "; ".join(
+        f"{play['name']}{' ✓' if play.get('completed') else ''}" for play in plays
+    )
+
+
+def _build_topic_from_plays(plays: list[dict]) -> str:
+    names = [play["name"] for play in plays if play.get("name")]
+    if not names:
+        return "Композиции"
+    return ", ".join(names)[:200]
+
+
+def _active_plays_for_student(student) -> list[dict]:
+    latest_entry = (
+        LessonStudent.objects.filter(student=student)
+        .select_related("lesson")
+        .order_by("-lesson__date", "-lesson_id")
+        .first()
+    )
+    if not latest_entry:
+        return []
+    plays = _parse_play_entries(latest_entry.result)
+    return [{"name": play["name"], "completed": False, "comment": ""} for play in plays if not play.get("completed")]
 
 
 @login_required
@@ -138,7 +234,7 @@ def lesson_list(request):
             {
                 "lesson": entry.lesson,
                 "attendance": entry.attended,
-                "result": entry.result
+                "result": _plays_to_summary(_parse_play_entries(entry.result))
                 or student_report_map.get(entry.lesson_id)
                 or general_report_map.get(entry.lesson_id)
                 or "",
@@ -147,14 +243,27 @@ def lesson_list(request):
             for entry in entries_qs.order_by("-lesson__date", "-lesson_id")
         ]
     else:
+        ordered_lessons = list(lessons_qs.order_by("-date", "-id"))
+        lesson_entries = (
+            LessonStudent.objects.filter(lesson__in=ordered_lessons)
+            .select_related("lesson")
+            .order_by("lesson_id", "id")
+        )
+        summary_by_lesson = {}
+        for entry in lesson_entries:
+            if entry.lesson_id in summary_by_lesson:
+                continue
+            summary = _plays_to_summary(_parse_play_entries(entry.result))
+            if summary:
+                summary_by_lesson[entry.lesson_id] = summary
         rows = [
             {
                 "lesson": lesson,
                 "attendance": None,
-                "result": "",
+                "result": summary_by_lesson.get(lesson.id, ""),
                 "can_delete": _can_delete_lesson(request.user, role, lesson),
             }
-            for lesson in lessons_qs.order_by("-date", "-id")
+            for lesson in ordered_lessons
         ]
 
     base_url = _build_lessons_url(course_id=course_id, student_id=student_id)
@@ -351,8 +460,11 @@ def lesson_create(request):
             fixed_course = class_resolution.course
 
     course_queryset = Course.objects.filter(id=fixed_course.id) if fixed_course else None
+    initial_plays = [{"name": "", "completed": False, "comment": ""}]
+    play_errors = []
 
     if request.method == "POST":
+        initial_plays = _collect_play_entries(request) or [{"name": "", "completed": False, "comment": ""}]
         form = LessonCreateForm(
             request.POST,
             request.FILES,
@@ -360,6 +472,20 @@ def lesson_create(request):
             course_queryset=course_queryset,
         )
         if form.is_valid():
+            plays = _collect_play_entries(request)
+            if not plays:
+                play_errors = ["Добавьте хотя бы одну композицию."]
+            if play_errors:
+                return render(
+                    request,
+                    "lessons/lesson_create.html",
+                    {
+                        "form": form,
+                        "fixed_course": fixed_course,
+                        "initial_plays": initial_plays,
+                        "play_errors": play_errors,
+                    },
+                )
             course = fixed_course or form.cleaned_data["course"]
             if request.user.profile.role == Profile.Role.TEACHER and course.teacher_id != request.user.id:
                 return HttpResponseForbidden("Нельзя создавать уроки для чужого курса.")
@@ -367,13 +493,13 @@ def lesson_create(request):
             lesson = Lesson.objects.create(
                 course=course,
                 date=form.cleaned_data["date"],
-                topic=form.cleaned_data["topic"],
+                topic=_build_topic_from_plays(plays),
                 created_by=request.user,
                 attachment=form.cleaned_data.get("attachment"),
             )
 
             enrollments = Enrollment.objects.filter(course=course).select_related("student")
-            result = (form.cleaned_data.get("result") or "").strip()
+            result = _serialize_play_entries(plays)
             LessonStudent.objects.bulk_create(
                 [
                     LessonStudent(lesson=lesson, student=enrollment.student, attended=True, result=result)
@@ -381,10 +507,9 @@ def lesson_create(request):
                 ]
             )
 
-            text = (form.cleaned_data.get("report_text") or "").strip()
             media = (form.cleaned_data.get("media_url") or "").strip()
-            if text or media:
-                LessonReport.objects.create(lesson=lesson, student=None, text=text, media_url=media)
+            if media:
+                LessonReport.objects.create(lesson=lesson, student=None, text="", media_url=media)
 
             messages.success(request, "Урок создан.")
             return redirect(f"/lessons/{lesson.id}/")
@@ -396,7 +521,16 @@ def lesson_create(request):
         if fixed_course:
             form.initial["course"] = fixed_course
 
-    return render(request, "lessons/lesson_create.html", {"form": form, "fixed_course": fixed_course})
+    return render(
+        request,
+        "lessons/lesson_create.html",
+        {
+            "form": form,
+            "fixed_course": fixed_course,
+            "initial_plays": initial_plays,
+            "play_errors": play_errors,
+        },
+    )
 
 
 @role_required(Profile.Role.TEACHER)
@@ -410,29 +544,46 @@ def lesson_create_for_student(request, student_id: int):
         messages.error(request, "У ученика несколько ваших курсов. Уточните курс у администратора.")
         return redirect(f"/teacher/students/{student.id}/")
 
+    initial_plays = _active_plays_for_student(student) or [{"name": "", "completed": False, "comment": ""}]
+    play_errors = []
+
     if request.method == "POST":
+        initial_plays = _collect_play_entries(request) or [{"name": "", "completed": False, "comment": ""}]
         form = StudentLessonCreateForm(request.POST, request.FILES)
         if form.is_valid():
+            plays = _collect_play_entries(request)
+            if not plays:
+                play_errors = ["Добавьте хотя бы одну композицию."]
+            if play_errors:
+                return render(
+                    request,
+                    "lessons/lesson_create_student.html",
+                    {
+                        "form": form,
+                        "student": student,
+                        "course": course,
+                        "initial_plays": initial_plays,
+                        "play_errors": play_errors,
+                    },
+                )
             lesson = Lesson.objects.create(
                 course=course,
                 date=form.cleaned_data["date"],
-                topic=form.cleaned_data["topic"],
+                topic=_build_topic_from_plays(plays),
                 created_by=request.user,
                 attachment=form.cleaned_data.get("attachment"),
             )
 
-            result = (form.cleaned_data.get("result") or "").strip()
             LessonStudent.objects.create(
                 lesson=lesson,
                 student=student,
                 attended=True,
-                result=result,
+                result=_serialize_play_entries(plays),
             )
 
-            text = (form.cleaned_data.get("report_text") or "").strip()
             media = (form.cleaned_data.get("media_url") or "").strip()
-            if text or media:
-                LessonReport.objects.create(lesson=lesson, student=student, text=text, media_url=media)
+            if media:
+                LessonReport.objects.create(lesson=lesson, student=student, text="", media_url=media)
 
             messages.success(request, "Урок и отчёт добавлены.")
             return redirect(f"/teacher/students/{student.id}/")
@@ -442,7 +593,13 @@ def lesson_create_for_student(request, student_id: int):
     return render(
         request,
         "lessons/lesson_create_student.html",
-        {"form": form, "student": student, "course": course},
+        {
+            "form": form,
+            "student": student,
+            "course": course,
+            "initial_plays": initial_plays,
+            "play_errors": play_errors,
+        },
     )
 
 
@@ -461,4 +618,20 @@ def lesson_detail(request, lesson_id: int):
     # admin ok
 
     reports = LessonReport.objects.filter(lesson=lesson).select_related("student").order_by("-created_at")
-    return render(request, "lessons/lesson_detail.html", {"lesson": lesson, "reports": reports})
+    student_entries = (
+        LessonStudent.objects.filter(lesson=lesson)
+        .select_related("student")
+        .order_by("student__username", "id")
+    )
+    play_blocks = []
+    for entry in student_entries:
+        plays = _parse_play_entries(entry.result)
+        if not plays:
+            continue
+        play_blocks.append({"student": entry.student, "plays": plays})
+
+    return render(
+        request,
+        "lessons/lesson_detail.html",
+        {"lesson": lesson, "reports": reports, "play_blocks": play_blocks},
+    )

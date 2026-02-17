@@ -1,28 +1,46 @@
 {% extends "base.html" %}
-{% block title %}Годовая цель{% endblock %}
+{% block title %}Цели на полугодие{% endblock %}
 {% block content %}
-  <h1>Годовая цель</h1>
+  <h1>Цели на полугодие</h1>
   <p class="muted">Ученик: {{ student.username }}</p>
 
   <div class="card">
-    <form method="post" class="form">
+    <form method="post" class="form" id="student-goal-create-form">
       {% csrf_token %}
-      <div class="form-row">
-        <label>{{ form.title.label }}</label>
-        {{ form.title }}
-        {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+      <div id="student-goal-input-list">
+        {% for value in entered_titles %}
+          <div class="form-row" data-goal-row>
+            <label>Цель</label>
+            <input class="input" type="text" name="goal_titles" value="{{ value }}" placeholder="Цель на полугодие"/>
+          </div>
+        {% endfor %}
       </div>
 
-      <div class="form-row">
-        <label>{{ form.details.label }}</label>
-        {{ form.details }}
-        {% if form.details.errors %}<div class="error">{{ form.details.errors }}</div>{% endif %}
-      </div>
+      <button class="btn" type="button" id="student-goal-add-row">+</button>
 
-      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+      {% if title_errors %}
+        {% for error in title_errors %}
+          <div class="error">{{ error }}</div>
+        {% endfor %}
+      {% endif %}
 
       <button class="btn" type="submit">Создать</button>
       <a class="btn" href="/teacher/students/{{ student.id }}/">Отмена</a>
     </form>
   </div>
+
+  <script>
+    (function () {
+      const addButton = document.getElementById("student-goal-add-row");
+      const list = document.getElementById("student-goal-input-list");
+      if (!addButton || !list) return;
+      addButton.addEventListener("click", function () {
+        const row = document.createElement("div");
+        row.className = "form-row";
+        row.setAttribute("data-goal-row", "1");
+        row.innerHTML = '<label>Цель</label><input class="input" type="text" name="goal_titles" placeholder="Цель на полугодие"/>';
+        list.appendChild(row);
+      });
+    })();
+  </script>
 {% endblock %}

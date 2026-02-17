@@ -8,25 +8,19 @@ class GoalForm(forms.ModelForm):
 
     class Meta:
         model = Goal
-        fields = ["student", "title", "details"]
+        fields = ["title"]
         widgets = {
-            "student": forms.Select(attrs={"class": "input"}),
-            "title": forms.TextInput(attrs={"class": "input", "placeholder": "Годовая цель"}),
-            "details": forms.Textarea(attrs={"class": "input", "rows": 3, "placeholder": "Детали"}),
+            "title": forms.TextInput(attrs={"class": "input", "placeholder": "Цель на полугодие"}),
         }
         labels = {
-            "student": "Ученик",
-            "title": "Годовая цель",
-            "details": "Комментарий",
+            "title": "Цель на полугодие",
         }
 
-    def clean(self):
-        cleaned_data = super().clean()
-        for field_name in ("title", "details"):
-            value = cleaned_data.get(field_name)
-            if value and len(value) >= self.max_input_length:
-                self.add_error(field_name, "Введите значение короче 50 символов.")
-        return cleaned_data
+    def clean_title(self):
+        value = (self.cleaned_data.get("title") or "").strip()
+        if len(value) >= self.max_input_length:
+            raise forms.ValidationError("Введите значение короче 50 символов.")
+        return value
 
 
 class StudentGoalCreateForm(forms.ModelForm):
@@ -34,20 +28,16 @@ class StudentGoalCreateForm(forms.ModelForm):
 
     class Meta:
         model = Goal
-        fields = ["title", "details"]
+        fields = ["title"]
         widgets = {
-            "title": forms.TextInput(attrs={"class": "input", "placeholder": "Годовая цель"}),
-            "details": forms.Textarea(attrs={"class": "input", "rows": 3, "placeholder": "Детали"}),
+            "title": forms.TextInput(attrs={"class": "input", "placeholder": "Цель на полугодие"}),
         }
         labels = {
-            "title": "Годовая цель",
-            "details": "Комментарий",
+            "title": "Цель на полугодие",
         }
 
-    def clean(self):
-        cleaned_data = super().clean()
-        for field_name in ("title", "details"):
-            value = cleaned_data.get(field_name)
-            if value and len(value) >= self.max_input_length:
-                self.add_error(field_name, "Введите значение короче 50 символов.")
-        return cleaned_data
+    def clean_title(self):
+        value = (self.cleaned_data.get("title") or "").strip()
+        if len(value) >= self.max_input_length:
+            raise forms.ValidationError("Введите значение короче 50 символов.")
+        return value

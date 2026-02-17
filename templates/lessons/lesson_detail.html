@@ -1,27 +1,46 @@
 {% extends "base.html" %}
 {% block title %}Урок{% endblock %}
 {% block content %}
-  <h1>{{ lesson.topic }}</h1>
-  <p class="muted">{{ lesson.course.name }} · {{ lesson.date|date:"d.m.Y" }}</p>
+  <h1>Урок</h1>
+  <p class="muted">Дата: {{ lesson.date|date:"d.m.Y" }} · {{ lesson.course.name }}</p>
+
+  <h2>Композиции</h2>
+  {% if play_blocks %}
+    {% for block in play_blocks %}
+      <div class="card" style="margin-bottom:10px;">
+        <div class="muted small" style="margin-bottom: 8px;">
+          {% if block.student %}Ученик: {{ block.student.username }}{% else %}Ученик не указан{% endif %}
+        </div>
+        {% for play in block.plays %}
+          <div style="margin-bottom: 8px;">
+            <strong>{{ play.name }}</strong>
+            {% if play.completed %}<span class="tag">Выполнено</span>{% endif %}
+            {% if play.comment %}
+              <div class="muted small">{{ play.comment }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">Композиции не добавлены.</p>
+  {% endif %}
+
+  <h2>Медиа</h2>
   {% if lesson.attachment %}
     <p class="muted small">Материалы: <a href="{{ lesson.attachment.url }}">Скачать</a></p>
   {% endif %}
-
-  <h2>Отчёты</h2>
-  {% if not reports %}
-    <p class="muted">Отчётов пока нет.</p>
-  {% else %}
+  {% if reports %}
     {% for r in reports %}
-      <div class="card" style="margin-bottom:10px;">
-        <div class="muted small">
-          {% if r.student %}Для: {{ r.student.username }}{% else %}Общий отчёт{% endif %}
-          · {{ r.created_at|date:"d.m.Y H:i" }}
+      {% if r.media_url %}
+        <div class="card" style="margin-bottom:10px;">
+          <div class="muted small">
+            {% if r.student %}Для: {{ r.student.username }}{% else %}Общее медиа{% endif %}
+            · {{ r.created_at|date:"d.m.Y H:i" }}
+          </div>
+          <div class="muted small">Ссылка: <a href="{{ r.media_url }}" target="_blank" rel="noopener noreferrer">{{ r.media_url }}</a></div>
         </div>
-        <div style="white-space: pre-wrap;">{{ r.text }}</div>
-        {% if r.media_url %}
-          <div class="muted small">Медиа: <a href="{{ r.media_url }}" target="_blank" rel="noopener noreferrer">{{ r.media_url }}</a></div>
-        {% endif %}
-      </div>
+      {% endif %}
     {% endfor %}
   {% endif %}
 {% endblock %}

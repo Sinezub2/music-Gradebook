@@ -2,20 +2,17 @@
 {% block title %}Уроки{% endblock %}
 {% block content %}
   <h1>Уроки</h1>
-  <p class="muted">Список занятий и отчётов (медиа — ссылки).</p>
+  <p class="muted">Список уроков: дата, композиции и медиа.</p>
 
   {% if user.profile.role == "TEACHER" or user.profile.role == "ADMIN" %}
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+    <div id="lessons-delete-root" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
       {% if user.profile.role == "ADMIN" %}
         <a class="btn" href="/lessons/create/">Создать урок</a>
       {% else %}
         <a class="btn" href="/teacher/class/">Выбрать ученика</a>
       {% endif %}
-      {% if can_bulk_delete and not select_mode %}
-        <a class="btn" href="{{ select_url }}">Удалить</a>
-      {% endif %}
-      {% if can_bulk_delete and select_mode %}
-        <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
+      {% if can_bulk_delete %}
+        <button class="btn" type="button" data-delete-toggle>Режим удаления</button>
       {% endif %}
     </div>
   {% endif %}
@@ -54,8 +51,7 @@
         Ученик: {{ selected_student.username }} · Цикл: {{ selected_student.profile.get_cycle_display }}
       </p>
     {% endif %}
-    {% if select_mode %}
-      <form method="post" action="/lessons/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
+    <form id="lesson-bulk-delete-form" method="post" action="/lessons/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
         {% csrf_token %}
         {% if course_id %}
           <input type="hidden" name="course" value="{{ course_id }}"/>
@@ -63,39 +59,34 @@
         {% if student_id %}
           <input type="hidden" name="student" value="{{ student_id }}"/>
         {% endif %}
-        <div style="margin: 0 0 10px;">
+        <div class="delete-mode-only" style="margin: 0 0 10px; display: none;">
           <button class="btn" type="submit">Удалить выбранное</button>
-          <a class="btn" href="{{ cancel_select_url }}">Отмена</a>
         </div>
-    {% endif %}
-      <div class="table-wrap">
-        <table class="table">
+    </form>
+    <div class="table-wrap">
+      <table class="table">
         <thead>
           <tr>
-            {% if select_mode and can_bulk_delete %}
-              <th></th>
-            {% endif %}
+            <th class="delete-mode-only" style="display: none;"></th>
             <th>Дата</th>
             <th>Посещение</th>
-            <th>Тема</th>
-            <th>Результат</th>
+            <th>Композиции</th>
+            <th>Комментарий</th>
           </tr>
         </thead>
         <tbody>
           {% for l in lessons %}
             <tr>
-              {% if select_mode and can_bulk_delete %}
-                <td>
-                  {% if l.can_delete %}
-                    <input type="checkbox" name="selected_ids" value="{{ l.lesson.id }}"/>
-                  {% endif %}
-                </td>
-              {% endif %}
+              <td class="delete-mode-only" style="display: none;">
+                {% if l.can_delete %}
+                  <input type="checkbox" name="selected_ids" value="{{ l.lesson.id }}" form="lesson-bulk-delete-form"/>
+                {% endif %}
+              </td>
               <td>{{ l.lesson.date|date:"d.m.Y" }}</td>
               <td>
                 {% if l.attendance == None %}
                   <span class="muted">—</span>
-                {% elif user.profile.role == "TEACHER" and not select_mode or user.profile.role == "ADMIN" and not select_mode %}
+                {% elif user.profile.role == "TEACHER" or user.profile.role == "ADMIN" %}
                   <form method="post" class="form-row" style="gap: 8px;">
                     {% csrf_token %}
                     {% if course_id %}
@@ -126,10 +117,29 @@
             </tr>
           {% endfor %}
         </tbody>
-        </table>
-      </div>
-    {% if select_mode %}
-      </form>
-    {% endif %}
+      </table>
+    </div>
   {% endif %}
+
+  <script>
+    (function () {
+      const root = document.getElementById("lessons-delete-root");
+      if (!root) return;
+      const toggle = root.querySelector("[data-delete-toggle]");
+      if (!toggle) return;
+      const controls = document.querySelectorAll(".delete-mode-only");
+      toggle.addEventListener("click", function () {
+        root.classList.toggle("delete-mode");
+        const visible = root.classList.contains("delete-mode");
+        toggle.textContent = visible ? "Скрыть удаление" : "Режим удаления";
+        controls.forEach(function (el) {
+          if (el.tagName === "TH" || el.tagName === "TD") {
+            el.style.display = visible ? "table-cell" : "none";
+          } else {
+            el.style.display = visible ? "block" : "none";
+          }
+        });
+      });
+    })();
+  </script>
 {% endblock %}

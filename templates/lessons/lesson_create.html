@@ -16,16 +16,76 @@
       <div class="form-row"><label>Курс</label>{{ form.course }}</div>
     {% endif %}
     <div class="form-row"><label>Дата</label>{{ form.date }}</div>
-    <div class="form-row"><label>Тема</label>{{ form.topic }}</div>
-    <div class="form-row"><label>Результат (для всех учеников)</label>{{ form.result }}</div>
-    <div class="form-row"><label>{{ form.attachment.label }}</label>{{ form.attachment }}</div>
 
     <hr style="border:0; border-top:1px solid var(--border); margin: 12px 0;"/>
 
-    <div class="form-row"><label>Отчёт (опционально)</label>{{ form.report_text }}</div>
+    <h2 style="margin: 0;">Композиции</h2>
+    <div id="lesson-play-list">
+      {% for play in initial_plays %}
+        <div class="card lesson-play-row" style="margin-bottom: 10px;" data-play-row>
+          <div class="form-row">
+            <label>Название</label>
+            <input class="input" type="text" name="play_name" value="{{ play.name }}" placeholder="Название композиции"/>
+          </div>
+          <div class="form-row">
+            <label class="muted small">
+              <input type="checkbox" name="play_completed" value="{{ forloop.counter0 }}"{% if play.completed %} checked{% endif %}/>
+              Выполнено
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Комментарий</label>
+            <input class="input" type="text" name="play_comment" value="{{ play.comment }}" placeholder="Комментарий (опционально)"/>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <button class="btn" type="button" id="lesson-play-add">+</button>
+
+    {% if play_errors %}
+      {% for error in play_errors %}
+        <div class="error">{{ error }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <hr style="border:0; border-top:1px solid var(--border); margin: 12px 0;"/>
+
+    <h2 style="margin: 0;">Медиа</h2>
     <div class="form-row"><label>Ссылка на медиа (опционально)</label>{{ form.media_url }}</div>
+    <div class="form-row"><label>{{ form.attachment.label }}</label>{{ form.attachment }}</div>
 
     <button class="btn" type="submit">Создать</button>
     <a class="btn" href="/lessons/">Отмена</a>
   </form>
+
+  <script>
+    (function () {
+      const list = document.getElementById("lesson-play-list");
+      const addButton = document.getElementById("lesson-play-add");
+      if (!list || !addButton) return;
+
+      function resequence() {
+        list.querySelectorAll("[data-play-row]").forEach(function (row, index) {
+          const checkbox = row.querySelector('input[name="play_completed"]');
+          if (checkbox) checkbox.value = String(index);
+        });
+      }
+
+      addButton.addEventListener("click", function () {
+        const row = document.createElement("div");
+        row.className = "card lesson-play-row";
+        row.style.marginBottom = "10px";
+        row.setAttribute("data-play-row", "1");
+        row.innerHTML = [
+          '<div class="form-row"><label>Название</label><input class="input" type="text" name="play_name" placeholder="Название композиции"/></div>',
+          '<div class="form-row"><label class="muted small"><input type="checkbox" name="play_completed" value="0"/> Выполнено</label></div>',
+          '<div class="form-row"><label>Комментарий</label><input class="input" type="text" name="play_comment" placeholder="Комментарий (опционально)"/></div>'
+        ].join("");
+        list.appendChild(row);
+        resequence();
+      });
+
+      resequence();
+    })();
+  </script>
 {% endblock %}

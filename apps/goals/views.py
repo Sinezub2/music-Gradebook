@@ -10,7 +10,6 @@ from urllib.parse import urlencode
 
 from apps.accounts.models import Profile
 from apps.school.models import Course, ParentChild
-from .forms import GoalForm, StudentGoalCreateForm
 from .models import Goal
 from apps.school.utils import get_teacher_student_or_404
 
@@ -39,6 +38,33 @@ def _build_goals_url(student_id: str) -> str:
     if student_id:
         params["student"] = student_id
     return f"/goals/?{urlencode(params)}" if params else "/goals/"
+
+
+def _current_half_year_start() -> date:
+    today = date.today()
+    month = 1 if today.month <= 6 else 7
+    return date(today.year, month, 1)
+
+
+def _half_year_label(month_value: date) -> str:
+    half = "I полугодие" if month_value.month <= 6 else "II полугодие"
+    return f"{half} {month_value.year}"
+
+
+def _normalize_goal_titles(raw_values: list[str], max_input_length: int = 50) -> tuple[list[str], list[str]]:
+    titles = []
+    errors = []
+    for raw_value in raw_values:
+        value = (raw_value or "").strip()
+        if not value:
+            continue
+        if len(value) >= max_input_length:
+            errors.append("Введите значение короче 50 символов.")
+            continue
+        titles.append(value)
+    if not titles and not errors:
+        errors.append("Добавьте хотя бы одну цель.")
+    return titles, errors
 
 
 @login_required
@@ -86,11 +112,21 @@ def goal_list(request):
         else:
             selected_student_id = ""
 
-    goals = goals.order_by("month", "student__username", "created_at")
+    goals = goals.order_by("-month", "student__username", "created_at")
     base_url = _build_goals_url(selected_student_id)
-    goal_rows = []
+    grouped_goals = []
+    groups = {}
     for goal in goals:
-        goal_rows.append(
+        half_start = goal.month.replace(day=1, month=(1 if goal.month.month <= 6 else 7))
+        group_key = (half_start.year, half_start.month)
+        if group_key not in groups:
+            group_data = {
+                "label": _half_year_label(half_start),
+                "rows": [],
+            }
+            groups[group_key] = group_data
+            grouped_goals.append(group_data)
+        groups[group_key]["rows"].append(
             {
                 "goal": goal,
                 "can_delete": _can_delete_goal(request.user, profile.role, goal, teacher_students),
@@ -98,7 +134,7 @@ def goal_list(request):
         )
 
     ctx = {
-        "goals": goal_rows,
+        "goal_groups": grouped_goals,
         "students": students,
         "selected_student": selected_student,
         "selected_student_id": selected_student_id,
@@ -168,34 +204,38 @@ def goal_create(request):
     elif profile.role == Profile.Role.ADMIN:
         students = User.objects.filter(profile__role=Profile.Role.STUDENT).select_related("profile")
 
-    selected_student = None
-    if selected_student_id:
-        selected_student = students.filter(id=selected_student_id).first()
-        if not selected_student:
-            selected_student_id = ""
+    selected_student = students.filter(id=selected_student_id).first() if selected_student_id else None
+    if not selected_student:
+        messages.info(request, "Сначала выберите ученика.")
+        return redirect("/goals/")
 
+    entered_titles = [""]
+    title_errors = []
     if request.method == "POST":
-        form = GoalForm(request.POST)
-        form.fields["student"].queryset = students
-        if form.is_valid():
-            goal = form.save(commit=False)
-            goal.teacher = request.user
-            goal.month = date.today().replace(month=1, day=1)
-            goal.save()
-            messages.success(request, "Годовая цель добавлена.")
-            redirect_url = "/goals/"
-            if selected_student_id:
-                redirect_url = f"/goals/?student={selected_student_id}"
-            return redirect(redirect_url)
-    else:
-        form = GoalForm()
-        form.fields["student"].queryset = students
-        if selected_student:
-            form.fields["student"].initial = selected_student
+        raw_titles = request.POST.getlist("goal_titles")
+        entered_titles = raw_titles or [""]
+        titles, title_errors = _normalize_goal_titles(raw_titles)
+        if not title_errors:
+            half_start = _current_half_year_start()
+            Goal.objects.bulk_create(
+                [
+                    Goal(
+                        student=selected_student,
+                        teacher=request.user,
+                        month=half_start,
+                        title=title,
+                    )
+                    for title in titles
+                ]
+            )
+            messages.success(request, f"Добавлено целей: {len(titles)}.")
+            return redirect(f"/goals/?student={selected_student.id}")
 
     ctx = {
-        "form": form,
         "selected_student_id": selected_student_id,
+        "selected_student": selected_student,
+        "entered_titles": entered_titles,
+        "title_errors": title_errors,
     }
     return render(request, "goals/goal_create.html", ctx)
 
@@ -213,21 +253,30 @@ def goal_create_for_student(request, student_id: int):
         if not student:
             return HttpResponseForbidden("Доступ запрещён.")
 
+    entered_titles = [""]
+    title_errors = []
     if request.method == "POST":
-        form = StudentGoalCreateForm(request.POST)
-        if form.is_valid():
-            goal = form.save(commit=False)
-            goal.student = student
-            goal.teacher = request.user
-            goal.month = date.today().replace(month=1, day=1)
-            goal.save()
-            messages.success(request, "Годовая цель добавлена.")
+        raw_titles = request.POST.getlist("goal_titles")
+        entered_titles = raw_titles or [""]
+        titles, title_errors = _normalize_goal_titles(raw_titles)
+        if not title_errors:
+            half_start = _current_half_year_start()
+            Goal.objects.bulk_create(
+                [
+                    Goal(
+                        student=student,
+                        teacher=request.user,
+                        month=half_start,
+                        title=title,
+                    )
+                    for title in titles
+                ]
+            )
+            messages.success(request, f"Добавлено целей: {len(titles)}.")
             return redirect(f"/teacher/students/{student.id}/" if profile.role == Profile.Role.TEACHER else "/goals/")
-    else:
-        form = StudentGoalCreateForm()
 
     return render(
         request,
         "goals/goal_create_student.html",
-        {"form": form, "student": student},
+        {"student": student, "entered_titles": entered_titles, "title_errors": title_errors},
     )
