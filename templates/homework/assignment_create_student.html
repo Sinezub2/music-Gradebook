@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Новое задание{% endblock %}
+{% block content %}
+  <h1>Новое задание</h1>
+  <p class="muted">Ученик: {{ student.username }} · Курс: {{ course.name }}</p>
+
+  <div class="card">
+    <form method="post" class="form" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-row">
+        <label>{{ form.title.label }}</label>
+        {{ form.title }}
+        {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.description.label }}</label>
+        {{ form.description }}
+        {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.due_date.label }}</label>
+        {{ form.due_date }}
+        {% if form.due_date.errors %}<div class="error">{{ form.due_date.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.attachment.label }}</label>
+        {{ form.attachment }}
+        {% if form.attachment.errors %}<div class="error">{{ form.attachment.errors }}</div>{% endif %}
+      </div>
+
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+
+      <button class="btn" type="submit">Создать</button>
+      <a class="btn" href="/teacher/students/{{ student.id }}/">Отмена</a>
+    </form>
+  </div>
+{% endblock %}

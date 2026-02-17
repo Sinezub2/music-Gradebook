@@ -4,8 +4,17 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 
 from apps.accounts.models import Profile
+from apps.gradebook.models import Grade
+from apps.goals.models import Goal
+from apps.homework.models import AssignmentTarget
+from apps.lessons.models import LessonReport, LessonStudent
 from .models import Course, Enrollment, ParentChild
-from .utils import get_user_single_class
+from .utils import (
+    get_teacher_student_or_404,
+    get_teacher_students,
+    get_user_single_class,
+    resolve_teacher_course_for_student,
+)
 
 
 @login_required
@@ -45,15 +54,10 @@ def course_list(request):
         return render(request, "school/course_list.html", {"courses": courses, "mode": "parent_child", "student": child})
 
     if profile.role == Profile.Role.TEACHER:
-        courses = Course.objects.filter(teacher=request.user)
+        redirect_url = "/teacher/class/"
         if cycle:
-            courses = courses.filter(enrollments__student__profile__cycle=cycle).distinct()
-        courses = courses.order_by("name")
-        return render(
-            request,
-            "school/course_list.html",
-            {"courses": courses, "mode": "teacher", "student": None, "cycle": cycle, "cycle_options": Profile.Cycle.choices},
-        )
+            redirect_url = f"{redirect_url}?cycle={cycle}"
+        return redirect(redirect_url)
 
     if profile.role == Profile.Role.ADMIN:
         courses = Course.objects.all()
@@ -111,3 +115,73 @@ def course_detail(request, course_id: int):
         )
 
     return HttpResponseForbidden("Доступ запрещён.")
+
+
+@login_required
+def teacher_class_list(request):
+    profile = request.user.profile
+    if profile.role != Profile.Role.TEACHER:
+        return HttpResponseForbidden("Доступ запрещён.")
+
+    cycle = request.GET.get("cycle") or ""
+    students = list(get_teacher_students(request.user, cycle=cycle))
+    return render(
+        request,
+        "teacher/class_list.html",
+        {
+            "students": students,
+            "cycle": cycle,
+            "cycle_options": Profile.Cycle.choices,
+        },
+    )
+
+
+@login_required
+def teacher_student_workspace(request, student_id: int):
+    profile = request.user.profile
+    if profile.role != Profile.Role.TEACHER:
+        return HttpResponseForbidden("Доступ запрещён.")
+
+    student = get_teacher_student_or_404(request.user, student_id)
+    teacher_courses = list(
+        Course.objects.filter(teacher=request.user, enrollments__student=student).distinct().order_by("name")
+    )
+    course_for_actions, course_status = resolve_teacher_course_for_student(request.user, student)
+
+    recent_assignments = list(
+        AssignmentTarget.objects.filter(student=student, assignment__course__teacher=request.user)
+        .select_related("assignment", "assignment__course")
+        .order_by("-assignment__due_date")[:5]
+    )
+    recent_lessons = list(
+        LessonStudent.objects.filter(student=student, lesson__course__teacher=request.user)
+        .select_related("lesson", "lesson__course")
+        .order_by("-lesson__date", "-lesson_id")[:5]
+    )
+    recent_reports = list(
+        LessonReport.objects.filter(student=student, lesson__course__teacher=request.user)
+        .select_related("lesson")
+        .order_by("-created_at")[:5]
+    )
+    recent_grades = list(
+        Grade.objects.filter(student=student, assessment__course__teacher=request.user)
+        .select_related("assessment")
+        .order_by("-assessment_id")[:5]
+    )
+    goals = list(Goal.objects.filter(student=student).select_related("teacher").order_by("-created_at")[:5])
+
+    return render(
+        request,
+        "teacher/student_workspace.html",
+        {
+            "student": student,
+            "teacher_courses": teacher_courses,
+            "course_for_actions": course_for_actions,
+            "course_status": course_status,
+            "recent_assignments": recent_assignments,
+            "recent_lessons": recent_lessons,
+            "recent_reports": recent_reports,
+            "recent_grades": recent_grades,
+            "goals": goals,
+        },
+    )

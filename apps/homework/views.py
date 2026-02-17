@@ -13,9 +13,10 @@ from apps.accounts.models import Profile
 from apps.gradebook.models import Assessment
 from apps.school.models import Course, ParentChild
 from apps.school.utils import get_user_single_class
-from .forms import AssignmentCreateForm
+from .forms import AssignmentCreateForm, StudentAssignmentCreateForm
 from .models import Assignment, AssignmentTarget
 from .services import create_assignment_with_targets_and_gradebook
+from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
 
 
 def _effective_status(assignment: Assignment, target: AssignmentTarget | None) -> str:
@@ -189,6 +190,10 @@ def assignment_create(request):
     - POST: создаём Assignment + Assessment + Targets + Grades
     """
 
+    if request.user.profile.role == Profile.Role.TEACHER:
+        messages.info(request, "Сначала выберите ученика в разделе «Класс».")
+        return redirect("/teacher/class/")
+
     selected_course = None
     fixed_course = None
     class_resolution = get_user_single_class(request.user)
@@ -255,6 +260,41 @@ def assignment_create(request):
             "selected_course": selected_course,
             "fixed_course": fixed_course,
         },
+    )
+
+
+@role_required(Profile.Role.TEACHER)
+def assignment_create_for_student(request, student_id: int):
+    student = get_teacher_student_or_404(request.user, student_id)
+    course, status = resolve_teacher_course_for_student(request.user, student)
+    if status == "none":
+        messages.error(request, "Ученик не назначен на ваш курс.")
+        return redirect(f"/teacher/students/{student.id}/")
+    if status == "multiple":
+        messages.error(request, "У ученика несколько ваших курсов. Уточните курс у администратора.")
+        return redirect(f"/teacher/students/{student.id}/")
+
+    if request.method == "POST":
+        form = StudentAssignmentCreateForm(request.POST, request.FILES)
+        if form.is_valid():
+            create_assignment_with_targets_and_gradebook(
+                teacher=request.user,
+                course=course,
+                title=form.cleaned_data["title"],
+                description=form.cleaned_data.get("description", ""),
+                due_date=form.cleaned_data["due_date"],
+                attachment=form.cleaned_data.get("attachment"),
+                student_ids=[student.id],
+            )
+            messages.success(request, "Задание создано и назначено ученику.")
+            return redirect(f"/teacher/students/{student.id}/")
+    else:
+        form = StudentAssignmentCreateForm()
+
+    return render(
+        request,
+        "homework/assignment_create_student.html",
+        {"form": form, "student": student, "course": course},
     )
 
 

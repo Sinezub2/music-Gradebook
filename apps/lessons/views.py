@@ -12,8 +12,9 @@ from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.school.models import Course, Enrollment, ParentChild
 from apps.school.utils import get_user_single_class
-from .forms import LessonCreateForm
+from .forms import LessonCreateForm, StudentLessonCreateForm
 from .models import Lesson, LessonReport, LessonStudent
+from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
 
 
 def _student_ids_for_user(request):
@@ -336,6 +337,10 @@ def attendance_journal(request):
 
 @role_required(Profile.Role.TEACHER, Profile.Role.ADMIN)
 def lesson_create(request):
+    if request.user.profile.role == Profile.Role.TEACHER:
+        messages.info(request, "Сначала выберите ученика в разделе «Класс».")
+        return redirect("/teacher/class/")
+
     fixed_course = None
     if request.user.profile.role == Profile.Role.TEACHER:
         class_resolution = get_user_single_class(request.user)
@@ -392,6 +397,53 @@ def lesson_create(request):
             form.initial["course"] = fixed_course
 
     return render(request, "lessons/lesson_create.html", {"form": form, "fixed_course": fixed_course})
+
+
+@role_required(Profile.Role.TEACHER)
+def lesson_create_for_student(request, student_id: int):
+    student = get_teacher_student_or_404(request.user, student_id)
+    course, status = resolve_teacher_course_for_student(request.user, student)
+    if status == "none":
+        messages.error(request, "Ученик не назначен на ваш курс.")
+        return redirect(f"/teacher/students/{student.id}/")
+    if status == "multiple":
+        messages.error(request, "У ученика несколько ваших курсов. Уточните курс у администратора.")
+        return redirect(f"/teacher/students/{student.id}/")
+
+    if request.method == "POST":
+        form = StudentLessonCreateForm(request.POST, request.FILES)
+        if form.is_valid():
+            lesson = Lesson.objects.create(
+                course=course,
+                date=form.cleaned_data["date"],
+                topic=form.cleaned_data["topic"],
+                created_by=request.user,
+                attachment=form.cleaned_data.get("attachment"),
+            )
+
+            result = (form.cleaned_data.get("result") or "").strip()
+            LessonStudent.objects.create(
+                lesson=lesson,
+                student=student,
+                attended=True,
+                result=result,
+            )
+
+            text = (form.cleaned_data.get("report_text") or "").strip()
+            media = (form.cleaned_data.get("media_url") or "").strip()
+            if text or media:
+                LessonReport.objects.create(lesson=lesson, student=student, text=text, media_url=media)
+
+            messages.success(request, "Урок и отчёт добавлены.")
+            return redirect(f"/teacher/students/{student.id}/")
+    else:
+        form = StudentLessonCreateForm()
+
+    return render(
+        request,
+        "lessons/lesson_create_student.html",
+        {"form": form, "student": student, "course": course},
+    )
 
 
 @login_required

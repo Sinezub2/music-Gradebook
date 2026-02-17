@@ -6,7 +6,11 @@
 
   {% if user.profile.role == "TEACHER" or user.profile.role == "ADMIN" %}
     <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
-      <a class="btn" href="/lessons/create/">Создать урок</a>
+      {% if user.profile.role == "ADMIN" %}
+        <a class="btn" href="/lessons/create/">Создать урок</a>
+      {% else %}
+        <a class="btn" href="/teacher/class/">Выбрать ученика</a>
+      {% endif %}
       {% if can_bulk_delete and not select_mode %}
         <a class="btn" href="{{ select_url }}">Удалить</a>
       {% endif %}

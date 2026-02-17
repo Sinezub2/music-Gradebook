@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Годовая цель{% endblock %}
+{% block content %}
+  <h1>Годовая цель</h1>
+  <p class="muted">Ученик: {{ student.username }}</p>
+
+  <div class="card">
+    <form method="post" class="form">
+      {% csrf_token %}
+      <div class="form-row">
+        <label>{{ form.title.label }}</label>
+        {{ form.title }}
+        {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.details.label }}</label>
+        {{ form.details }}
+        {% if form.details.errors %}<div class="error">{{ form.details.errors }}</div>{% endif %}
+      </div>
+
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+
+      <button class="btn" type="submit">Создать</button>
+      <a class="btn" href="/teacher/students/{{ student.id }}/">Отмена</a>
+    </form>
+  </div>
+{% endblock %}

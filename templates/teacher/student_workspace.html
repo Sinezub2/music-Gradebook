@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Ученик{% endblock %}
+{% block content %}
+  <h1>{{ student.username }}</h1>
+
+  <div class="card" style="margin-bottom: 16px;">
+    <p class="muted">Цикл: {{ student.profile.get_cycle_display }}</p>
+    {% if teacher_courses %}
+      <p class="muted">Курс(ы):{% for c in teacher_courses %} {{ c.name }}{% if not forloop.last %},{% endif %}{% endfor %}</p>
+    {% else %}
+      <p class="muted">Курс не назначен.</p>
+    {% endif %}
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 16px;">
+    {% if course_status == "single" %}
+      <a class="btn" href="/teacher/students/{{ student.id }}/assignments/create/">Добавить задание</a>
+      <a class="btn" href="/teacher/students/{{ student.id }}/lessons/create/">Добавить урок / отчёт</a>
+      <a class="btn" href="/teacher/students/{{ student.id }}/results/">Ввести результат</a>
+    {% else %}
+      <span class="muted small">Для заданий/уроков/результатов нужен один ваш курс для этого ученика.</span>
+    {% endif %}
+    <a class="btn" href="/teacher/students/{{ student.id }}/goals/create/">Добавить цель (годовой план)</a>
+  </div>
+
+  <h2>Недавние задания</h2>
+  {% if recent_assignments %}
+    <ul class="list">
+      {% for t in recent_assignments %}
+        <li>
+          <div>
+            <div>{{ t.assignment.title }}</div>
+            <div class="muted small">{{ t.assignment.course.name }} · до {{ t.assignment.due_date|date:"d.m.Y" }}</div>
+          </div>
+          <span class="tag">{{ t.status }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Пока нет заданий.</p>
+  {% endif %}
+
+  <h2>Недавние уроки</h2>
+  {% if recent_lessons %}
+    <ul class="list">
+      {% for entry in recent_lessons %}
+        <li>
+          <div>
+            <div>{{ entry.lesson.topic }}</div>
+            <div class="muted small">{{ entry.lesson.course.name }} · {{ entry.lesson.date|date:"d.m.Y" }}</div>
+          </div>
+          {% if entry.result %}
+            <span class="tag">Есть результат</span>
+          {% else %}
+            <span class="muted small">Без результата</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Пока нет уроков.</p>
+  {% endif %}
+
+  <h2>Недавние отчёты</h2>
+  {% if recent_reports %}
+    <ul class="list">
+      {% for report in recent_reports %}
+        <li>
+          <div>
+            <div>{{ report.lesson.topic }}</div>
+            <div class="muted small">{{ report.created_at|date:"d.m.Y" }}</div>
+          </div>
+          {% if report.text %}
+            <span class="tag">Текст</span>
+          {% else %}
+            <span class="muted small">Без текста</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Пока нет отчётов.</p>
+  {% endif %}
+
+  <h2>Недавние результаты</h2>
+  {% if recent_grades %}
+    <ul class="list">
+      {% for g in recent_grades %}
+        <li>
+          <div>
+            <div>{{ g.assessment.title }}</div>
+            <div class="muted small">Курс: {{ g.assessment.course.name }}</div>
+          </div>
+          {% if g.score != None %}
+            <span class="tag">{{ g.score }}</span>
+          {% else %}
+            <span class="muted small">—</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Пока нет результатов.</p>
+  {% endif %}
+
+  <h2>Годовой план</h2>
+  {% if goals %}
+    <ul class="list">
+      {% for goal in goals %}
+        <li>
+          <div>
+            <div>{{ goal.title }}</div>
+            <div class="muted small">
+              {% if goal.teacher %}{{ goal.teacher.username }} · {% endif %}
+              {{ goal.created_at|date:"d.m.Y" }}
+            </div>
+          </div>
+          {% if goal.details %}
+            <span class="tag">Комментарий</span>
+          {% else %}
+            <span class="muted small">—</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Пока нет целей.</p>
+  {% endif %}
+{% endblock %}

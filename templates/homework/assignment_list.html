@@ -6,7 +6,7 @@
   {% if mode == "TEACHER" %}
     <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
       <p class="muted" style="margin:0;">Ваши созданные задания и число назначений.</p>
-      <a class="btn" href="/assignments/create/">Создать задание</a>
+      <a class="btn" href="/teacher/class/">Выбрать ученика</a>
       {% if can_bulk_delete and not select_mode %}
         <a class="btn" href="{{ select_url }}">Удалить</a>
       {% endif %}

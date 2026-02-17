@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Результаты{% endblock %}
+{% block content %}
+  <h1>Результаты</h1>
+  <p class="muted">Ученик: {{ student.username }} · Курс: {{ course.name }}</p>
+
+  {% if rows %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Оценка</th>
+              <th>Результат (0–100)</th>
+              <th>Комментарий</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td class="th-title">{{ row.assessment.title }}</td>
+                <td>
+                  <input class="input input-score" type="number" min="0" max="100" name="grade-{{ row.assessment.id }}"
+                         value="{% if row.grade and row.grade.score != None %}{{ row.grade.score }}{% endif %}">
+                </td>
+                <td>
+                  <input class="input" type="text" name="comment-{{ row.assessment.id }}"
+                         value="{% if row.grade %}{{ row.grade.comment }}{% endif %}">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top: 12px;">
+        <button class="btn" type="submit">Сохранить</button>
+        <a class="btn" href="/teacher/students/{{ student.id }}/">Назад</a>
+      </div>
+    </form>
+  {% else %}
+    <p class="muted">Оценок пока нет.</p>
+  {% endif %}
+{% endblock %}

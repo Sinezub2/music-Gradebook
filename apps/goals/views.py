@@ -10,8 +10,9 @@ from urllib.parse import urlencode
 
 from apps.accounts.models import Profile
 from apps.school.models import Course, ParentChild
-from .forms import GoalForm
+from .forms import GoalForm, StudentGoalCreateForm
 from .models import Goal
+from apps.school.utils import get_teacher_student_or_404
 
 User = get_user_model()
 
@@ -150,6 +151,10 @@ def goal_create(request):
     if profile.role not in (Profile.Role.TEACHER, Profile.Role.ADMIN):
         return HttpResponseForbidden("Доступ запрещён.")
 
+    if profile.role == Profile.Role.TEACHER:
+        messages.info(request, "Сначала выберите ученика в разделе «Класс».")
+        return redirect("/teacher/class/")
+
     selected_student_id = request.GET.get("student") or ""
     students = User.objects.none()
 
@@ -193,3 +198,36 @@ def goal_create(request):
         "selected_student_id": selected_student_id,
     }
     return render(request, "goals/goal_create.html", ctx)
+
+
+@login_required
+def goal_create_for_student(request, student_id: int):
+    profile = request.user.profile
+    if profile.role not in (Profile.Role.TEACHER, Profile.Role.ADMIN):
+        return HttpResponseForbidden("Доступ запрещён.")
+
+    if profile.role == Profile.Role.TEACHER:
+        student = get_teacher_student_or_404(request.user, student_id)
+    else:
+        student = User.objects.filter(id=student_id, profile__role=Profile.Role.STUDENT).select_related("profile").first()
+        if not student:
+            return HttpResponseForbidden("Доступ запрещён.")
+
+    if request.method == "POST":
+        form = StudentGoalCreateForm(request.POST)
+        if form.is_valid():
+            goal = form.save(commit=False)
+            goal.student = student
+            goal.teacher = request.user
+            goal.month = date.today().replace(month=1, day=1)
+            goal.save()
+            messages.success(request, "Годовая цель добавлена.")
+            return redirect(f"/teacher/students/{student.id}/" if profile.role == Profile.Role.TEACHER else "/goals/")
+    else:
+        form = StudentGoalCreateForm()
+
+    return render(
+        request,
+        "goals/goal_create_student.html",
+        {"form": form, "student": student},
+    )

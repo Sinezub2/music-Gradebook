@@ -3,7 +3,11 @@
 {% block content %}
   {% if can_edit %}
     <div style="margin-bottom: 16px;">
-      <a class="btn" href="/goals/create/{% if selected_student_id %}?student={{ selected_student_id }}{% endif %}">Создать годовую цель</a>
+      {% if user.profile.role == "TEACHER" %}
+        <a class="btn" href="/teacher/class/">Выбрать ученика</a>
+      {% else %}
+        <a class="btn" href="/goals/create/{% if selected_student_id %}?student={{ selected_student_id }}{% endif %}">Создать годовую цель</a>
+      {% endif %}
       {% if can_bulk_delete and not select_mode %}
         <a class="btn" href="{{ select_url }}">Удалить</a>
       {% endif %}

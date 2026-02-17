@@ -15,7 +15,7 @@
     {% if mode == "student" or mode == "parent" %}
       <a class="btn" href="/courses/{{ course.id }}/grades/{% if mode == 'parent' %}?student={{ student.id }}{% endif %}">Результаты</a>
     {% endif %}
-    {% if mode == "staff" %}
+    {% if mode == "staff" and role == "ADMIN" %}
       <a class="btn" href="/teacher/courses/{{ course.id }}/grades/">Ввод результата</a>
     {% endif %}
     <a class="btn" href="/assignments/">Задания</a>

@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.school.models import Course, Enrollment, ParentChild
+from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
 from .models import Assessment, Grade
 from .services import compute_average_percent
 
@@ -261,5 +262,64 @@ def student_course_grades(request, course_id: int):
             "avg_percent": avg_percent,
             "summary": summary,
             "trend": trend,
+        },
+    )
+
+
+@role_required(Profile.Role.TEACHER)
+def teacher_student_results(request, student_id: int):
+    student = get_teacher_student_or_404(request.user, student_id)
+    course, status = resolve_teacher_course_for_student(request.user, student)
+    if status == "none":
+        return HttpResponseForbidden("Ученик не назначен на ваш курс.")
+    if status == "multiple":
+        return HttpResponseForbidden("У ученика несколько ваших курсов. Уточните курс у администратора.")
+
+    assessments = list(Assessment.objects.filter(course=course).order_by("id"))
+    grades = Grade.objects.filter(assessment__in=assessments, student=student).select_related("assessment")
+    grade_map = {g.assessment_id: g for g in grades}
+
+    if request.method == "POST":
+        with transaction.atomic():
+            for a in assessments:
+                score_key = f"grade-{a.id}"
+                comment_key = f"comment-{a.id}"
+                raw_score = (request.POST.get(score_key) or "").strip()
+                raw_comment = (request.POST.get(comment_key) or "").strip()
+                if raw_comment and len(raw_comment) >= 50:
+                    messages.error(request, f"Комментарий слишком длинный: {a.title}")
+                    continue
+
+                score_val = None
+                if raw_score != "":
+                    if not raw_score.isdigit():
+                        messages.error(request, f"Некорректный результат: {a.title}")
+                        continue
+                    try:
+                        score_int = int(raw_score)
+                    except ValueError:
+                        messages.error(request, f"Некорректный результат: {a.title}")
+                        continue
+                    if score_int < 0 or score_int > 100:
+                        messages.error(request, f"Результат вне диапазона 0–100: {a.title}")
+                        continue
+                    score_val = Decimal(score_int)
+
+                obj, _created = Grade.objects.get_or_create(assessment=a, student=student)
+                obj.score = score_val
+                obj.comment = raw_comment
+                obj.save()
+
+        messages.success(request, "Результаты сохранены.")
+        return redirect(f"/teacher/students/{student.id}/results/")
+
+    rows = [{"assessment": a, "grade": grade_map.get(a.id)} for a in assessments]
+    return render(
+        request,
+        "gradebook/teacher_student_results.html",
+        {
+            "course": course,
+            "student": student,
+            "rows": rows,
         },
     )

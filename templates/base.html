@@ -15,7 +15,11 @@
       </div>
       <nav class="nav">
         {% if user.is_authenticated %}
-          <a href="/courses/">Класс</a>
+          {% if user.profile.role == "TEACHER" %}
+            <a href="/teacher/class/">Класс</a>
+          {% else %}
+            <a href="/courses/">Класс</a>
+          {% endif %}
           <a href="/logout">Выйти</a>
         {% else %}
           <a href="/login">Вход</a>

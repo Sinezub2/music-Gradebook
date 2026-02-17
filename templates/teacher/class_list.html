@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Класс{% endblock %}
+{% block content %}
+  <h1>Класс</h1>
+
+  <form method="get" class="form-row" style="margin: 12px 0;">
+    <label class="muted small" for="cycle">Цикл учеников</label>
+    <select id="cycle" name="cycle" class="input" onchange="this.form.submit()">
+      <option value="">Все циклы</option>
+      {% for value, label in cycle_options %}
+        <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button class="btn" type="submit">Показать</button></noscript>
+  </form>
+
+  {% if students %}
+    <ul class="list">
+      {% for student in students %}
+        <li>
+          <div>
+            <div>{{ student.username }}</div>
+            <div class="muted small">Цикл: {{ student.profile.get_cycle_display }}</div>
+          </div>
+          <a class="btn" href="/teacher/students/{{ student.id }}/">Открыть</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Нет назначенных учеников.</p>
+  {% endif %}
+{% endblock %}
