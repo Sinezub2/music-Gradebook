@@ -1,19 +1,19 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Literata:wght@600;700&display=swap");
 
 :root {
-  --bg: #f1f2f4;
-  --bg-soft: #eceff3;
+  --bg: #f4f7f6;
+  --bg-soft: #edf2f0;
   --surface: #ffffff;
-  --surface-alt: #f7f8fa;
-  --line: #d9dee7;
-  --text: #1f2738;
-  --muted: #6d7789;
-  --accent: #c9a734;
-  --accent-strong: #b08d20;
-  --ok: #248a4c;
-  --error: #a5443f;
+  --surface-alt: #f8faf9;
+  --line: #d7dfdc;
+  --text: #1f2b28;
+  --muted: #62706b;
+  --accent: #4f8a7c;
+  --accent-strong: #2f5f54;
+  --ok: #2f7a64;
+  --error: #9a5959;
   --radius: 14px;
-  --shadow: 0 12px 35px rgba(28, 35, 53, 0.08);
+  --shadow: 0 10px 28px rgba(23, 41, 35, 0.07);
 }
 
 * {
@@ -26,8 +26,8 @@ body {
   font-family: "IBM Plex Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(1200px 500px at -8% -6%, rgba(201, 167, 52, 0.15), transparent 70%),
-    radial-gradient(900px 420px at 106% 0%, rgba(89, 112, 157, 0.08), transparent 70%),
+    radial-gradient(1200px 500px at -8% -6%, rgba(79, 138, 124, 0.1), transparent 70%),
+    radial-gradient(900px 420px at 106% 0%, rgba(47, 95, 84, 0.06), transparent 70%),
     var(--bg);
 }
 
@@ -48,7 +48,7 @@ a:hover {
 .sidebar {
   width: 236px;
   border-right: 1px solid var(--line);
-  background: rgba(249, 250, 252, 0.96);
+  background: rgba(244, 247, 246, 0.96);
   display: flex;
   flex-direction: column;
   padding: 12px 10px;
@@ -69,7 +69,7 @@ a:hover {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: linear-gradient(145deg, #d6bb5f, #8a7422);
+  background: linear-gradient(145deg, #71a99a, #2f5f54);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -101,23 +101,37 @@ a:hover {
 
 .nav-item {
   border: 1px solid transparent;
-  color: #4e5a72;
+  color: var(--text);
   font-size: 14px;
   border-radius: 10px;
   padding: 9px 10px;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .nav-item:hover {
   background: var(--surface-alt);
-  color: #2e374a;
+  color: var(--accent-strong);
 }
 
 .nav-item.active {
-  background: rgba(201, 167, 52, 0.15);
-  border-color: rgba(201, 167, 52, 0.28);
-  color: #2f3644;
+  background: rgba(79, 138, 124, 0.16);
+  border-color: rgba(47, 95, 84, 0.26);
+  color: var(--accent-strong);
   font-weight: 600;
+}
+
+.nav-label {
+  line-height: 1.2;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 
 .sidebar-footer {
@@ -146,7 +160,7 @@ a:hover {
 h1,
 h2 {
   font-family: "Literata", Georgia, serif;
-  color: #242d3f;
+  color: var(--text);
 }
 
 h1 {
@@ -186,19 +200,19 @@ p {
 .message {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fafbfc;
+  background: var(--surface-alt);
   color: var(--text);
   padding: 10px 12px;
 }
 
 .message.success {
-  border-color: rgba(36, 138, 76, 0.25);
-  background: rgba(36, 138, 76, 0.08);
+  border-color: rgba(47, 122, 100, 0.26);
+  background: rgba(47, 122, 100, 0.1);
 }
 
 .message.error {
-  border-color: rgba(165, 68, 63, 0.25);
-  background: rgba(165, 68, 63, 0.08);
+  border-color: rgba(154, 89, 89, 0.28);
+  background: rgba(154, 89, 89, 0.12);
 }
 
 .card,
@@ -245,7 +259,7 @@ select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   padding: 10px 12px;
   outline: none;
@@ -256,8 +270,8 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: rgba(201, 167, 52, 0.45);
-  box-shadow: 0 0 0 3px rgba(201, 167, 52, 0.15);
+  border-color: rgba(79, 138, 124, 0.55);
+  box-shadow: 0 0 0 3px rgba(79, 138, 124, 0.2);
 }
 
 textarea {
@@ -268,16 +282,16 @@ textarea {
 .btn {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
-  color: #2d3548;
+  background: var(--surface);
+  color: var(--text);
   padding: 9px 13px;
   cursor: pointer;
   font-weight: 600;
 }
 
 .btn:hover {
-  border-color: rgba(201, 167, 52, 0.5);
-  color: #2d3548;
+  border-color: rgba(79, 138, 124, 0.45);
+  color: var(--accent-strong);
 }
 
 button.btn[type="submit"],
@@ -301,6 +315,19 @@ input.btn[type="submit"]:hover,
   font-size: 13px;
 }
 
+.btn-with-icon,
+.inline-icon-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -321,23 +348,23 @@ input.btn[type="submit"]:hover,
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 12px;
-  color: #43506a;
-  background: #fff;
+  color: var(--text);
+  background: var(--surface);
 }
 
 .badge-todo {
-  border-color: rgba(201, 167, 52, 0.4);
-  background: rgba(201, 167, 52, 0.14);
+  border-color: rgba(79, 138, 124, 0.36);
+  background: rgba(79, 138, 124, 0.14);
 }
 
 .badge-done {
-  border-color: rgba(36, 138, 76, 0.34);
-  background: rgba(36, 138, 76, 0.12);
+  border-color: rgba(47, 122, 100, 0.3);
+  background: rgba(47, 122, 100, 0.11);
 }
 
 .badge-late {
-  border-color: rgba(165, 68, 63, 0.34);
-  background: rgba(165, 68, 63, 0.12);
+  border-color: rgba(154, 89, 89, 0.3);
+  background: rgba(154, 89, 89, 0.1);
 }
 
 .list {
@@ -351,7 +378,7 @@ input.btn[type="submit"]:hover,
 .list li {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   padding: 10px 12px;
   display: flex;
   gap: 10px;
@@ -372,13 +399,13 @@ input.btn[type="submit"]:hover,
 .table th,
 .table td {
   padding: 10px 12px;
-  border-bottom: 1px solid #e9edf4;
+  border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
 
 .table th {
-  color: #576179;
-  background: #f9fafc;
+  color: var(--muted);
+  background: var(--bg-soft);
   text-align: left;
   font-size: 13px;
   letter-spacing: 0.01em;
@@ -389,12 +416,12 @@ input.btn[type="submit"]:hover,
 }
 
 .table tr:hover td {
-  background: #fcfdff;
+  background: var(--surface-alt);
 }
 
 .th-title {
   font-weight: 700;
-  color: #30394d;
+  color: var(--text);
 }
 
 .cell {
@@ -430,9 +457,9 @@ input.btn[type="submit"]:hover,
 }
 
 .schedule-row {
-  border: 1px solid #e8ebf2;
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fbfcfe;
+  background: var(--surface-alt);
   padding: 10px 12px;
   display: grid;
   grid-template-columns: 90px 1fr auto;
@@ -442,7 +469,7 @@ input.btn[type="submit"]:hover,
 
 .schedule-time {
   font-weight: 700;
-  color: #6f7a8f;
+  color: var(--accent-strong);
 }
 
 .metric-bars {
@@ -463,13 +490,13 @@ input.btn[type="submit"]:hover,
   width: 100%;
   height: 8px;
   border-radius: 999px;
-  background: #e8ecf4;
+  background: #e3ebe8;
 }
 
 .metric-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #d2ba67, #bc9934);
+  background: linear-gradient(90deg, #71a99a, #2f5f54);
 }
 
 .announcement-grid {
@@ -533,8 +560,8 @@ input.btn[type="submit"]:hover,
 }
 
 .week-column.is-today {
-  border-color: rgba(201, 167, 52, 0.45);
-  box-shadow: 0 0 0 2px rgba(201, 167, 52, 0.12), var(--shadow);
+  border-color: rgba(79, 138, 124, 0.44);
+  box-shadow: 0 0 0 2px rgba(79, 138, 124, 0.14), var(--shadow);
 }
 
 .week-column h3 {
@@ -548,9 +575,9 @@ input.btn[type="submit"]:hover,
 }
 
 .event-card {
-  border: 1px solid #e6ebf4;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #f8fafd;
+  background: var(--surface-alt);
   padding: 8px 9px;
   margin-top: 8px;
   display: grid;
@@ -558,7 +585,7 @@ input.btn[type="submit"]:hover,
 }
 
 .event-card .time {
-  color: #8a9468;
+  color: var(--accent-strong);
   font-weight: 700;
 }
 
@@ -583,12 +610,12 @@ input.btn[type="submit"]:hover,
 }
 
 .chat-item:hover {
-  background: #f8fafd;
+  background: var(--surface-alt);
 }
 
 .chat-item.active {
-  border-color: rgba(201, 167, 52, 0.35);
-  background: rgba(201, 167, 52, 0.12);
+  border-color: rgba(79, 138, 124, 0.34);
+  background: rgba(79, 138, 124, 0.13);
 }
 
 .chat-bubbles {
@@ -599,9 +626,9 @@ input.btn[type="submit"]:hover,
 
 .bubble {
   max-width: 74%;
-  border: 1px solid #e5eaf2;
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #f8fafc;
+  background: var(--surface-alt);
   padding: 10px;
   display: grid;
   gap: 3px;
@@ -609,8 +636,8 @@ input.btn[type="submit"]:hover,
 
 .bubble.outgoing {
   justify-self: end;
-  background: rgba(201, 167, 52, 0.15);
-  border-color: rgba(201, 167, 52, 0.3);
+  background: rgba(79, 138, 124, 0.14);
+  border-color: rgba(79, 138, 124, 0.32);
 }
 
 .library-grid {

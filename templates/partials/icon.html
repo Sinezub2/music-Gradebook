@@ -1,0 +1,9 @@
+{% load static %}
+<img
+  class="{% if class_name %}{{ class_name }}{% else %}nav-icon{% endif %}"
+  src="{% static 'icons/basil/'|add:name|add:'.svg' %}"
+  alt=""
+  width="{{ size|default:'18' }}"
+  height="{{ size|default:'18' }}"
+  aria-hidden="true"
+>

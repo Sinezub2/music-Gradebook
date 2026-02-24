@@ -13,10 +13,16 @@
 
   <div style="display:flex; gap:10px; flex-wrap:wrap; margin: 10px 0;">
     {% if mode == "student" or mode == "parent" %}
-      <a class="btn" href="/courses/{{ course.id }}/grades/{% if mode == 'parent' %}?student={{ student.id }}{% endif %}">Результаты</a>
+      <a class="btn btn-with-icon" href="/courses/{{ course.id }}/grades/{% if mode == 'parent' %}?student={{ student.id }}{% endif %}">
+        {% include "partials/icon.html" with name="progress-chart" class_name="btn-icon" %}
+        <span>Результаты</span>
+      </a>
     {% endif %}
     {% if mode == "staff" and role == "ADMIN" %}
-      <a class="btn" href="/teacher/courses/{{ course.id }}/grades/">Ввод результата</a>
+      <a class="btn btn-with-icon" href="/teacher/courses/{{ course.id }}/grades/">
+        {% include "partials/icon.html" with name="progress-chart" class_name="btn-icon" %}
+        <span>Ввод результата</span>
+      </a>
     {% endif %}
     <a class="btn" href="/assignments/">Задания</a>
     <a class="btn" href="/lessons/">Уроки</a>

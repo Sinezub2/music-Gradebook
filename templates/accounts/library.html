@@ -3,41 +3,84 @@
 {% block content %}
   <section class="page-head">
     <h1>Библиотека</h1>
-    <p>Образовательные ресурсы и материалы.</p>
+    <p>Материалы по урокам и домашним заданиям.</p>
   </section>
 
   <section class="panel" style="margin-bottom: 12px;">
-    <form method="get" class="form-row">
-      {% if children_links %}
-        <label for="student">Ученик</label>
-        <select id="student" name="student">
-          {% for link in children_links %}
-            <option value="{{ link.child_id }}"{% if selected_child and selected_child.id == link.child_id %} selected{% endif %}>
-              {{ link.child.get_full_name|default:"Без имени" }}
-            </option>
-          {% endfor %}
-        </select>
+    <form method="get" class="form-row" style="gap: 10px;">
+      {% if student_choices %}
+        <div class="form-row" style="max-width: 360px;">
+          <label for="student">Ученик</label>
+          <select id="student" name="student" onchange="this.form.submit()">
+            {% for student in student_choices %}
+              <option value="{{ student.id }}"{% if selected_student and selected_student.id == student.id %} selected{% endif %}>
+                {{ student.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
       {% endif %}
-      <label for="q">Поиск материалов</label>
-      <div style="display:flex;gap:8px;">
-        <input id="q" type="search" name="q" placeholder="Поиск в библиотеке..." value="{{ search_query }}">
-        <button class="btn btn-accent" type="submit">Найти</button>
+      {% if selected_category %}
+        <input type="hidden" name="category" value="{{ selected_category }}">
+      {% endif %}
+      <div class="form-row">
+        <label for="q">Поиск материалов</label>
+        <div style="display:flex;gap:8px;">
+          <input id="q" type="search" name="q" placeholder="Название, категория, источник..." value="{{ search_query }}">
+          <button class="btn btn-accent" type="submit">Найти</button>
+        </div>
       </div>
     </form>
+
+    {% if category_tabs %}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        {% for tab in category_tabs %}
+          <a class="btn btn-small {% if tab.active %}btn-accent{% endif %}" href="{{ tab.url }}">
+            {{ tab.label }} ({{ tab.count }})
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
   </section>
 
-  <section class="library-grid">
-    {% for resource in resources %}
-      <article class="resource-card">
-        <p class="small muted">{{ resource.category }} · {{ resource.course_name }}</p>
-        <h3>{{ resource.title }}</h3>
-        <p class="small muted">{{ resource.date_label }}</p>
-        {% if resource.url %}
-          <a class="btn btn-small" href="{{ resource.url }}"{% if resource.is_external %} target="_blank" rel="noopener noreferrer"{% endif %}>Открыть</a>
-        {% else %}
-          <button class="btn btn-small" type="button" disabled>Недоступно</button>
-        {% endif %}
-      </article>
-    {% endfor %}
-  </section>
+  {% if resources %}
+    <section class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Категория</th>
+            <th>Материал</th>
+            <th>Источник</th>
+            <th>Курс</th>
+            <th>Кто загрузил</th>
+            <th>Дата</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for resource in resources %}
+            <tr>
+              <td><span class="tag">{{ resource.category }}</span></td>
+              <td>{{ resource.title }}</td>
+              <td>{{ resource.source }}</td>
+              <td>{{ resource.course_name }}</td>
+              <td>{{ resource.uploaded_by }}</td>
+              <td>{{ resource.date_label }}</td>
+              <td>
+                {% if resource.url %}
+                  <a class="btn btn-small" href="{{ resource.url }}"{% if resource.is_external %} target="_blank" rel="noopener noreferrer"{% endif %}>
+                    {% if resource.is_external %}Открыть{% else %}Скачать{% endif %}
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% else %}
+    <section class="panel">
+      <p class="muted">Материалы не найдены.</p>
+    </section>
+  {% endif %}
 {% endblock %}

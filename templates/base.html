@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{% block title %}Aubakirova School Connect{% endblock %}</title>
+  <title>{% block title %}A-school{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/main.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
@@ -15,28 +15,51 @@
         <a href="/dashboard" class="brand-block">
           <span class="brand-logo">ASC</span>
           <span class="brand-text">
-            <strong>Аубакирова</strong>
-            <small>School Connect</small>
+            <strong>A-school</strong>
           </span>
         </a>
 
         <nav class="sidebar-nav">
-          <a class="nav-item {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">Панель управления</a>
+          <a class="nav-item {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">
+            {% include "partials/icon.html" with name="dashboard-grid" %}
+            <span class="nav-label">Панель управления</span>
+          </a>
 
           {% if user.profile.role == "TEACHER" %}
-            <a class="nav-item {% if '/teacher/class/' in request.path or '/teacher/students/' in request.path %}active{% endif %}" href="/teacher/class/">Мои занятия</a>
+            <a class="nav-item {% if '/teacher/class/' in request.path or '/teacher/students/' in request.path %}active{% endif %}" href="/teacher/class/">
+              {% include "partials/icon.html" with name="class-group" %}
+              <span class="nav-label">Мои занятия</span>
+            </a>
           {% else %}
-            <a class="nav-item {% if '/courses/' in request.path or '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}" href="/courses/">Мои занятия</a>
+            <a class="nav-item {% if '/courses/' in request.path or '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}" href="/courses/">
+              {% include "partials/icon.html" with name="class-group" %}
+              <span class="nav-label">Мои занятия</span>
+            </a>
           {% endif %}
 
-          <a class="nav-item {% if '/calendar/' in request.path or '/attendance/' in request.path %}active{% endif %}" href="/calendar/">Расписание</a>
-          <a class="nav-item {% if '/communication/' in request.path %}active{% endif %}" href="/communication/">Коммуникация</a>
-          <a class="nav-item {% if '/school-life/' in request.path %}active{% endif %}" href="/school-life/">Школьная жизнь</a>
-          <a class="nav-item {% if '/library/' in request.path %}active{% endif %}" href="/library/">Библиотека</a>
+          <a class="nav-item {% if '/calendar/' in request.path or '/attendance/' in request.path %}active{% endif %}" href="/calendar/">
+            {% include "partials/icon.html" with name="schedule-calendar" %}
+            <span class="nav-label">Расписание</span>
+          </a>
+          <a class="nav-item {% if '/communication/' in request.path %}active{% endif %}" href="/communication/">
+            {% include "partials/icon.html" with name="messages-chat" %}
+            <span class="nav-label">Коммуникация</span>
+          </a>
+          <a class="nav-item {% if '/school-life/' in request.path %}active{% endif %}" href="/school-life/">
+            {% include "partials/icon.html" with name="progress-chart" %}
+            <span class="nav-label">Школьная жизнь</span>
+          </a>
+          <a class="nav-item {% if '/library/' in request.path %}active{% endif %}" href="/library/">
+            {% include "partials/icon.html" with name="library-book" %}
+            <span class="nav-label">Библиотека</span>
+          </a>
         </nav>
 
         <div class="sidebar-footer">
-          <a class="nav-item" href="/profile/">Профиль</a>
+          <a class="nav-item" href="/profile/">
+            {% include "partials/icon.html" with name="profile-user" %}
+            <span class="nav-label">Профиль</span>
+          </a>
           <a class="nav-item nav-item--logout" href="/logout">Выйти</a>
         </div>
       </aside>

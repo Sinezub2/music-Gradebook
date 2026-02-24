@@ -1,6 +1,6 @@
 # apps/accounts/views.py
 from datetime import datetime, time, timedelta
-from pathlib import Path
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout, update_session_auth_hash
@@ -14,14 +14,15 @@ from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
 from apps.gradebook.models import Grade
-from apps.homework.models import Assignment, AssignmentTarget
-from apps.lessons.models import Lesson, LessonReport
+from apps.homework.models import AssignmentTarget
+from apps.lessons.models import Lesson
 from apps.schedule.models import Event
 from apps.school.models import ParentChild, Course, Enrollment
-from apps.school.utils import get_user_single_class
+from apps.school.utils import get_user_single_class, get_teacher_students
 
 from .decorators import role_required
 from .forms import InviteRegistrationForm, LoginForm, StudentInviteCreateForm, UsernameChangeForm
+from .library_service import LIBRARY_CATEGORIES, build_library_items_for_student
 from .models import Profile, StudentInvitation
 from .utils import get_user_display_name
 
@@ -48,15 +49,6 @@ DEFAULT_SCHOOL_LIFE_ITEMS = [
 ]
 
 
-DEFAULT_LIBRARY_ITEMS = [
-    {"title": "Классический фортепианный репертуар", "category": "Ноты", "course_name": "Библиотека школы", "date_label": "Демо"},
-    {"title": "Упражнения по технике игры на скрипке", "category": "Методические пособия", "course_name": "Библиотека школы", "date_label": "Демо"},
-    {"title": "Основы теории музыки", "category": "Теория", "course_name": "Библиотека школы", "date_label": "Демо"},
-    {"title": "Коллекция ноктюрнов Шопена", "category": "PDF", "course_name": "Библиотека школы", "date_label": "Демо"},
-    {"title": "Инвенции Баха - Аудиогид", "category": "Аудио", "course_name": "Библиотека школы", "date_label": "Демо"},
-]
-
-
 def _display_name(user) -> str:
     return (user.get_full_name() or "").strip() or user.username or "Без имени"
 
@@ -67,21 +59,6 @@ def _today_bounds():
     day_start = timezone.make_aware(datetime.combine(today, time.min), local_tz)
     day_end = day_start + timedelta(days=1)
     return today, day_start, day_end
-
-
-def _resource_kind(raw_name: str) -> str:
-    ext = Path((raw_name or "").lower()).suffix
-    if ext in {".mp3", ".wav", ".ogg", ".m4a"}:
-        return "Аудио"
-    if ext in {".mp4", ".mov", ".avi", ".mkv"}:
-        return "Видео"
-    if ext in {".pdf"}:
-        return "PDF"
-    if ext in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
-        return "Фото"
-    if ext in {".doc", ".docx", ".txt"}:
-        return "Текст"
-    return "Материал"
 
 
 def _announcements_for_events(events_qs, limit: int = 6):
@@ -442,91 +419,6 @@ def _conversation_from_thread(thread):
     ]
 
 
-def _resource_rows_for_courses(courses_qs):
-    resources = []
-    seen = set()
-    course_ids = list(courses_qs.values_list("id", flat=True))
-    if not course_ids:
-        return resources
-
-    assignments = (
-        Assignment.objects.filter(course_id__in=course_ids)
-        .exclude(attachment="")
-        .select_related("course")
-        .order_by("-created_at")[:80]
-    )
-    for assignment in assignments:
-        url = assignment.attachment.url
-        key = ("file", url)
-        if key in seen:
-            continue
-        seen.add(key)
-        resources.append(
-            {
-                "title": assignment.title,
-                "category": _resource_kind(assignment.attachment.name),
-                "course_name": assignment.course.name,
-                "date_label": assignment.created_at.strftime("%d.%m.%Y"),
-                "sort_at": assignment.created_at,
-                "url": url,
-                "is_external": False,
-            }
-        )
-
-    lessons = (
-        Lesson.objects.filter(course_id__in=course_ids)
-        .exclude(attachment="")
-        .select_related("course")
-        .order_by("-date", "-id")[:80]
-    )
-    for lesson in lessons:
-        url = lesson.attachment.url
-        key = ("file", url)
-        if key in seen:
-            continue
-        seen.add(key)
-        resources.append(
-            {
-                "title": lesson.topic,
-                "category": _resource_kind(lesson.attachment.name),
-                "course_name": lesson.course.name,
-                "date_label": lesson.date.strftime("%d.%m.%Y"),
-                "sort_at": lesson.date,
-                "url": url,
-                "is_external": False,
-            }
-        )
-
-    reports = (
-        LessonReport.objects.filter(lesson__course_id__in=course_ids)
-        .exclude(media_url="")
-        .select_related("lesson", "lesson__course")
-        .order_by("-created_at")[:80]
-    )
-    for report in reports:
-        url = report.media_url.strip()
-        if not url:
-            continue
-        key = ("url", url)
-        if key in seen:
-            continue
-        seen.add(key)
-        resources.append(
-            {
-                "title": report.lesson.topic,
-                "category": _resource_kind(url),
-                "course_name": report.lesson.course.name,
-                "date_label": report.created_at.strftime("%d.%m.%Y"),
-                "sort_at": report.created_at,
-                "url": url,
-                "is_external": True,
-            }
-        )
-
-    resources.sort(key=lambda item: item["sort_at"], reverse=True)
-    return resources
-
-
 def login_view(request):
     if request.user.is_authenticated:
         return redirect("/dashboard")
@@ -697,34 +589,64 @@ def library_view(request):
     role = request.user.profile.role
     search_query = (request.GET.get("q") or "").strip()
     selected_student_id = request.GET.get("student") or ""
+    selected_category = (request.GET.get("category") or "").strip()
+    selected_student = None
+    student_choices = []
+    resources = []
 
-    children_links = []
-    selected_child = None
-    courses = Course.objects.none()
+    if role == Profile.Role.TEACHER:
+        teacher_students = list(get_teacher_students(request.user))
+        student_choices = [
+            {"id": student.id, "label": _display_name(student)}
+            for student in teacher_students
+        ]
+        if teacher_students:
+            selected_student = next(
+                (student for student in teacher_students if str(student.id) == str(selected_student_id)),
+                teacher_students[0],
+            )
+            resources = build_library_items_for_student(selected_student, teacher=request.user)
 
-    if role == Profile.Role.ADMIN:
-        courses = Course.objects.all()
-    elif role == Profile.Role.TEACHER:
-        courses = Course.objects.filter(teacher=request.user)
     elif role == Profile.Role.STUDENT:
-        courses = Course.objects.filter(enrollments__student=request.user)
+        selected_student = request.user
+        resources = build_library_items_for_student(selected_student)
+
     elif role == Profile.Role.PARENT:
         children_links = list(
             ParentChild.objects.filter(parent=request.user)
             .select_related("child")
             .order_by("child__first_name", "child__last_name", "child__username")
         )
-        if children_links:
-            for link in children_links:
-                if str(link.child_id) == str(selected_student_id):
-                    selected_child = link.child
-                    break
-            if not selected_child:
-                selected_child = children_links[0].child
-            courses = Course.objects.filter(enrollments__student=selected_child)
+        children = [link.child for link in children_links]
+        student_choices = [
+            {"id": child.id, "label": _display_name(child)}
+            for child in children
+        ]
+        if children:
+            selected_student = next(
+                (child for child in children if str(child.id) == str(selected_student_id)),
+                children[0],
+            )
+            resources = build_library_items_for_student(selected_student)
 
-    courses = courses.distinct().order_by("name")
-    resources = _resource_rows_for_courses(courses)
+    elif role == Profile.Role.ADMIN:
+        user_model = get_user_model()
+        all_students = list(
+            user_model.objects.filter(profile__role=Profile.Role.STUDENT)
+            .select_related("profile")
+            .order_by("first_name", "last_name", "username")
+        )
+        student_choices = [
+            {"id": student.id, "label": _display_name(student)}
+            for student in all_students
+        ]
+        if all_students:
+            selected_student = next(
+                (student for student in all_students if str(student.id) == str(selected_student_id)),
+                all_students[0],
+            )
+            resources = build_library_items_for_student(selected_student)
+
     if search_query:
         lowered = search_query.lower()
         resources = [
@@ -733,10 +655,51 @@ def library_view(request):
             if lowered in row["title"].lower()
             or lowered in row["category"].lower()
             or lowered in row["course_name"].lower()
+            or lowered in row["source"].lower()
+            or lowered in row["uploaded_by"].lower()
         ]
 
-    if not resources:
-        resources = DEFAULT_LIBRARY_ITEMS
+    category_counts = {category: 0 for category in LIBRARY_CATEGORIES}
+    for row in resources:
+        if row["category"] in category_counts:
+            category_counts[row["category"]] += 1
+    all_count = len(resources)
+
+    if selected_category and selected_category in LIBRARY_CATEGORIES:
+        resources = [row for row in resources if row["category"] == selected_category]
+    else:
+        selected_category = ""
+
+    base_params = {}
+    if search_query:
+        base_params["q"] = search_query
+    if selected_student:
+        base_params["student"] = selected_student.id
+
+    category_tabs = []
+    all_query = urlencode(base_params)
+    category_tabs.append(
+        {
+            "label": "Все",
+            "value": "",
+            "count": all_count,
+            "active": not selected_category,
+            "url": f"/library/?{all_query}" if all_query else "/library/",
+        }
+    )
+    for category in LIBRARY_CATEGORIES:
+        params = dict(base_params)
+        params["category"] = category
+        query = urlencode(params)
+        category_tabs.append(
+            {
+                "label": category,
+                "value": category,
+                "count": category_counts.get(category, 0),
+                "active": selected_category == category,
+                "url": f"/library/?{query}",
+            }
+        )
 
     return render(
         request,
@@ -744,8 +707,10 @@ def library_view(request):
         {
             "search_query": search_query,
             "resources": resources,
-            "children_links": children_links,
-            "selected_child": selected_child,
+            "student_choices": student_choices,
+            "selected_student": selected_student,
+            "selected_category": selected_category,
+            "category_tabs": category_tabs,
         },
     )
 

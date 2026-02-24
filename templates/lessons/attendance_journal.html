@@ -58,10 +58,14 @@
                 <td>{{ row.date|date:"d.m.Y" }}</td>
                 {% for cell in row.cells %}
                   <td class="attendance-cell">
-                    {% if cell.attended %}
+                    {% if cell.attendance_status == "PRESENT" %}
                       <span class="attendance-yes">✓</span>
-                    {% elif cell.attended == False %}
-                      <span class="attendance-no">—</span>
+                    {% elif cell.attendance_status == "LATE" %}
+                      <span class="attendance-yes">О</span>
+                    {% elif cell.attendance_status == "ABSENT" %}
+                      <span class="attendance-no">Н</span>
+                    {% elif cell.attendance_status == "SICK" %}
+                      <span class="attendance-no">Б</span>
                     {% else %}
                       <span class="attendance-empty">—</span>
                     {% endif %}
@@ -80,7 +84,7 @@
           </tfoot>
         </table>
       </div>
-      <p class="muted small">Общее рабочее время за месяц: {{ overall_total_label }}.</p>
+      <p class="muted small">Проведено уроков (DONE) за месяц: {{ overall_total_label }}.</p>
     {% endif %}
   </div>
 {% endblock %}

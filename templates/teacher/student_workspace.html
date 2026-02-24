@@ -16,10 +16,11 @@
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 8px;">
       {% if course_status == "single" %}
         <a class="btn btn-small" href="/teacher/students/{{ student.id }}/assignments/create/">Добавить задание</a>
-        <a class="btn btn-small" href="/teacher/students/{{ student.id }}/lessons/create/">Добавить урок / отчёт</a>
+        <a class="btn btn-small" href="/teacher/students/{{ student.id }}/schedule/">Настроить расписание</a>
         <a class="btn btn-small" href="/teacher/students/{{ student.id }}/results/">Ввести результат</a>
       {% else %}
-        <span class="muted small">Для действий нужен один ваш курс для этого ученика.</span>
+        <a class="btn btn-small" href="/teacher/students/{{ student.id }}/schedule/">Настроить расписание</a>
+        <span class="muted small">Если курсов несколько, слоты привяжутся к одному курсу автоматически.</span>
       {% endif %}
       <a class="btn btn-small" href="/teacher/students/{{ student.id }}/goals/create/">Добавить цель</a>
     </div>

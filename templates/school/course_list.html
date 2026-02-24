@@ -45,9 +45,15 @@
             <a href="/courses/{{ c.id }}/{% if mode == 'parent_child' %}?student={{ student.id }}{% endif %}">{{ c.name }}</a>
             <span class="tag">{{ c.course_type.name }}</span>
             {% if mode == "student" %}
-              <a class="muted" href="/courses/{{ c.id }}/grades/">Результаты</a>
+              <a class="muted inline-icon-link" href="/courses/{{ c.id }}/grades/">
+                {% include "partials/icon.html" with name="progress-chart" class_name="btn-icon" %}
+                <span>Результаты</span>
+              </a>
             {% elif mode == "parent_child" %}
-              <a class="muted" href="/courses/{{ c.id }}/grades/?student={{ student.id }}">Результаты</a>
+              <a class="muted inline-icon-link" href="/courses/{{ c.id }}/grades/?student={{ student.id }}">
+                {% include "partials/icon.html" with name="progress-chart" class_name="btn-icon" %}
+                <span>Результаты</span>
+              </a>
             {% endif %}
           </li>
         {% endfor %}

@@ -8,6 +8,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.accounts.models import Profile
+from apps.lessons.models import LessonSlot
+from apps.lessons.services import generate_slots_for_teacher
 from apps.school.models import Course, Enrollment, ParentChild
 from .models import Event
 
@@ -58,47 +60,100 @@ def _events_for_role(request, qs):
 
 @login_required
 def calendar_list(request):
-    profile = request.user.profile
-    base_qs = Event.objects.all().select_related("course", "created_by").prefetch_related("participants")
-    events, registration_events, children, mode = _events_for_role(request, base_qs)
-
     try:
         week_offset = int(request.GET.get("week", "0"))
     except ValueError:
         week_offset = 0
 
+    profile = request.user.profile
     today = timezone.localdate()
     week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
     week_end = week_start + timedelta(days=7)
 
-    week_events = (
-        events.filter(start_datetime__date__gte=week_start, start_datetime__date__lt=week_end)
-        .select_related("course")
-        .order_by("start_datetime")
-    )
-
-    registration_ids = set()
-    if profile.role == Profile.Role.STUDENT:
-        registration_ids = set(
-            registration_events.filter(start_datetime__date__gte=week_start, start_datetime__date__lt=week_end).values_list("id", flat=True)
-        )
-
+    mode = "unknown"
+    children = []
+    registration_events = Event.objects.none()
     events_by_day = {}
-    for event in week_events:
-        local_start = timezone.localtime(event.start_datetime)
-        day_key = local_start.date()
-        events_by_day.setdefault(day_key, []).append(
-            {
-                "id": event.id,
-                "time_label": local_start.strftime("%H:%M"),
-                "title": event.title,
-                "subtitle": event.course.name if event.course else event.get_event_type_display(),
-                "type_label": event.get_event_type_display(),
-                "description": event.description,
-                "external_url": event.external_url,
-                "can_register": event.id in registration_ids,
-            }
+    slots_by_day = {}
+
+    if profile.role == Profile.Role.ADMIN:
+        mode = "admin"
+        base_qs = Event.objects.all().select_related("course", "created_by").prefetch_related("participants")
+        events, registration_events, children, _ = _events_for_role(request, base_qs)
+        week_events = (
+            events.filter(start_datetime__date__gte=week_start, start_datetime__date__lt=week_end)
+            .select_related("course")
+            .order_by("start_datetime")
         )
+        for event in week_events:
+            local_start = timezone.localtime(event.start_datetime)
+            day_key = local_start.date()
+            events_by_day.setdefault(day_key, []).append(
+                {
+                    "id": event.id,
+                    "time_label": local_start.strftime("%H:%M"),
+                    "title": event.title,
+                    "subtitle": event.course.name if event.course else event.get_event_type_display(),
+                    "type_label": event.get_event_type_display(),
+                    "description": event.description,
+                    "external_url": event.external_url,
+                    "can_register": False,
+                }
+            )
+    else:
+        if profile.role == Profile.Role.TEACHER:
+            mode = "teacher"
+            generate_slots_for_teacher(request.user)
+            slot_qs = LessonSlot.objects.filter(
+                teacher=request.user,
+                scheduled_date__gte=week_start,
+                scheduled_date__lt=week_end,
+            ).select_related("student", "course")
+        elif profile.role == Profile.Role.STUDENT:
+            mode = "student"
+            slot_qs = LessonSlot.objects.filter(
+                student=request.user,
+                scheduled_date__gte=week_start,
+                scheduled_date__lt=week_end,
+            ).select_related("teacher", "course")
+        elif profile.role == Profile.Role.PARENT:
+            mode = "parent"
+            children = list(ParentChild.objects.filter(parent=request.user).select_related("child"))
+            child_ids = [row.child_id for row in children]
+            slot_qs = LessonSlot.objects.filter(
+                student_id__in=child_ids,
+                scheduled_date__gte=week_start,
+                scheduled_date__lt=week_end,
+            ).select_related("student", "teacher", "course")
+        else:
+            slot_qs = LessonSlot.objects.none()
+
+        for slot in slot_qs.order_by("scheduled_date", "start_time", "id"):
+            if mode == "teacher":
+                title = (slot.student.get_full_name() or "").strip() or slot.student.username
+                subtitle = slot.course.name
+            elif mode == "student":
+                teacher_name = (slot.teacher.get_full_name() or "").strip() or slot.teacher.username
+                title = slot.course.name
+                subtitle = f"Педагог: {teacher_name}"
+            else:
+                student_name = (slot.student.get_full_name() or "").strip() or slot.student.username
+                title = student_name
+                subtitle = slot.course.name
+
+            slots_by_day.setdefault(slot.scheduled_date, []).append(
+                {
+                    "id": slot.id,
+                    "time_label": slot.start_time.strftime("%H:%M"),
+                    "title": title,
+                    "subtitle": subtitle,
+                    "status_label": slot.get_status_display(),
+                    "status": slot.status,
+                    "attendance_label": slot.get_attendance_status_display() if slot.status != LessonSlot.Status.PLANNED else "",
+                    "report_url": f"/slots/{slot.id}/report/",
+                    "can_fill_report": mode == "teacher" and (slot.scheduled_date <= today or slot.status != LessonSlot.Status.PLANNED),
+                }
+            )
 
     week_columns = []
     for day_index in range(7):
@@ -109,17 +164,12 @@ def calendar_list(request):
                 "weekday_label": WEEKDAY_LABELS[day_index],
                 "date_label": day.strftime("%d %B"),
                 "events": events_by_day.get(day, []),
+                "slots": slots_by_day.get(day, []),
                 "is_today": day == today,
             }
         )
 
     available_registration = []
-    if profile.role == Profile.Role.STUDENT:
-        available_registration = list(
-            registration_events.filter(start_datetime__date__gte=week_start, start_datetime__date__lt=week_end)
-            .select_related("course")
-            .order_by("start_datetime")
-        )
 
     return render(
         request,

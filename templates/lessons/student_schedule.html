@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Расписание ученика{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Расписание ученика</h1>
+    <p>{{ student.get_full_name|default:"Без имени" }} · {{ course.name }}</p>
+  </section>
+
+  {% if show_course_notice %}
+    <section class="panel" style="margin-bottom: 12px;">
+      <p class="muted">У ученика несколько ваших курсов. Слоты привязаны к курсу: {{ course.name }}.</p>
+    </section>
+  {% endif %}
+
+  <section class="panel" style="margin-bottom: 12px;">
+    <h2 style="margin: 0 0 10px;">Добавить регулярный слот</h2>
+    <form method="post" class="form" id="student-schedule-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add">
+      <div id="schedule-row-list">
+        {% for row in schedule_input_rows %}
+          <div class="card schedule-input-row" data-schedule-row style="margin-bottom: 10px;">
+            <div class="form-row">
+              <label>День недели</label>
+              <select name="weekday">
+                <option value="">Выберите день</option>
+                {% for value, label in weekday_choices %}
+                  <option value="{{ value }}"{% if row.weekday == value|stringformat:"s" %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if row.errors.weekday %}<div class="error">{{ row.errors.weekday }}</div>{% endif %}
+            </div>
+            <div class="form-row">
+              <label>Номер урока (опционально)</label>
+              <input type="number" name="lesson_number" min="1" max="12" value="{{ row.lesson_number }}" placeholder="Например, 3">
+              {% if row.errors.lesson_number %}<div class="error">{{ row.errors.lesson_number }}</div>{% endif %}
+            </div>
+            <div class="form-row">
+              <label>Время начала</label>
+              <input type="time" name="start_time" value="{{ row.start_time }}">
+              {% if row.errors.start_time %}<div class="error">{{ row.errors.start_time }}</div>{% endif %}
+            </div>
+            <div class="form-row">
+              <label>Длительность (мин)</label>
+              <input type="number" name="duration_minutes" min="20" max="180" value="{{ row.duration_minutes }}">
+              {% if row.errors.duration_minutes %}<div class="error">{{ row.errors.duration_minutes }}</div>{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <button class="btn" type="button" id="schedule-add-row">+</button>
+      {% if schedule_form_error %}<div class="error">{{ schedule_form_error }}</div>{% endif %}
+      <button class="btn btn-accent" type="submit">Сохранить расписание</button>
+    </form>
+    <template id="schedule-row-template">
+      <div class="card schedule-input-row" data-schedule-row style="margin-bottom: 10px;">
+        <div class="form-row">
+          <label>День недели</label>
+          <select name="weekday">
+            <option value="">Выберите день</option>
+            {% for value, label in weekday_choices %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Номер урока (опционально)</label>
+          <input type="number" name="lesson_number" min="1" max="12" placeholder="Например, 3">
+        </div>
+        <div class="form-row">
+          <label>Время начала</label>
+          <input type="time" name="start_time">
+        </div>
+        <div class="form-row">
+          <label>Длительность (мин)</label>
+          <input type="number" name="duration_minutes" min="20" max="180" value="45">
+        </div>
+      </div>
+    </template>
+  </section>
+
+  <section class="panel" style="margin-bottom: 12px;">
+    <h2 style="margin: 0 0 10px;">Шаблоны расписания</h2>
+    {% if schedules %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>День</th>
+              <th>Время</th>
+              <th>№ урока</th>
+              <th>Длительность</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for schedule in schedules %}
+              <tr>
+                <td>{{ schedule.get_weekday_display }}</td>
+                <td>{{ schedule.start_time|time:"H:i" }}</td>
+                <td>{% if schedule.lesson_number %}{{ schedule.lesson_number }}{% else %}—{% endif %}</td>
+                <td>{{ schedule.duration_minutes }} мин</td>
+                <td>
+                  {% if schedule.active %}
+                    <span class="tag">Активно</span>
+                  {% else %}
+                    <span class="tag">Неактивно</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle">
+                    <input type="hidden" name="schedule_id" value="{{ schedule.id }}">
+                    <button class="btn btn-small" type="submit">
+                      {% if schedule.active %}Выключить{% else %}Включить{% endif %}
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">Расписание еще не настроено.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2 style="margin: 0 0 10px;">Ближайшие слоты</h2>
+    {% if upcoming_slots %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Дата</th>
+              <th>Время</th>
+              <th>Статус</th>
+              <th>Посещаемость</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for slot in upcoming_slots %}
+              <tr>
+                <td>{{ slot.scheduled_date|date:"d.m.Y" }}</td>
+                <td>{{ slot.start_time|time:"H:i" }}</td>
+                <td><span class="tag">{{ slot.get_status_display }}</span></td>
+                <td>
+                  {% if slot.status == "PLANNED" %}
+                    <span class="muted">—</span>
+                  {% else %}
+                    {{ slot.get_attendance_status_display }}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if slot.scheduled_date <= today or slot.status != "PLANNED" %}
+                    <a class="btn btn-small" href="/slots/{{ slot.id }}/report/">
+                      {% if slot.status == "PLANNED" %}Заполнить отчёт{% else %}Открыть отчёт{% endif %}
+                    </a>
+                  {% else %}
+                    <span class="muted small">Доступно в день урока</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">Слоты еще не сгенерированы.</p>
+    {% endif %}
+  </section>
+  <script>
+    (function () {
+      const addButton = document.getElementById("schedule-add-row");
+      const rowList = document.getElementById("schedule-row-list");
+      const rowTemplate = document.getElementById("schedule-row-template");
+      if (!addButton || !rowList || !rowTemplate) return;
+
+      addButton.addEventListener("click", function () {
+        const row = rowTemplate.content.firstElementChild.cloneNode(true);
+        rowList.appendChild(row);
+      });
+    })();
+  </script>
+{% endblock %}

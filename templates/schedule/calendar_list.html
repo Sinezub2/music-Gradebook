@@ -3,7 +3,7 @@
 {% block content %}
   <section class="page-head">
     <h1>Расписание</h1>
-    <p>Просматривайте и управляйте недельным расписанием.</p>
+    <p>Просматривайте недельные слоты занятий.</p>
   </section>
 
   <section class="week-toolbar">
@@ -21,6 +21,26 @@
         <h3>{{ day.weekday_label }}</h3>
         <small>{{ day.date_label }}</small>
 
+        {% if day.slots %}
+          {% for slot in day.slots %}
+            <div class="event-card">
+              <span class="time">{{ slot.time_label }}</span>
+              <strong>{{ slot.title }}</strong>
+              <span class="small muted">{{ slot.subtitle }}</span>
+              <span class="small muted">{{ slot.status_label }}</span>
+              {% if slot.attendance_label %}
+                <span class="small muted">{{ slot.attendance_label }}</span>
+              {% endif %}
+
+              {% if mode == "teacher" and slot.can_fill_report %}
+                <a class="btn btn-small btn-accent" href="{{ slot.report_url }}">
+                  {% if slot.status == "PLANNED" %}Заполнить отчёт{% else %}Открыть отчёт{% endif %}
+                </a>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% endif %}
+
         {% if day.events %}
           {% for event in day.events %}
             <div class="event-card">
@@ -33,52 +53,14 @@
               {% if event.external_url %}
                 <a class="btn btn-small" href="{{ event.external_url }}" target="_blank" rel="noopener noreferrer">Ссылка</a>
               {% endif %}
-
-              {% if mode == "student" and event.can_register %}
-                <form method="post" action="/calendar/register/{{ event.id }}/">
-                  {% csrf_token %}
-                  <button class="btn btn-small btn-accent" type="submit">Записаться</button>
-                </form>
-              {% endif %}
             </div>
           {% endfor %}
-        {% else %}
+        {% endif %}
+
+        {% if not day.slots and not day.events %}
           <p class="small muted" style="margin-top:10px;">Уроки не запланированы.</p>
         {% endif %}
       </article>
     {% endfor %}
   </section>
-
-  {% if mode == "student" and available_registration %}
-    <section class="panel" style="margin-top: 12px;">
-      <h2 style="font-size:22px;">Доступно для регистрации</h2>
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Дата</th>
-              <th>Событие</th>
-              <th>Курс</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for event in available_registration %}
-              <tr>
-                <td>{{ event.start_datetime|date:"d.m.Y H:i" }}</td>
-                <td>{{ event.title }}</td>
-                <td>{% if event.course %}{{ event.course.name }}{% else %}—{% endif %}</td>
-                <td>
-                  <form method="post" action="/calendar/register/{{ event.id }}/">
-                    {% csrf_token %}
-                    <button class="btn btn-small btn-accent" type="submit">Записаться</button>
-                  </form>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  {% endif %}
 {% endblock %}
