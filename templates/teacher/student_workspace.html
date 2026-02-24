@@ -1,129 +1,117 @@
 {% extends "base.html" %}
 {% block title %}Ученик{% endblock %}
 {% block content %}
-  <h1>{{ student.get_full_name|default:"Без имени" }}</h1>
+  <section class="page-head">
+    <h1>{{ student.get_full_name|default:"Без имени" }}</h1>
+    <p>Цикл: {{ student.profile.get_cycle_display }}</p>
+  </section>
 
-  <div class="card" style="margin-bottom: 16px;">
-    <p class="muted">Цикл: {{ student.profile.get_cycle_display }}</p>
+  <section class="panel" style="margin-bottom: 12px;">
     {% if teacher_courses %}
-      <p class="muted">Курс(ы):{% for c in teacher_courses %} {{ c.name }}{% if not forloop.last %},{% endif %}{% endfor %}</p>
+      <p class="muted">Курсы: {% for c in teacher_courses %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
     {% else %}
       <p class="muted">Курс не назначен.</p>
     {% endif %}
-  </div>
 
-  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 16px;">
-    {% if course_status == "single" %}
-      <a class="btn" href="/teacher/students/{{ student.id }}/assignments/create/">Добавить задание</a>
-      <a class="btn" href="/teacher/students/{{ student.id }}/lessons/create/">Добавить урок / отчёт</a>
-      <a class="btn" href="/teacher/students/{{ student.id }}/results/">Ввести результат</a>
-    {% else %}
-      <span class="muted small">Для заданий/уроков/результатов нужен один ваш курс для этого ученика.</span>
-    {% endif %}
-    <a class="btn" href="/teacher/students/{{ student.id }}/goals/create/">Добавить цель (полугодие)</a>
-  </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 8px;">
+      {% if course_status == "single" %}
+        <a class="btn btn-small" href="/teacher/students/{{ student.id }}/assignments/create/">Добавить задание</a>
+        <a class="btn btn-small" href="/teacher/students/{{ student.id }}/lessons/create/">Добавить урок / отчёт</a>
+        <a class="btn btn-small" href="/teacher/students/{{ student.id }}/results/">Ввести результат</a>
+      {% else %}
+        <span class="muted small">Для действий нужен один ваш курс для этого ученика.</span>
+      {% endif %}
+      <a class="btn btn-small" href="/teacher/students/{{ student.id }}/goals/create/">Добавить цель</a>
+    </div>
+  </section>
 
-  <h2>Недавние задания</h2>
-  {% if recent_assignments %}
-    <ul class="list">
-      {% for t in recent_assignments %}
-        <li>
-          <div>
-            <div>{{ t.assignment.title }}</div>
-            <div class="muted small">{{ t.assignment.course.name }} · до {{ t.assignment.due_date|date:"d.m.Y" }}</div>
-          </div>
-          <span class="tag">{{ t.status }}</span>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted">Пока нет заданий.</p>
-  {% endif %}
+  <section class="announcement-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+    <article class="announcement-card">
+      <h3>Недавние задания</h3>
+      {% if recent_assignments %}
+        <ul class="list">
+          {% for t in recent_assignments %}
+            <li>
+              <div>
+                <strong>{{ t.assignment.title }}</strong>
+                <div class="muted small">{{ t.assignment.course.name }} · до {{ t.assignment.due_date|date:"d.m.Y" }}</div>
+              </div>
+              <span class="tag">{{ t.status }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет заданий.</p>
+      {% endif %}
+    </article>
 
-  <h2>Недавние уроки</h2>
-  {% if recent_lessons %}
-    <ul class="list">
-      {% for entry in recent_lessons %}
-        <li>
-          <div>
-            <div>{{ entry.lesson.topic }}</div>
-            <div class="muted small">{{ entry.lesson.course.name }} · {{ entry.lesson.date|date:"d.m.Y" }}</div>
-          </div>
-          {% if entry.result %}
-            <span class="tag">Есть результат</span>
-          {% else %}
-            <span class="muted small">Без результата</span>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted">Пока нет уроков.</p>
-  {% endif %}
+    <article class="announcement-card">
+      <h3>Недавние уроки</h3>
+      {% if recent_lessons %}
+        <ul class="list">
+          {% for entry in recent_lessons %}
+            <li>
+              <div>
+                <strong>{{ entry.lesson.topic }}</strong>
+                <div class="muted small">{{ entry.lesson.course.name }} · {{ entry.lesson.date|date:"d.m.Y" }}</div>
+              </div>
+              {% if entry.result %}
+                <span class="tag">Есть результат</span>
+              {% else %}
+                <span class="muted small">Без результата</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет уроков.</p>
+      {% endif %}
+    </article>
 
-  <h2>Недавние отчёты</h2>
-  {% if recent_reports %}
-    <ul class="list">
-      {% for report in recent_reports %}
-        <li>
-          <div>
-            <div>{{ report.lesson.topic }}</div>
-            <div class="muted small">{{ report.created_at|date:"d.m.Y" }}</div>
-          </div>
-          {% if report.text %}
-            <span class="tag">Текст</span>
-          {% else %}
-            <span class="muted small">Без текста</span>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted">Пока нет отчётов.</p>
-  {% endif %}
+    <article class="announcement-card">
+      <h3>Недавние результаты</h3>
+      {% if recent_grades %}
+        <ul class="list">
+          {% for g in recent_grades %}
+            <li>
+              <div>
+                <strong>{{ g.assessment.title }}</strong>
+                <div class="muted small">{{ g.assessment.course.name }}</div>
+              </div>
+              {% if g.score != None %}
+                <span class="tag">{{ g.score }}</span>
+              {% else %}
+                <span class="muted small">—</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет результатов.</p>
+      {% endif %}
+    </article>
 
-  <h2>Недавние результаты</h2>
-  {% if recent_grades %}
-    <ul class="list">
-      {% for g in recent_grades %}
-        <li>
-          <div>
-            <div>{{ g.assessment.title }}</div>
-            <div class="muted small">Курс: {{ g.assessment.course.name }}</div>
-          </div>
-          {% if g.score != None %}
-            <span class="tag">{{ g.score }}</span>
-          {% else %}
-            <span class="muted small">—</span>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted">Пока нет результатов.</p>
-  {% endif %}
-
-  <h2>План по полугодиям</h2>
-  {% if goals %}
-    <ul class="list">
-      {% for goal in goals %}
-        <li>
-          <div>
-            <div>{{ goal.title }}</div>
-            <div class="muted small">
-              {% if goal.teacher %}{{ goal.teacher.get_full_name|default:"Без имени" }} · {% endif %}
-              {{ goal.created_at|date:"d.m.Y" }}
-            </div>
-          </div>
-          {% if goal.details %}
-            <span class="tag">Комментарий</span>
-          {% else %}
-            <span class="muted small">—</span>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted">Пока нет целей.</p>
-  {% endif %}
+    <article class="announcement-card">
+      <h3>План по полугодиям</h3>
+      {% if goals %}
+        <ul class="list">
+          {% for goal in goals %}
+            <li>
+              <div>
+                <strong>{{ goal.title }}</strong>
+                <div class="muted small">{{ goal.created_at|date:"d.m.Y" }}</div>
+              </div>
+              {% if goal.details %}
+                <span class="tag">Комментарий</span>
+              {% else %}
+                <span class="muted small">—</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет целей.</p>
+      {% endif %}
+    </article>
+  </section>
 {% endblock %}

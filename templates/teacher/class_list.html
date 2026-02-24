@@ -1,33 +1,69 @@
 {% extends "base.html" %}
-{% block title %}Класс{% endblock %}
+{% block title %}Мои занятия{% endblock %}
 {% block content %}
-  <h1>Класс</h1>
-  <p><a class="btn" href="/teacher/students/invite/">Добавить ученика</a></p>
+  <section class="page-head">
+    <h1>Мои занятия</h1>
+    <p>Управляйте учениками и отслеживайте успеваемость.</p>
+  </section>
 
-  <form method="get" class="form-row" style="margin: 12px 0;">
-    <label class="muted small" for="cycle">Цикл учеников</label>
-    <select id="cycle" name="cycle" class="input" onchange="this.form.submit()">
-      <option value="">Все циклы</option>
-      {% for value, label in cycle_options %}
-        <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <noscript><button class="btn" type="submit">Показать</button></noscript>
-  </form>
+  <section class="panel" style="margin-bottom: 12px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+      <form method="get" class="form-row" style="max-width:260px;">
+        <label for="cycle">Цикл обучения</label>
+        <select id="cycle" name="cycle" onchange="this.form.submit()">
+          <option value="">Все циклы</option>
+          {% for value, label in cycle_options %}
+            <option value="{{ value }}"{% if cycle == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      <a class="btn btn-accent" href="/teacher/students/invite/">Добавить ученика</a>
+    </div>
+  </section>
 
-  {% if students %}
-    <ul class="list">
-      {% for student in students %}
-        <li>
-          <div>
-            <div>{{ student.get_full_name|default:"Без имени" }}</div>
-            <div class="muted small">Цикл: {{ student.profile.get_cycle_display }}</div>
+  <section class="stats-grid" style="margin-bottom: 12px;">
+    <article class="stat-card">
+      <p class="small muted">Ученики</p>
+      <div class="value">{{ summary_stats.students_total }}</div>
+    </article>
+    <article class="stat-card">
+      <p class="small muted">Средняя посещаемость</p>
+      <div class="value">{{ summary_stats.avg_attendance }}%</div>
+    </article>
+    <article class="stat-card">
+      <p class="small muted">Активные циклы</p>
+      <div class="value">{{ summary_stats.active_cycles }}</div>
+    </article>
+  </section>
+
+  {% if student_cards %}
+    <section class="student-grid">
+      {% for card in student_cards %}
+        <article class="student-card">
+          <h3>{{ card.student.get_full_name|default:"Без имени" }}</h3>
+          <p class="student-meta">{{ card.courses_label|default:"Курс не назначен" }}</p>
+          <p class="student-meta">{{ card.instruments }} · {{ card.level_label }}</p>
+          <div class="student-stats">
+            <div>
+              <p class="small muted">Средний балл</p>
+              <strong>{{ card.avg_score_label }}</strong>
+            </div>
+            <div>
+              <p class="small muted">Посещаемость</p>
+              {% if card.attendance_percent != None %}
+                <strong style="color:var(--ok);">{{ card.attendance_percent }}%</strong>
+              {% else %}
+                <strong>—</strong>
+              {% endif %}
+            </div>
           </div>
-          <a class="btn" href="/teacher/students/{{ student.id }}/">Открыть</a>
-        </li>
+          <div style="margin-top: 10px;">
+            <a class="btn btn-small" href="/teacher/students/{{ card.student.id }}/">Открыть карточку</a>
+          </div>
+        </article>
       {% endfor %}
-    </ul>
+    </section>
   {% else %}
-    <p class="muted">Нет назначенных учеников.</p>
+    <p class="muted">Нет назначенных учеников для выбранного фильтра.</p>
   {% endif %}
 {% endblock %}

@@ -1,33 +1,158 @@
 <!-- templates/accounts/dashboard.html -->
 {% extends "base.html" %}
-{% block title %}Панель{% endblock %}
+{% block title %}Панель управления{% endblock %}
 {% block content %}
-  <h1>Панель</h1>
+  {% if dashboard_mode == "teacher" %}
+    <section class="page-head">
+      <h1>Панель управления</h1>
+      <p>С возвращением, профессор!</p>
+    </section>
 
-  {% if role == "ADMIN" %}
-    <p>Роль: Администратор</p>
-    <p><a class="btn" href="/admin/">Открыть Django admin</a></p>
-    <p><a href="/courses/">Список курсов</a></p>
-  {% elif role == "STUDENT" %}
-    <p>Роль: Ученик</p>
-    <p class="muted">Цикл: {{ user.profile.get_cycle_display }}</p>
-    <h2>Мой класс</h2>
-    {% if courses %}
-      <p><a class="btn" href="/courses/">Открыть класс</a></p>
-    {% else %}
-      <p class="muted">Класс не назначен. Обратитесь к администратору.</p>
+    <section class="panel">
+      <h2>Расписание на сегодня</h2>
+      <p class="muted">{{ today_label }}</p>
+      {% if today_schedule %}
+        <div class="schedule-list">
+          {% for item in today_schedule %}
+            <article class="schedule-row">
+              <div class="schedule-time">{{ item.time_label }}</div>
+              <div>
+                <strong>{{ item.title }}</strong>
+                <div class="muted small">{{ item.subtitle }}</div>
+              </div>
+              <a class="btn btn-small btn-accent" href="{{ item.action_url }}">Отметить</a>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">На сегодня уроки не запланированы.</p>
+      {% endif %}
+    </section>
+
+    <section class="stats-grid">
+      {% for stat in dashboard_stats %}
+        <article class="stat-card">
+          <p class="muted small">{{ stat.label }}</p>
+          <div class="value">{{ stat.value }}</div>
+        </article>
+      {% endfor %}
+    </section>
+
+  {% elif dashboard_mode == "student" or dashboard_mode == "parent" %}
+    <section class="page-head">
+      <h1>Панель управления</h1>
+      {% if dashboard_mode == "parent" and selected_child %}
+        <p>Наблюдение за учеником: {{ selected_child.get_full_name|default:"Без имени" }}</p>
+      {% else %}
+        <p>Личный учебный обзор.</p>
+      {% endif %}
+    </section>
+
+    {% if dashboard_mode == "parent" and children_links %}
+      <section class="panel" style="margin-bottom: 12px;">
+        <form method="get" class="form-row">
+          <label for="student">Ученик</label>
+          <select id="student" name="student" onchange="this.form.submit()">
+            {% for link in children_links %}
+              <option value="{{ link.child_id }}"{% if selected_child and selected_child.id == link.child_id %} selected{% endif %}>
+                {{ link.child.get_full_name|default:"Без имени" }}
+              </option>
+            {% endfor %}
+          </select>
+        </form>
+      </section>
     {% endif %}
-  {% elif role == "PARENT" %}
-    <p>Роль: Родитель</p>
-    <p><a class="btn" href="/courses/">Открыть класс</a></p>
-  {% elif role == "TEACHER" %}
-    <p>Роль: Преподаватель</p>
-    <h2>Мой класс</h2>
-    {% if courses %}
-      <p><a class="btn" href="/teacher/class/">Открыть класс</a></p>
-    {% else %}
-      <p class="muted">Класс не назначен. Обратитесь к администратору.</p>
-    {% endif %}
+
+    <section class="panel" style="margin-bottom: 12px;">
+      <h2>Следующий урок</h2>
+      {% if next_lesson %}
+        <div class="stats-grid">
+          <article class="stat-card">
+            <p class="muted small">Дней</p>
+            <div class="value">{{ next_lesson_countdown.days }}</div>
+          </article>
+          <article class="stat-card">
+            <p class="muted small">Часов</p>
+            <div class="value">{{ next_lesson_countdown.hours }}</div>
+          </article>
+          <article class="stat-card">
+            <p class="muted small">Минут</p>
+            <div class="value">{{ next_lesson_countdown.minutes }}</div>
+          </article>
+          <article class="stat-card">
+            <p class="muted small">Домашнее задание</p>
+            <div class="value" style="font-size:20px;">{{ homework_status }}</div>
+          </article>
+        </div>
+        <p class="small muted" style="margin-top: 10px;">{{ next_lesson.starts_label }} · {{ next_lesson.title }} · {{ next_lesson.subtitle }}</p>
+        {% if homework_hint %}<p class="small muted">{{ homework_hint }}</p>{% endif %}
+      {% else %}
+        <p class="muted">Ближайший урок не найден.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel" style="margin-bottom: 12px;">
+      <h2>Прогресс</h2>
+      {% if progress_points %}
+        <div class="metric-bars">
+          {% for point in progress_points %}
+            <div class="metric-row">
+              <div style="display:flex;justify-content:space-between;gap:8px;">
+                <strong>{{ point.label }}</strong>
+                <span class="muted">{{ point.score }}</span>
+              </div>
+              <div class="metric-track">
+                <div class="metric-fill" style="width: {{ point.percent }}%;"></div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">Пока нет оценок для отображения динамики.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Школьная жизнь</h2>
+      <div class="announcement-grid">
+        {% for item in announcements %}
+          <article class="announcement-card">
+            <p class="small muted">{{ item.date_label }} · {{ item.type_label }}</p>
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.description }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+
+  {% elif dashboard_mode == "admin" %}
+    <section class="page-head">
+      <h1>Панель управления</h1>
+      <p>Административный обзор платформы.</p>
+    </section>
+    <section class="stats-grid">
+      {% for stat in dashboard_stats %}
+        <article class="stat-card">
+          <p class="muted small">{{ stat.label }}</p>
+          <div class="value">{{ stat.value }}</div>
+        </article>
+      {% endfor %}
+    </section>
+    <section class="panel" style="margin-top: 12px;">
+      <h2>Школьная жизнь</h2>
+      <div class="announcement-grid">
+        {% for item in announcements %}
+          <article class="announcement-card">
+            <p class="small muted">{{ item.date_label }} · {{ item.type_label }}</p>
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.description }}</p>
+          </article>
+        {% endfor %}
+      </div>
+      <div style="margin-top: 12px;">
+        <a class="btn" href="/admin/">Открыть Django admin</a>
+      </div>
+    </section>
   {% else %}
     <p class="muted">Неизвестная роль.</p>
   {% endif %}

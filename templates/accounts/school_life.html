@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Школьная жизнь{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Школьная жизнь</h1>
+    <p>Новости, события и объявления школы.</p>
+  </section>
+
+  <section class="announcement-grid">
+    {% for item in announcements %}
+      <article class="announcement-card">
+        <p class="small muted">{{ item.date_label }} · {{ item.type_label }}</p>
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.description }}</p>
+        {% if item.external_url %}
+          <a class="btn btn-small" href="{{ item.external_url }}" target="_blank" rel="noopener noreferrer">Открыть ссылку</a>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+{% endblock %}

@@ -1,189 +1,84 @@
 {% extends "base.html" %}
 {% block title %}Календарь{% endblock %}
 {% block content %}
-  <h1>Календарь</h1>
-  <p class="muted">Список событий (без сетки календаря), отсортирован по дате.</p>
+  <section class="page-head">
+    <h1>Расписание</h1>
+    <p>Просматривайте и управляйте недельным расписанием.</p>
+  </section>
 
-  {% if not events and mode != "student" %}
-    <p class="muted">Событий пока нет.</p>
-    <p class="muted small">
-      Учитель/администратор могут создавать события через Django admin.
-    </p>
-  {% else %}
-    {% if mode == "student" %}
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="my-events">Мои события</button>
-        <button class="tab-btn" data-tab="registration">Регистрация</button>
-      </div>
+  <section class="week-toolbar">
+    <h2 style="font-size:24px;margin:0;">Неделя: {{ week_start|date:"d.m.Y" }} - {{ week_end|date:"d.m.Y" }}</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a class="btn btn-small" href="?week={{ week_offset|add:'-1' }}">Предыдущая</a>
+      <a class="btn btn-small" href="/calendar/">Текущая</a>
+      <a class="btn btn-small" href="?week={{ week_offset|add:'1' }}">Следующая</a>
+    </div>
+  </section>
 
-      <div class="tab-panel active" id="my-events">
-        {% if not events %}
-          <p class="muted">Вы пока не зарегистрированы ни на одно событие.</p>
+  <section class="week-grid">
+    {% for day in week_columns %}
+      <article class="week-column {% if day.is_today %}is-today{% endif %}">
+        <h3>{{ day.weekday_label }}</h3>
+        <small>{{ day.date_label }}</small>
+
+        {% if day.events %}
+          {% for event in day.events %}
+            <div class="event-card">
+              <span class="time">{{ event.time_label }}</span>
+              <strong>{{ event.title }}</strong>
+              <span class="small muted">{{ event.subtitle }}</span>
+              {% if event.description %}<span class="small muted">{{ event.description }}</span>{% endif %}
+              <span class="small muted">{{ event.type_label }}</span>
+
+              {% if event.external_url %}
+                <a class="btn btn-small" href="{{ event.external_url }}" target="_blank" rel="noopener noreferrer">Ссылка</a>
+              {% endif %}
+
+              {% if mode == "student" and event.can_register %}
+                <form method="post" action="/calendar/register/{{ event.id }}/">
+                  {% csrf_token %}
+                  <button class="btn btn-small btn-accent" type="submit">Записаться</button>
+                </form>
+              {% endif %}
+            </div>
+          {% endfor %}
         {% else %}
-          <div class="table-wrap">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Дата/время</th>
-                  <th>Событие</th>
-                  <th>Тип</th>
-                  <th>Курс</th>
-                  <th>Ссылка</th>
-                  <th class="muted small">Описание</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for e in events %}
-                  <tr>
-                    <td>
-                      <div>{{ e.start_datetime|date:"d.m.Y H:i" }}</div>
-                      <div class="muted small">→ {{ e.end_datetime|date:"d.m.Y H:i" }}</div>
-                    </td>
-                    <td>{{ e.title }}</td>
-                    <td><span class="tag">{{ e.get_event_type_display }}</span></td>
-                    <td>
-                      {% if e.course %}
-                        {{ e.course.name }}
-                      {% else %}
-                        <span class="muted">—</span>
-                      {% endif %}
-                    </td>
-                    <td>
-                      {% if e.external_url %}
-                        <a href="{{ e.external_url }}" target="_blank" rel="noopener noreferrer">Открыть</a>
-                      {% else %}
-                        <span class="muted">—</span>
-                      {% endif %}
-                    </td>
-                    <td class="muted small">
-                      {% if e.description %}{{ e.description }}{% else %}—{% endif %}
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+          <p class="small muted" style="margin-top:10px;">Уроки не запланированы.</p>
         {% endif %}
-      </div>
+      </article>
+    {% endfor %}
+  </section>
 
-      <div class="tab-panel" id="registration">
-        {% if not registration_events %}
-          <p class="muted">Нет доступных событий для регистрации.</p>
-        {% else %}
-          <div class="table-wrap">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Дата/время</th>
-                  <th>Событие</th>
-                  <th>Тип</th>
-                  <th>Курс</th>
-                  <th>Ссылка</th>
-                  <th class="muted small">Описание</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for e in registration_events %}
-                  <tr>
-                    <td>
-                      <div>{{ e.start_datetime|date:"d.m.Y H:i" }}</div>
-                      <div class="muted small">→ {{ e.end_datetime|date:"d.m.Y H:i" }}</div>
-                    </td>
-                    <td>{{ e.title }}</td>
-                    <td><span class="tag">{{ e.get_event_type_display }}</span></td>
-                    <td>
-                      {% if e.course %}
-                        {{ e.course.name }}
-                      {% else %}
-                        <span class="muted">—</span>
-                      {% endif %}
-                    </td>
-                    <td>
-                      {% if e.external_url %}
-                        <a href="{{ e.external_url }}" target="_blank" rel="noopener noreferrer">Открыть</a>
-                      {% else %}
-                        <span class="muted">—</span>
-                      {% endif %}
-                    </td>
-                    <td class="muted small">
-                      {% if e.description %}{{ e.description }}{% else %}—{% endif %}
-                    </td>
-                    <td>
-                      <form method="post" action="/calendar/register/{{ e.id }}/">
-                        {% csrf_token %}
-                        <button class="btn" type="submit">Записаться</button>
-                      </form>
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% endif %}
-      </div>
-
-      <script>
-        const buttons = document.querySelectorAll('.tab-btn');
-        const panels = document.querySelectorAll('.tab-panel');
-        const urlParams = new URLSearchParams(window.location.search);
-        const activeTab = urlParams.get('tab') || 'my-events';
-
-        function activateTab(tabId) {
-          buttons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === tabId));
-          panels.forEach((panel) => panel.classList.toggle('active', panel.id === tabId));
-        }
-
-        buttons.forEach((btn) => {
-          btn.addEventListener('click', () => activateTab(btn.dataset.tab));
-        });
-
-        activateTab(activeTab);
-      </script>
-    {% else %}
+  {% if mode == "student" and available_registration %}
+    <section class="panel" style="margin-top: 12px;">
+      <h2 style="font-size:22px;">Доступно для регистрации</h2>
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
-              <th>Дата/время</th>
+              <th>Дата</th>
               <th>Событие</th>
-              <th>Тип</th>
               <th>Курс</th>
-              <th>Ссылка</th>
-              <th class="muted small">Описание</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
-            {% for e in events %}
+            {% for event in available_registration %}
               <tr>
+                <td>{{ event.start_datetime|date:"d.m.Y H:i" }}</td>
+                <td>{{ event.title }}</td>
+                <td>{% if event.course %}{{ event.course.name }}{% else %}—{% endif %}</td>
                 <td>
-                  <div>{{ e.start_datetime|date:"d.m.Y H:i" }}</div>
-                  <div class="muted small">→ {{ e.end_datetime|date:"d.m.Y H:i" }}</div>
-                </td>
-                <td>{{ e.title }}</td>
-                <td><span class="tag">{{ e.get_event_type_display }}</span></td>
-                <td>
-                  {% if e.course %}
-                    {{ e.course.name }}
-                  {% else %}
-                    <span class="muted">—</span>
-                  {% endif %}
-                </td>
-                <td>
-                  {% if e.external_url %}
-                    <a href="{{ e.external_url }}" target="_blank" rel="noopener noreferrer">Открыть</a>
-                  {% else %}
-                    <span class="muted">—</span>
-                  {% endif %}
-                </td>
-                <td class="muted small">
-                  {% if e.description %}{{ e.description }}{% else %}—{% endif %}
+                  <form method="post" action="/calendar/register/{{ event.id }}/">
+                    {% csrf_token %}
+                    <button class="btn btn-small btn-accent" type="submit">Записаться</button>
+                  </form>
                 </td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-    {% endif %}
+    </section>
   {% endif %}
 {% endblock %}

@@ -2,6 +2,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
+from django.db.models import Avg, Count, Q
 
 from apps.accounts.models import Profile
 from apps.gradebook.models import Grade
@@ -129,11 +130,72 @@ def teacher_class_list(request):
 
     cycle = request.GET.get("cycle") or ""
     students = list(get_teacher_students(request.user, cycle=cycle))
+    student_ids = [student.id for student in students]
+
+    course_map = {}
+    enrollments = (
+        Enrollment.objects.filter(course__teacher=request.user, student_id__in=student_ids)
+        .select_related("course", "course__course_type")
+        .order_by("course__name")
+    )
+    for enrollment in enrollments:
+        course_map.setdefault(enrollment.student_id, []).append(enrollment.course)
+
+    grade_rows = (
+        Grade.objects.filter(student_id__in=student_ids, assessment__course__teacher=request.user, score__isnull=False)
+        .values("student_id")
+        .annotate(avg_score=Avg("score"))
+    )
+    grade_map = {row["student_id"]: row["avg_score"] for row in grade_rows}
+
+    attendance_rows = (
+        LessonStudent.objects.filter(student_id__in=student_ids, lesson__course__teacher=request.user)
+        .values("student_id")
+        .annotate(total=Count("id"), present=Count("id", filter=Q(attended=True)))
+    )
+    attendance_map = {row["student_id"]: row for row in attendance_rows}
+
+    student_cards = []
+    attendance_values = []
+    for student in students:
+        courses = course_map.get(student.id, [])
+        instruments = ", ".join(sorted({course.course_type.name for course in courses})) if courses else "Без направления"
+        level_label = student.profile.get_cycle_display()
+
+        avg_score = grade_map.get(student.id)
+        avg_score_label = f"{float(avg_score):.1f}" if avg_score is not None else "—"
+
+        attendance_row = attendance_map.get(student.id, {"total": 0, "present": 0})
+        total_lessons = attendance_row["total"] or 0
+        present_lessons = attendance_row["present"] or 0
+        attendance_percent = round((present_lessons * 100) / total_lessons) if total_lessons else None
+        if attendance_percent is not None:
+            attendance_values.append(attendance_percent)
+
+        student_cards.append(
+            {
+                "student": student,
+                "instruments": instruments,
+                "level_label": level_label,
+                "avg_score_label": avg_score_label,
+                "attendance_percent": attendance_percent,
+                "courses_label": ", ".join(course.name for course in courses),
+            }
+        )
+
+    summary_stats = {
+        "students_total": len(student_cards),
+        "avg_attendance": round(sum(attendance_values) / len(attendance_values)) if attendance_values else 0,
+        "active_cycles": len({card["level_label"] for card in student_cards}),
+    }
+
     return render(
         request,
         "teacher/class_list.html",
         {
             "students": students,
+            "student_cards": student_cards,
+            "summary_stats": summary_stats,
             "cycle": cycle,
             "cycle_options": Profile.Cycle.choices,
         },

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Коммуникация{% endblock %}
+{% block content %}
+  <section class="page-head" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div>
+      <h1>Коммуникация</h1>
+      <p>Служебные сообщения по учебному процессу.</p>
+    </div>
+    <a class="btn btn-small" href="?{% if selected_chat_id %}chat={{ selected_chat_id }}&{% endif %}work={% if work_mode %}0{% else %}1{% endif %}">
+      {% if work_mode %}Рабочее время: включено{% else %}Рабочее время: выключено{% endif %}
+    </a>
+  </section>
+
+  <section class="chat-shell">
+    <aside class="chat-list">
+      <h2 style="font-size:22px;">Чаты</h2>
+      {% if threads %}
+        <div style="display:grid;gap:6px;">
+          {% for thread in threads %}
+            <a class="chat-item {% if selected_thread and selected_thread.id == thread.id %}active{% endif %}" href="?chat={{ thread.id }}&work={% if work_mode %}1{% else %}0{% endif %}">
+              <strong>{{ thread.title }}</strong>
+              <span class="small muted">{{ thread.subtitle }}</span>
+              <span class="small muted">{{ thread.preview }}</span>
+              <span class="small muted">{{ thread.time_label }}{% if thread.unread %} · новых: {{ thread.unread }}{% endif %}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">Пока нет доступных чатов.</p>
+      {% endif %}
+    </aside>
+
+    <article class="chat-panel">
+      {% if selected_thread %}
+        <h2 style="font-size:24px;">{{ selected_thread.title }}</h2>
+        <p class="muted">{{ selected_thread.subtitle }}</p>
+
+        <div class="chat-bubbles">
+          {% for item in conversation %}
+            <div class="bubble {% if item.outgoing %}outgoing{% endif %}">
+              <strong>{{ item.author }}</strong>
+              <span>{{ item.text }}</span>
+              <span class="small muted">{{ item.time_label }}</span>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;margin-top:12px;">
+          <input type="text" placeholder="Служебный режим: отправка сообщений в MVP отключена." disabled>
+          <button class="btn btn-accent" type="button" disabled>Отправить</button>
+        </div>
+      {% else %}
+        <p class="muted">Выберите чат из списка слева.</p>
+      {% endif %}
+    </article>
+  </section>
+{% endblock %}

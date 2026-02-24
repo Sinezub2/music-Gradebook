@@ -4,32 +4,47 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{% block title %}Музыкальная школа — журнал{% endblock %}</title>
+  <title>{% block title %}Aubakirova School Connect{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <header class="site-header">
-    <div class="container header-row">
-      <div class="brand">
-        <a href="/dashboard">Журнал (демо)</a>
-      </div>
-      <nav class="nav">
-        {% if user.is_authenticated %}
-          {% if user.profile.role == "TEACHER" %}
-            <a href="/teacher/class/">Класс</a>
-          {% else %}
-            <a href="/courses/">Класс</a>
-          {% endif %}
-          <a href="/profile/">Профиль</a>
-          <a href="/logout">Выйти</a>
-        {% else %}
-          <a href="/login">Вход</a>
-        {% endif %}
-      </nav>
-    </div>
-  </header>
+  {% if user.is_authenticated %}
+    <div class="app-layout">
+      <aside class="sidebar">
+        <a href="/dashboard" class="brand-block">
+          <span class="brand-logo">ASC</span>
+          <span class="brand-text">
+            <strong>Аубакирова</strong>
+            <small>School Connect</small>
+          </span>
+        </a>
 
-  <main class="container">
+        <nav class="sidebar-nav">
+          <a class="nav-item {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">Панель управления</a>
+
+          {% if user.profile.role == "TEACHER" %}
+            <a class="nav-item {% if '/teacher/class/' in request.path or '/teacher/students/' in request.path %}active{% endif %}" href="/teacher/class/">Мои занятия</a>
+          {% else %}
+            <a class="nav-item {% if '/courses/' in request.path or '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}" href="/courses/">Мои занятия</a>
+          {% endif %}
+
+          <a class="nav-item {% if '/calendar/' in request.path or '/attendance/' in request.path %}active{% endif %}" href="/calendar/">Расписание</a>
+          <a class="nav-item {% if '/communication/' in request.path %}active{% endif %}" href="/communication/">Коммуникация</a>
+          <a class="nav-item {% if '/school-life/' in request.path %}active{% endif %}" href="/school-life/">Школьная жизнь</a>
+          <a class="nav-item {% if '/library/' in request.path %}active{% endif %}" href="/library/">Библиотека</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <a class="nav-item" href="/profile/">Профиль</a>
+          <a class="nav-item nav-item--logout" href="/logout">Выйти</a>
+        </div>
+      </aside>
+      <main class="content-area">
+  {% else %}
+    <main class="auth-main">
+  {% endif %}
+
     {% if messages %}
       <div class="messages">
         {% for message in messages %}
@@ -37,36 +52,12 @@
         {% endfor %}
       </div>
     {% endif %}
-
     {% block content %}{% endblock %}
+
   </main>
-
-  <footer class="site-footer">
-    <div class="container">
-      <small>Демо-проект: музыкальная школа · Django · SQLite</small>
-    </div>
-  </footer>
-
   {% if user.is_authenticated %}
-    <nav class="bottom-nav">
-      <a class="bottom-link {% if request.path|slice:':10' == '/calendar/' %}active{% endif %}"
-       href="/calendar/">Календарь</a>
-
-      <a class="bottom-link {% if request.path|slice:':9' == '/lessons/' %}active{% endif %}"
-       href="/lessons/">Уроки</a>
-
-      <a class="bottom-link {% if request.path|slice:':12' == '/attendance/' %}active{% endif %}"
-       href="/attendance/">Посещаемость</a>
-
-      <a class="bottom-link {% if request.path|slice:':7' == '/goals/' %}active{% endif %}"
-       href="/goals/">Полугодия</a>
-
-      {% if user.profile.role == "STUDENT" or user.profile.role == "PARENT" %}
-        <a class="bottom-link {% if '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}"
-         href="/portfolio/">Профиль</a>
-      {% endif %}
-  </nav>
-{% endif %}
-
+    </div>
+  {% endif %}
+  {% block extra_scripts %}{% endblock %}
 </body>
 </html>

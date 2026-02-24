@@ -2,8 +2,14 @@
 {% extends "base.html" %}
 {% block title %}Вход{% endblock %}
 {% block content %}
-  <h1>Вход</h1>
-  <div class="card">
+  <section class="auth-card card">
+    <div class="auth-brand">
+      <span class="brand-logo" style="margin:0 auto;">ASC</span>
+      <h1>Аубакирова</h1>
+      <p>School Connect</p>
+    </div>
+
+    <h2>Добро пожаловать</h2>
     <form method="post" class="form">
       {% csrf_token %}
       <div class="form-row">
@@ -17,12 +23,11 @@
         {% if form.password.errors %}<div class="error">{{ form.password.errors }}</div>{% endif %}
       </div>
       {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
-      <button class="btn" type="submit">Войти</button>
+      <button class="btn btn-accent" type="submit">Войти</button>
     </form>
-  </div>
 
-  <p class="muted">
-    Для демо запустите seed_demo (см. README).<br/>
-    Примеры: teacher1/pass, student1/pass, parent1/pass, admin/adminpass
-  </p>
+    <p class="muted small" style="margin: 8px 0 0;">
+      Демо: teacher1/pass, student1/pass, parent1/pass, admin/adminpass.
+    </p>
+  </section>
 {% endblock %}

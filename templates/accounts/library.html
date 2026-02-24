@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Библиотека{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Библиотека</h1>
+    <p>Образовательные ресурсы и материалы.</p>
+  </section>
+
+  <section class="panel" style="margin-bottom: 12px;">
+    <form method="get" class="form-row">
+      {% if children_links %}
+        <label for="student">Ученик</label>
+        <select id="student" name="student">
+          {% for link in children_links %}
+            <option value="{{ link.child_id }}"{% if selected_child and selected_child.id == link.child_id %} selected{% endif %}>
+              {{ link.child.get_full_name|default:"Без имени" }}
+            </option>
+          {% endfor %}
+        </select>
+      {% endif %}
+      <label for="q">Поиск материалов</label>
+      <div style="display:flex;gap:8px;">
+        <input id="q" type="search" name="q" placeholder="Поиск в библиотеке..." value="{{ search_query }}">
+        <button class="btn btn-accent" type="submit">Найти</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="library-grid">
+    {% for resource in resources %}
+      <article class="resource-card">
+        <p class="small muted">{{ resource.category }} · {{ resource.course_name }}</p>
+        <h3>{{ resource.title }}</h3>
+        <p class="small muted">{{ resource.date_label }}</p>
+        {% if resource.url %}
+          <a class="btn btn-small" href="{{ resource.url }}"{% if resource.is_external %} target="_blank" rel="noopener noreferrer"{% endif %}>Открыть</a>
+        {% else %}
+          <button class="btn btn-small" type="button" disabled>Недоступно</button>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+{% endblock %}
