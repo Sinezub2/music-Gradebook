@@ -5,7 +5,7 @@
   {% if dashboard_mode == "teacher" %}
     <section class="page-head">
       <h1>Панель управления</h1>
-      <p>С возвращением, профессор!</p>
+      <p>Здравствуйте, учитель!</p>
     </section>
 
     <section class="panel">
@@ -41,10 +41,13 @@
   {% elif dashboard_mode == "student" or dashboard_mode == "parent" %}
     <section class="page-head">
       <h1>Панель управления</h1>
-      {% if dashboard_mode == "parent" and selected_child %}
-        <p>Наблюдение за учеником: {{ selected_child.get_full_name|default:"Без имени" }}</p>
+      {% if dashboard_mode == "parent" %}
+        <p>Здравствуйте, родитель!</p>
       {% else %}
-        <p>Личный учебный обзор.</p>
+        <p>Здравствуйте, ученик!</p>
+      {% endif %}
+      {% if dashboard_mode == "parent" and selected_child %}
+        <p class="muted">Наблюдение за учеником: {{ selected_child.get_full_name|default:"Без имени" }}</p>
       {% endif %}
     </section>
 

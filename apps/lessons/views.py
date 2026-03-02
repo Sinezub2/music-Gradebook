@@ -6,6 +6,7 @@ from django.db.models import Count, Q
 from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from datetime import date, datetime, timedelta
 from urllib.parse import urlencode
 import json
@@ -21,6 +22,7 @@ from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course
 
 
 PLAYS_PREFIX = "__plays__:"
+FIXED_LESSON_DURATION_MINUTES = 40
 
 
 def _student_ids_for_user(request):
@@ -117,8 +119,7 @@ def _collect_schedule_rows(post_data) -> list[dict]:
     weekdays = post_data.getlist("weekday")
     lesson_numbers = post_data.getlist("lesson_number")
     start_times = post_data.getlist("start_time")
-    duration_minutes = post_data.getlist("duration_minutes")
-    total = max(len(weekdays), len(lesson_numbers), len(start_times), len(duration_minutes), 1)
+    total = max(len(weekdays), len(lesson_numbers), len(start_times), 1)
     rows = []
     for index in range(total):
         rows.append(
@@ -126,7 +127,6 @@ def _collect_schedule_rows(post_data) -> list[dict]:
                 "weekday": (weekdays[index] if index < len(weekdays) else "").strip(),
                 "lesson_number": (lesson_numbers[index] if index < len(lesson_numbers) else "").strip(),
                 "start_time": (start_times[index] if index < len(start_times) else "").strip(),
-                "duration_minutes": (duration_minutes[index] if index < len(duration_minutes) else "").strip(),
                 "errors": {},
             }
         )
@@ -146,59 +146,6 @@ def _build_topic_from_plays(plays: list[dict]) -> str:
     if not names:
         return "Композиции"
     return ", ".join(names)[:200]
-
-
-def _active_plays_for_student(student) -> list[dict]:
-    latest_entry = (
-        LessonStudent.objects.filter(student=student)
-        .select_related("lesson")
-        .order_by("-lesson__date", "-lesson_id")
-        .first()
-    )
-    if not latest_entry:
-        return []
-    plays = _parse_play_entries(latest_entry.result)
-    return [{"name": play["name"], "completed": False, "comment": ""} for play in plays if not play.get("completed")]
-
-
-def _active_plays_for_slot(slot: LessonSlot) -> list[dict]:
-    if slot.lesson_id:
-        current_entry = LessonStudent.objects.filter(lesson=slot.lesson, student=slot.student).first()
-        if current_entry:
-            current_plays = _parse_play_entries(current_entry.result)
-            if current_plays:
-                return current_plays
-
-    latest_done_slot = (
-        LessonSlot.objects.filter(
-            teacher=slot.teacher,
-            student=slot.student,
-            status=LessonSlot.Status.DONE,
-            lesson__isnull=False,
-        )
-        .exclude(id=slot.id)
-        .order_by("-scheduled_date", "-start_time", "-id")
-        .first()
-    )
-    if not latest_done_slot:
-        return []
-
-    latest_entry = LessonStudent.objects.filter(
-        lesson=latest_done_slot.lesson,
-        student=slot.student,
-    ).first()
-    if not latest_entry:
-        return []
-
-    previous_plays = _parse_play_entries(latest_entry.result)
-    return [{"name": play["name"], "completed": False, "comment": ""} for play in previous_plays if not play.get("completed")]
-
-
-def _slot_attended_bool(attendance_status: str) -> bool:
-    return attendance_status in (
-        LessonSlot.AttendanceStatus.PRESENT,
-        LessonSlot.AttendanceStatus.LATE,
-    )
 
 
 @login_required
@@ -617,13 +564,11 @@ def student_schedule_manage(request, student_id: int):
 
     today = timezone.localdate()
     form = StudentScheduleForm()
-    default_duration = str(form.fields["duration_minutes"].initial or 45)
     schedule_input_rows = [
         {
             "weekday": "",
             "lesson_number": "",
             "start_time": "",
-            "duration_minutes": default_duration,
             "errors": {},
         }
     ]
@@ -658,7 +603,6 @@ def student_schedule_manage(request, student_id: int):
                 "weekday": row["weekday"],
                 "lesson_number": row["lesson_number"],
                 "start_time": row["start_time"],
-                "duration_minutes": row["duration_minutes"],
             }
             is_empty = not any(
                 [
@@ -668,11 +612,8 @@ def student_schedule_manage(request, student_id: int):
                 ]
             )
             if is_empty:
-                row["duration_minutes"] = default_duration
                 continue
             has_filled_rows = True
-            row_data["duration_minutes"] = row_data["duration_minutes"] or default_duration
-            row["duration_minutes"] = row_data["duration_minutes"]
 
             row_form = StudentScheduleForm(row_data)
             if row_form.is_valid():
@@ -708,7 +649,7 @@ def student_schedule_manage(request, student_id: int):
                 weekday = int(cleaned_data["weekday"])
                 start_time = cleaned_data["start_time"]
                 lesson_number = cleaned_data.get("lesson_number")
-                duration_minutes = cleaned_data["duration_minutes"]
+                duration_minutes = FIXED_LESSON_DURATION_MINUTES
                 schedule, created = StudentSchedule.objects.get_or_create(
                     teacher=request.user,
                     student=student,
@@ -770,113 +711,48 @@ def slot_report_fill(request, slot_id: int):
         id=slot_id,
         teacher=request.user,
     )
+    raw_next = (request.POST.get("next") or request.GET.get("next") or "").strip()
+    redirect_url = "/calendar/"
+    if raw_next and url_has_allowed_host_and_scheme(
+        raw_next,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        redirect_url = raw_next
     if slot.scheduled_date > timezone.localdate() and slot.status == LessonSlot.Status.PLANNED:
         messages.error(request, "Отчёт можно заполнить в день занятия.")
-        return redirect("/calendar/")
-
-    existing_report = (
-        LessonReport.objects.filter(lesson=slot.lesson, student=slot.student).order_by("-created_at").first()
-        if slot.lesson_id
-        else None
-    )
-    initial_plays = _active_plays_for_slot(slot) or [{"name": "", "completed": False, "comment": ""}]
-    play_errors = []
+        return redirect(redirect_url)
 
     if request.method == "POST":
-        form = SlotReportForm(request.POST, request.FILES)
-        posted_plays = _collect_play_entries(request)
-        if posted_plays:
-            initial_plays = posted_plays
-
+        form = SlotReportForm(request.POST)
         if form.is_valid():
             attendance_status = form.cleaned_data["attendance_status"]
-            result_note = (form.cleaned_data.get("result_note") or "").strip()
-            report_comment = (form.cleaned_data.get("report_comment") or "").strip()
-            media_url = (form.cleaned_data.get("media_url") or "").strip()
-            attachment = form.cleaned_data.get("attachment")
-            plays = _collect_play_entries(request)
-
-            requires_plays = attendance_status in (
-                LessonSlot.AttendanceStatus.PRESENT,
-                LessonSlot.AttendanceStatus.LATE,
+            slot.status = (
+                LessonSlot.Status.DONE
+                if attendance_status == LessonSlot.AttendanceStatus.PRESENT
+                else LessonSlot.Status.MISSED
             )
-            if requires_plays and not plays:
-                play_errors = ["Добавьте хотя бы одну композицию."]
+            slot.attendance_status = attendance_status
+            slot.result_note = ""
+            slot.report_comment = ""
+            slot.filled_at = timezone.now()
+            slot.save(
+                update_fields=[
+                    "status",
+                    "attendance_status",
+                    "result_note",
+                    "report_comment",
+                    "filled_at",
+                    "updated_at",
+                ]
+            )
 
-            if not play_errors:
-                if requires_plays:
-                    lesson = slot.lesson
-                    if not lesson:
-                        lesson = Lesson.objects.create(
-                            course=slot.course,
-                            date=slot.scheduled_date,
-                            topic=_build_topic_from_plays(plays),
-                            created_by=request.user,
-                            attachment=attachment,
-                        )
-                    else:
-                        lesson.topic = _build_topic_from_plays(plays)
-                        lesson.course = slot.course
-                        lesson.date = slot.scheduled_date
-                        if attachment:
-                            lesson.attachment = attachment
-                        fields = ["topic", "course", "date"]
-                        if attachment:
-                            fields.append("attachment")
-                        lesson.save(update_fields=fields)
-
-                    lesson_entry, _ = LessonStudent.objects.get_or_create(
-                        lesson=lesson,
-                        student=slot.student,
-                        defaults={"attended": True, "result": _serialize_play_entries(plays)},
-                    )
-                    lesson_entry.attended = _slot_attended_bool(attendance_status)
-                    lesson_entry.result = _serialize_play_entries(plays)
-                    lesson_entry.save(update_fields=["attended", "result"])
-
-                    report = LessonReport.objects.filter(lesson=lesson, student=slot.student).order_by("-created_at").first()
-                    if report:
-                        report.text = report_comment
-                        report.media_url = media_url
-                        report.save(update_fields=["text", "media_url"])
-                    elif media_url or report_comment:
-                        LessonReport.objects.create(
-                            lesson=lesson,
-                            student=slot.student,
-                            text=report_comment,
-                            media_url=media_url,
-                        )
-
-                    slot.lesson = lesson
-                    slot.status = LessonSlot.Status.DONE
-                else:
-                    slot.status = LessonSlot.Status.MISSED
-
-                slot.attendance_status = attendance_status
-                slot.result_note = result_note
-                slot.report_comment = report_comment
-                slot.filled_at = timezone.now()
-                slot.save(
-                    update_fields=[
-                        "lesson",
-                        "status",
-                        "attendance_status",
-                        "result_note",
-                        "report_comment",
-                        "filled_at",
-                        "updated_at",
-                    ]
-                )
-
-                messages.success(request, "Отчёт по слоту сохранён.")
-                return redirect("/calendar/")
+            messages.success(request, "Посещаемость сохранена.")
+            return redirect(redirect_url)
     else:
         form = SlotReportForm(
             initial={
                 "attendance_status": slot.attendance_status,
-                "result_note": slot.result_note,
-                "report_comment": slot.report_comment or (existing_report.text if existing_report else ""),
-                "media_url": existing_report.media_url if existing_report else "",
             }
         )
 
@@ -888,9 +764,8 @@ def slot_report_fill(request, slot_id: int):
             "student": slot.student,
             "course": slot.course,
             "form": form,
-            "initial_plays": initial_plays,
-            "play_errors": play_errors,
             "today": timezone.localdate(),
+            "return_url": redirect_url,
         },
     )
 

@@ -40,11 +40,6 @@
               <input type="time" name="start_time" value="{{ row.start_time }}">
               {% if row.errors.start_time %}<div class="error">{{ row.errors.start_time }}</div>{% endif %}
             </div>
-            <div class="form-row">
-              <label>Длительность (мин)</label>
-              <input type="number" name="duration_minutes" min="20" max="180" value="{{ row.duration_minutes }}">
-              {% if row.errors.duration_minutes %}<div class="error">{{ row.errors.duration_minutes }}</div>{% endif %}
-            </div>
           </div>
         {% endfor %}
       </div>
@@ -71,10 +66,6 @@
           <label>Время начала</label>
           <input type="time" name="start_time">
         </div>
-        <div class="form-row">
-          <label>Длительность (мин)</label>
-          <input type="number" name="duration_minutes" min="20" max="180" value="45">
-        </div>
       </div>
     </template>
   </section>
@@ -100,7 +91,7 @@
                 <td>{{ schedule.get_weekday_display }}</td>
                 <td>{{ schedule.start_time|time:"H:i" }}</td>
                 <td>{% if schedule.lesson_number %}{{ schedule.lesson_number }}{% else %}—{% endif %}</td>
-                <td>{{ schedule.duration_minutes }} мин</td>
+                <td>40 мин</td>
                 <td>
                   {% if schedule.active %}
                     <span class="tag">Активно</span>
@@ -157,9 +148,16 @@
                 </td>
                 <td>
                   {% if slot.scheduled_date <= today or slot.status != "PLANNED" %}
-                    <a class="btn btn-small" href="/slots/{{ slot.id }}/report/">
+                    <button
+                      class="btn btn-small js-slot-report-open"
+                      type="button"
+                      data-slot-id="{{ slot.id }}"
+                      data-slot-date="{{ slot.scheduled_date|date:'d.m.Y' }}"
+                      data-slot-time="{{ slot.start_time|time:'H:i' }}"
+                      data-slot-student="{{ student.get_full_name|default:'Без имени' }}"
+                    >
                       {% if slot.status == "PLANNED" %}Заполнить отчёт{% else %}Открыть отчёт{% endif %}
-                    </a>
+                    </button>
                   {% else %}
                     <span class="muted small">Доступно в день урока</span>
                   {% endif %}
@@ -173,16 +171,102 @@
       <p class="muted">Слоты еще не сгенерированы.</p>
     {% endif %}
   </section>
+
+  <div id="slot-report-modal" style="position:fixed;inset:0;background:rgba(22,23,27,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:1100;">
+    <div style="width:100%;max-width:420px;background:#fff;border-radius:10px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <h3 style="margin:0;">Посещаемость</h3>
+        <button type="button" class="btn btn-small" id="slot-report-modal-close" aria-label="Закрыть">X</button>
+      </div>
+      <p class="muted small" id="slot-report-modal-meta" style="margin:8px 0 14px;"></p>
+      <form method="post" id="slot-report-modal-form" class="form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div style="display:grid;gap:10px;">
+          <button
+            class="btn"
+            type="submit"
+            name="attendance_status"
+            value="PRESENT"
+            style="background:#2f7a64;border-color:#2f7a64;color:#fff;"
+          >
+            Присутствовал
+          </button>
+          <button
+            class="btn"
+            type="submit"
+            name="attendance_status"
+            value="ABSENT"
+            style="background:#9a5959;border-color:#9a5959;color:#fff;"
+          >
+            Не присутствовал
+          </button>
+        </div>
+        <a class="btn" href="#" id="slot-report-modal-cancel" style="margin-top:10px;">Отмена</a>
+      </form>
+    </div>
+  </div>
+
   <script>
     (function () {
       const addButton = document.getElementById("schedule-add-row");
       const rowList = document.getElementById("schedule-row-list");
       const rowTemplate = document.getElementById("schedule-row-template");
-      if (!addButton || !rowList || !rowTemplate) return;
+      if (addButton && rowList && rowTemplate) {
+        addButton.addEventListener("click", function () {
+          const row = rowTemplate.content.firstElementChild.cloneNode(true);
+          rowList.appendChild(row);
+        });
+      }
 
-      addButton.addEventListener("click", function () {
-        const row = rowTemplate.content.firstElementChild.cloneNode(true);
-        rowList.appendChild(row);
+      const modal = document.getElementById("slot-report-modal");
+      const modalClose = document.getElementById("slot-report-modal-close");
+      const modalCancel = document.getElementById("slot-report-modal-cancel");
+      const modalForm = document.getElementById("slot-report-modal-form");
+      const modalMeta = document.getElementById("slot-report-modal-meta");
+      const openButtons = document.querySelectorAll(".js-slot-report-open");
+      if (!modal || !modalForm || !modalMeta || !openButtons.length) return;
+
+      function closeModal() {
+        modal.style.display = "none";
+      }
+
+      function openModal(button) {
+        const slotId = button.getAttribute("data-slot-id");
+        const slotDate = button.getAttribute("data-slot-date");
+        const slotTime = button.getAttribute("data-slot-time");
+        const slotStudent = button.getAttribute("data-slot-student");
+        modalForm.action = "/slots/" + slotId + "/report/";
+        modalMeta.textContent = (slotStudent || "") + " · " + (slotDate || "") + " " + (slotTime || "");
+        modal.style.display = "flex";
+      }
+
+      openButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          openModal(button);
+        });
+      });
+
+      if (modalClose) {
+        modalClose.addEventListener("click", function () {
+          closeModal();
+        });
+      }
+      if (modalCancel) {
+        modalCancel.addEventListener("click", function (event) {
+          event.preventDefault();
+          closeModal();
+        });
+      }
+      modal.addEventListener("click", function (event) {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closeModal();
+        }
       });
     })();
   </script>

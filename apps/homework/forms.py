@@ -8,7 +8,7 @@ from apps.school.models import Course
 class AssignmentCreateForm(forms.Form):
     max_input_length = 50
     course = forms.ModelChoiceField(label="Курс", queryset=Course.objects.none())
-    title = forms.CharField(label="Название", max_length=200)
+    title = forms.CharField(label="Название (опционально)", max_length=200, required=False)
     description = forms.CharField(label="Описание", required=False, widget=forms.Textarea(attrs={"rows": 4}))
     due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
@@ -56,7 +56,7 @@ class AssignmentCreateForm(forms.Form):
 
 class StudentAssignmentCreateForm(forms.Form):
     max_input_length = 50
-    title = forms.CharField(label="Название", max_length=200)
+    title = forms.CharField(label="Название (опционально)", max_length=200, required=False)
     description = forms.CharField(label="Описание", required=False, widget=forms.Textarea(attrs={"rows": 4}))
     due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)

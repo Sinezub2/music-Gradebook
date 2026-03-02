@@ -19,7 +19,7 @@ class Profile(models.Model):
 
     class Cycle(models.TextChoices):
         GENERAL = "GENERAL", "Общий"
-        ACCELERATED = "ACCELERATED", "Ускоренный"
+        ACCELERATED = "ACCELERATED", "Специальный"
         EXTRA = "EXTRA", "Дополнительный"
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")

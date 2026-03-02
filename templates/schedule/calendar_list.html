@@ -33,9 +33,16 @@
               {% endif %}
 
               {% if mode == "teacher" and slot.can_fill_report %}
-                <a class="btn btn-small btn-accent" href="{{ slot.report_url }}">
+                <button
+                  class="btn btn-small btn-accent js-slot-report-open"
+                  type="button"
+                  data-slot-id="{{ slot.id }}"
+                  data-slot-title="{{ slot.title }}"
+                  data-slot-date="{{ day.date|date:'d.m.Y' }}"
+                  data-slot-time="{{ slot.time_label }}"
+                >
                   {% if slot.status == "PLANNED" %}Заполнить отчёт{% else %}Открыть отчёт{% endif %}
-                </a>
+                </button>
               {% endif %}
             </div>
           {% endfor %}
@@ -63,4 +70,93 @@
       </article>
     {% endfor %}
   </section>
+
+  <div id="slot-report-modal" style="position:fixed;inset:0;background:rgba(22,23,27,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:1100;">
+    <div style="width:100%;max-width:420px;background:#fff;border-radius:10px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <h3 style="margin:0;">Посещаемость</h3>
+        <button type="button" class="btn btn-small" id="slot-report-modal-close" aria-label="Закрыть">X</button>
+      </div>
+      <p class="muted small" id="slot-report-modal-meta" style="margin:8px 0 14px;"></p>
+      <form method="post" id="slot-report-modal-form" class="form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div style="display:grid;gap:10px;">
+          <button
+            class="btn"
+            type="submit"
+            name="attendance_status"
+            value="PRESENT"
+            style="background:#2f7a64;border-color:#2f7a64;color:#fff;"
+          >
+            Присутствовал
+          </button>
+          <button
+            class="btn"
+            type="submit"
+            name="attendance_status"
+            value="ABSENT"
+            style="background:#9a5959;border-color:#9a5959;color:#fff;"
+          >
+            Не присутствовал
+          </button>
+        </div>
+        <a class="btn" href="#" id="slot-report-modal-cancel" style="margin-top:10px;">Отмена</a>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const modal = document.getElementById("slot-report-modal");
+      const modalClose = document.getElementById("slot-report-modal-close");
+      const modalCancel = document.getElementById("slot-report-modal-cancel");
+      const modalForm = document.getElementById("slot-report-modal-form");
+      const modalMeta = document.getElementById("slot-report-modal-meta");
+      const openButtons = document.querySelectorAll(".js-slot-report-open");
+      if (!modal || !modalForm || !modalMeta || !openButtons.length) return;
+
+      function closeModal() {
+        modal.style.display = "none";
+      }
+
+      function openModal(button) {
+        const slotId = button.getAttribute("data-slot-id");
+        const title = button.getAttribute("data-slot-title");
+        const slotDate = button.getAttribute("data-slot-date");
+        const slotTime = button.getAttribute("data-slot-time");
+        modalForm.action = "/slots/" + slotId + "/report/";
+        modalMeta.textContent = (title || "") + " · " + (slotDate || "") + " " + (slotTime || "");
+        modal.style.display = "flex";
+      }
+
+      openButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          openModal(button);
+        });
+      });
+
+      if (modalClose) {
+        modalClose.addEventListener("click", function () {
+          closeModal();
+        });
+      }
+      if (modalCancel) {
+        modalCancel.addEventListener("click", function (event) {
+          event.preventDefault();
+          closeModal();
+        });
+      }
+      modal.addEventListener("click", function (event) {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closeModal();
+        }
+      });
+    })();
+  </script>
 {% endblock %}

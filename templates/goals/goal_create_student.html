@@ -7,6 +7,19 @@
   <div class="card">
     <form method="post" class="form" id="student-goal-create-form">
       {% csrf_token %}
+      <input type="hidden" name="half_year" id="student-goal-half-year" value="{{ selected_half_year }}">
+
+      <div class="form-row">
+        <label>Полугодие</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn js-half-year-btn" data-value="H1">I полугодие</button>
+          <button type="button" class="btn js-half-year-btn" data-value="H2">II полугодие</button>
+        </div>
+      </div>
+      {% if half_year_error %}
+        <div class="error">{{ half_year_error }}</div>
+      {% endif %}
+
       <div id="student-goal-input-list">
         {% for value in entered_titles %}
           <div class="form-row" data-goal-row>
@@ -25,7 +38,7 @@
       {% endif %}
 
       <button class="btn" type="submit">Создать</button>
-      <a class="btn" href="/teacher/students/{{ student.id }}/">Отмена</a>
+      <a class="btn" href="/goals/?student={{ student.id }}&half_year={{ selected_half_year }}">Отмена</a>
     </form>
   </div>
 
@@ -33,14 +46,37 @@
     (function () {
       const addButton = document.getElementById("student-goal-add-row");
       const list = document.getElementById("student-goal-input-list");
-      if (!addButton || !list) return;
-      addButton.addEventListener("click", function () {
-        const row = document.createElement("div");
-        row.className = "form-row";
-        row.setAttribute("data-goal-row", "1");
-        row.innerHTML = '<label>Цель</label><input class="input" type="text" name="goal_titles" placeholder="Цель на полугодие"/>';
-        list.appendChild(row);
+      if (addButton && list) {
+        addButton.addEventListener("click", function () {
+          const row = document.createElement("div");
+          row.className = "form-row";
+          row.setAttribute("data-goal-row", "1");
+          row.innerHTML = '<label>Цель</label><input class="input" type="text" name="goal_titles" placeholder="Цель на полугодие"/>';
+          list.appendChild(row);
+        });
+      }
+
+      const halfYearInput = document.getElementById("student-goal-half-year");
+      const halfYearButtons = document.querySelectorAll(".js-half-year-btn");
+      if (!halfYearInput || !halfYearButtons.length) return;
+
+      function paintHalfYearButtons() {
+        halfYearButtons.forEach(function (button) {
+          const active = button.getAttribute("data-value") === halfYearInput.value;
+          button.style.background = active ? "#2f7a64" : "";
+          button.style.borderColor = active ? "#2f7a64" : "";
+          button.style.color = active ? "#fff" : "";
+        });
+      }
+
+      halfYearButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          halfYearInput.value = button.getAttribute("data-value");
+          paintHalfYearButtons();
+        });
       });
+
+      paintHalfYearButtons();
     })();
   </script>
 {% endblock %}

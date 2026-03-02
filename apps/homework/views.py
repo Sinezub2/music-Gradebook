@@ -3,6 +3,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.files.base import ContentFile
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -46,6 +47,60 @@ def _build_assignments_url(cycle: str) -> str:
     if cycle:
         params["cycle"] = cycle
     return f"/assignments/?{urlencode(params)}" if params else "/assignments/"
+
+
+def _collect_compositions(post_data) -> list[str]:
+    items = []
+    seen = set()
+    for raw_value in post_data.getlist("composition_name"):
+        value = (raw_value or "").strip()
+        if not value or value in seen:
+            continue
+        items.append(value)
+        seen.add(value)
+    return items
+
+
+def _create_assignments(
+    *,
+    teacher,
+    course: Course,
+    titles: list[str],
+    description: str,
+    due_date,
+    attachment,
+    student_ids: list[int],
+) -> int:
+    copied_attachment_bytes = None
+    copied_attachment_name = ""
+    if attachment and len(titles) > 1:
+        copied_attachment_bytes = attachment.read()
+        copied_attachment_name = attachment.name
+
+    created_count = 0
+    for title in titles:
+        prepared_attachment = attachment
+        if copied_attachment_bytes is not None:
+            prepared_attachment = ContentFile(copied_attachment_bytes, name=copied_attachment_name)
+
+        create_assignment_with_targets_and_gradebook(
+            teacher=teacher,
+            course=course,
+            title=title,
+            description=description,
+            due_date=due_date,
+            attachment=prepared_attachment,
+            student_ids=student_ids,
+        )
+        created_count += 1
+    return created_count
+
+
+def _validate_homework_titles(titles: list[str]) -> list[str]:
+    errors = []
+    if any(len(title) > 200 for title in titles):
+        errors.append("Название композиции должно быть не длиннее 200 символов.")
+    return errors
 
 
 @login_required
@@ -216,8 +271,11 @@ def assignment_create(request):
                 selected_course = None
 
     course_queryset = Course.objects.filter(id=fixed_course.id) if fixed_course else None
+    initial_compositions = [""]
+    composition_errors = []
 
     if request.method == "POST":
+        initial_compositions = request.POST.getlist("composition_name") or [""]
         form = AssignmentCreateForm(
             request.POST,
             request.FILES,
@@ -227,25 +285,31 @@ def assignment_create(request):
         )
         if form.is_valid():
             course = fixed_course or form.cleaned_data["course"]
-            title = form.cleaned_data["title"]
+            title = (form.cleaned_data.get("title") or "").strip()
+            compositions = _collect_compositions(request.POST)
+            titles = compositions or ([title] if title else [])
             description = form.cleaned_data.get("description", "")
             due_date = form.cleaned_data["due_date"]
             attachment = form.cleaned_data.get("attachment")
             student_ids = [int(x) for x in form.cleaned_data.get("students", [])]
 
-            # Create everything per spec
-            create_assignment_with_targets_and_gradebook(
-                teacher=request.user,
-                course=course,
-                title=title,
-                description=description,
-                due_date=due_date,
-                attachment=attachment,
-                student_ids=student_ids,
-            )
+            if not titles:
+                composition_errors = ["Укажите название задания или добавьте хотя бы одну композицию."]
+            else:
+                composition_errors = _validate_homework_titles(titles)
 
-            messages.success(request, "Задание создано и назначено выбранным ученикам.")
-            return redirect("/assignments/")
+            if not composition_errors:
+                created_count = _create_assignments(
+                    teacher=request.user,
+                    course=course,
+                    titles=titles,
+                    description=description,
+                    due_date=due_date,
+                    attachment=attachment,
+                    student_ids=student_ids,
+                )
+                messages.success(request, f"Создано заданий: {created_count}.")
+                return redirect("/assignments/")
     else:
         form = AssignmentCreateForm(
             teacher_user=request.user,
@@ -263,6 +327,8 @@ def assignment_create(request):
             "form": form,
             "selected_course": selected_course,
             "fixed_course": fixed_course,
+            "initial_compositions": initial_compositions,
+            "composition_errors": composition_errors,
         },
     )
 
@@ -278,27 +344,47 @@ def assignment_create_for_student(request, student_id: int):
         messages.error(request, "У ученика несколько ваших курсов. Уточните курс у администратора.")
         return redirect(f"/teacher/students/{student.id}/")
 
+    initial_compositions = [""]
+    composition_errors = []
+
     if request.method == "POST":
+        initial_compositions = request.POST.getlist("composition_name") or [""]
         form = StudentAssignmentCreateForm(request.POST, request.FILES)
         if form.is_valid():
-            create_assignment_with_targets_and_gradebook(
-                teacher=request.user,
-                course=course,
-                title=form.cleaned_data["title"],
-                description=form.cleaned_data.get("description", ""),
-                due_date=form.cleaned_data["due_date"],
-                attachment=form.cleaned_data.get("attachment"),
-                student_ids=[student.id],
-            )
-            messages.success(request, "Задание создано и назначено ученику.")
-            return redirect(f"/teacher/students/{student.id}/")
+            title = (form.cleaned_data.get("title") or "").strip()
+            compositions = _collect_compositions(request.POST)
+            titles = compositions or ([title] if title else [])
+
+            if not titles:
+                composition_errors = ["Укажите название задания или добавьте хотя бы одну композицию."]
+            else:
+                composition_errors = _validate_homework_titles(titles)
+
+            if not composition_errors:
+                created_count = _create_assignments(
+                    teacher=request.user,
+                    course=course,
+                    titles=titles,
+                    description=form.cleaned_data.get("description", ""),
+                    due_date=form.cleaned_data["due_date"],
+                    attachment=form.cleaned_data.get("attachment"),
+                    student_ids=[student.id],
+                )
+                messages.success(request, f"Создано заданий: {created_count}.")
+                return redirect(f"/teacher/students/{student.id}/")
     else:
         form = StudentAssignmentCreateForm()
 
     return render(
         request,
         "homework/assignment_create_student.html",
-        {"form": form, "student": student, "course": course},
+        {
+            "form": form,
+            "student": student,
+            "course": course,
+            "initial_compositions": initial_compositions,
+            "composition_errors": composition_errors,
+        },
     )
 
 

@@ -8,6 +8,7 @@ from .models import LessonSlot, StudentSchedule
 
 
 SLOT_GENERATION_DAYS = 60
+FIXED_LESSON_DURATION_MINUTES = 40
 
 
 def generate_slots_for_schedule(
@@ -35,7 +36,7 @@ def generate_slots_for_schedule(
             defaults={
                 "course": schedule.course,
                 "schedule": schedule,
-                "duration_minutes": schedule.duration_minutes,
+                "duration_minutes": FIXED_LESSON_DURATION_MINUTES,
             },
         )
         if created:

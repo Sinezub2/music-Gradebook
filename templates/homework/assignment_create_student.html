@@ -11,6 +11,7 @@
         <label>{{ form.title.label }}</label>
         {{ form.title }}
         {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+        <div class="muted small">Если добавлены композиции ниже, для каждой создаётся отдельное задание.</div>
       </div>
 
       <div class="form-row">
@@ -18,6 +19,24 @@
         {{ form.description }}
         {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
       </div>
+
+      <h2 style="margin: 0;">Композиции</h2>
+      <div id="composition-list">
+        {% for composition in initial_compositions %}
+          <div class="card" style="margin-bottom: 10px;" data-composition-row>
+            <div class="form-row">
+              <label>Название композиции</label>
+              <input class="input" type="text" name="composition_name" value="{{ composition }}" placeholder="Например, Этюд №5">
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <button class="btn" type="button" id="composition-add">+</button>
+      {% if composition_errors %}
+        {% for error in composition_errors %}
+          <div class="error">{{ error }}</div>
+        {% endfor %}
+      {% endif %}
 
       <div class="form-row">
         <label>{{ form.due_date.label }}</label>
@@ -37,4 +56,21 @@
       <a class="btn" href="/teacher/students/{{ student.id }}/">Отмена</a>
     </form>
   </div>
+
+  <script>
+    (function () {
+      const list = document.getElementById("composition-list");
+      const addButton = document.getElementById("composition-add");
+      if (!list || !addButton) return;
+
+      addButton.addEventListener("click", function () {
+        const row = document.createElement("div");
+        row.className = "card";
+        row.style.marginBottom = "10px";
+        row.setAttribute("data-composition-row", "1");
+        row.innerHTML = '<div class="form-row"><label>Название композиции</label><input class="input" type="text" name="composition_name" placeholder="Например, Этюд №5"></div>';
+        list.appendChild(row);
+      });
+    })();
+  </script>
 {% endblock %}

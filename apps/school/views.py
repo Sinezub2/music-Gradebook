@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.db.models import Avg, Count, Q
+from django.utils import timezone
 
 from apps.accounts.models import Profile
 from apps.gradebook.models import Grade
@@ -235,6 +236,7 @@ def teacher_student_workspace(request, student_id: int):
         .order_by("-assessment_id")[:5]
     )
     goals = list(Goal.objects.filter(student=student).select_related("teacher").order_by("-created_at")[:5])
+    current_half_year = "H1" if timezone.localdate().month <= 6 else "H2"
 
     return render(
         request,
@@ -249,5 +251,6 @@ def teacher_student_workspace(request, student_id: int):
             "recent_reports": recent_reports,
             "recent_grades": recent_grades,
             "goals": goals,
+            "current_half_year": current_half_year,
         },
     )
