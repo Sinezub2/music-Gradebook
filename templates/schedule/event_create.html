@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Создать событие{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Создать событие</h1>
+    <p>Добавьте событие в календарь и выберите участников.</p>
+  </section>
+
+  <div class="card">
+    <form method="post" class="form">
+      {% csrf_token %}
+
+      <div class="form-row">
+        <label>{{ form.event_type.label }}</label>
+        {{ form.event_type }}
+        {% if form.event_type.errors %}<div class="error">{{ form.event_type.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.event_date.label }}</label>
+        {{ form.event_date }}
+        {% if form.event_date.errors %}<div class="error">{{ form.event_date.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.title.label }}</label>
+        {{ form.title }}
+        {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.description.label }}</label>
+        {{ form.description }}
+        {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.external_url.label }}</label>
+        {{ form.external_url }}
+        {% if form.external_url.errors %}<div class="error">{{ form.external_url.errors }}</div>{% endif %}
+      </div>
+
+      <hr style="border:0; border-top:1px solid var(--line); margin: 8px 0 10px;"/>
+
+      <div class="form-row">
+        <label>{{ form.course.label }}</label>
+        {% if has_courses %}
+          {{ form.course }}
+          <div class="muted small">Выбор курса добавит всех учеников этого курса в участники.</div>
+        {% else %}
+          <div class="muted">У вас пока нет назначенных курсов.</div>
+        {% endif %}
+        {% if form.course.errors %}<div class="error">{{ form.course.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>{{ form.students.label }}</label>
+        {% if has_students %}
+          {{ form.students }}
+          <div class="muted small">Можно выбрать учеников вручную из ваших курсов.</div>
+        {% else %}
+          <div class="muted">У вас пока нет доступных учеников для приглашения.</div>
+        {% endif %}
+        {% if form.students.errors %}<div class="error">{{ form.students.errors }}</div>{% endif %}
+      </div>
+
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" type="submit">Создать событие</button>
+        <a class="btn" href="/calendar/">Отмена</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

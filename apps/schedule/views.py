@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,10 +7,12 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.lessons.models import LessonSlot
 from apps.lessons.services import generate_slots_for_teacher
 from apps.school.models import Course, Enrollment, ParentChild
+from .forms import TeacherEventCreateForm
 from .models import Event
 
 
@@ -58,6 +60,31 @@ def _events_for_role(request, qs):
     return qs.none(), registration_events, children, "unknown"
 
 
+def _serialize_week_events(events_qs, *, week_start, week_end):
+    events_by_day = {}
+    week_events = (
+        events_qs.filter(start_datetime__date__gte=week_start, start_datetime__date__lt=week_end)
+        .select_related("course")
+        .order_by("start_datetime", "id")
+    )
+    for event in week_events:
+        local_start = timezone.localtime(event.start_datetime)
+        day_key = local_start.date()
+        events_by_day.setdefault(day_key, []).append(
+            {
+                "id": event.id,
+                "time_label": local_start.strftime("%H:%M"),
+                "title": event.title,
+                "subtitle": event.course.name if event.course else event.get_event_type_display(),
+                "type_label": event.get_event_type_display(),
+                "description": event.description,
+                "external_url": event.external_url,
+                "can_register": False,
+            }
+        )
+    return events_by_day
+
+
 @login_required
 def calendar_list(request):
     try:
@@ -73,34 +100,15 @@ def calendar_list(request):
     mode = "unknown"
     children = []
     registration_events = Event.objects.none()
-    events_by_day = {}
     slots_by_day = {}
+    base_qs = Event.objects.all().select_related("course", "created_by").prefetch_related("participants")
+    events, registration_events, role_children, role_mode = _events_for_role(request, base_qs)
+    events_by_day = _serialize_week_events(events, week_start=week_start, week_end=week_end)
 
     if profile.role == Profile.Role.ADMIN:
         mode = "admin"
-        base_qs = Event.objects.all().select_related("course", "created_by").prefetch_related("participants")
-        events, registration_events, children, _ = _events_for_role(request, base_qs)
-        week_events = (
-            events.filter(start_datetime__date__gte=week_start, start_datetime__date__lt=week_end)
-            .select_related("course")
-            .order_by("start_datetime")
-        )
-        for event in week_events:
-            local_start = timezone.localtime(event.start_datetime)
-            day_key = local_start.date()
-            events_by_day.setdefault(day_key, []).append(
-                {
-                    "id": event.id,
-                    "time_label": local_start.strftime("%H:%M"),
-                    "title": event.title,
-                    "subtitle": event.course.name if event.course else event.get_event_type_display(),
-                    "type_label": event.get_event_type_display(),
-                    "description": event.description,
-                    "external_url": event.external_url,
-                    "can_register": False,
-                }
-            )
     else:
+        mode = role_mode
         if profile.role == Profile.Role.TEACHER:
             mode = "teacher"
             generate_slots_for_teacher(request.user)
@@ -118,7 +126,7 @@ def calendar_list(request):
             ).select_related("teacher", "course")
         elif profile.role == Profile.Role.PARENT:
             mode = "parent"
-            children = list(ParentChild.objects.filter(parent=request.user).select_related("child"))
+            children = role_children or list(ParentChild.objects.filter(parent=request.user).select_related("child"))
             child_ids = [row.child_id for row in children]
             slot_qs = LessonSlot.objects.filter(
                 student_id__in=child_ids,
@@ -157,6 +165,9 @@ def calendar_list(request):
                 }
             )
 
+    if profile.role == Profile.Role.PARENT and not children:
+        children = role_children
+
     week_columns = []
     for day_index in range(7):
         day = week_start + timedelta(days=day_index)
@@ -184,6 +195,60 @@ def calendar_list(request):
             "week_end": week_end - timedelta(days=1),
             "week_columns": week_columns,
             "available_registration": available_registration,
+        },
+    )
+
+
+@role_required(Profile.Role.TEACHER)
+def teacher_event_create(request):
+    form = TeacherEventCreateForm(request.POST or None, teacher_user=request.user)
+    has_courses = form.fields["course"].queryset.exists()
+    has_students = form.fields["students"].queryset.exists()
+
+    if request.method == "POST" and form.is_valid():
+        selected_course = form.cleaned_data.get("course")
+        selected_students = form.cleaned_data.get("students")
+        participant_ids = set()
+
+        if selected_students is not None:
+            participant_ids.update(selected_students.values_list("id", flat=True))
+
+        if selected_course:
+            course_participant_ids = Enrollment.objects.filter(
+                course=selected_course,
+                student__profile__role=Profile.Role.STUDENT,
+            ).values_list("student_id", flat=True)
+            participant_ids.update(course_participant_ids)
+
+        if not participant_ids:
+            form.add_error(None, "Нужно выбрать хотя бы одного участника.")
+        else:
+            event_date = form.cleaned_data["event_date"]
+            local_tz = timezone.get_current_timezone()
+            start_datetime = timezone.make_aware(datetime.combine(event_date, time(hour=9, minute=0)), local_tz)
+            end_datetime = timezone.make_aware(datetime.combine(event_date, time(hour=10, minute=0)), local_tz)
+
+            event = Event.objects.create(
+                title=form.cleaned_data["title"],
+                event_type=form.cleaned_data["event_type"],
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+                description=form.cleaned_data["description"],
+                external_url=form.cleaned_data.get("external_url", ""),
+                course=selected_course,
+                created_by=request.user,
+            )
+            event.participants.set(sorted(participant_ids))
+            messages.success(request, "Событие создано.")
+            return redirect("/calendar/")
+
+    return render(
+        request,
+        "schedule/event_create.html",
+        {
+            "form": form,
+            "has_courses": has_courses,
+            "has_students": has_students,
         },
     )
 

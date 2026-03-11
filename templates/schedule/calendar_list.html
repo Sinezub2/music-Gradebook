@@ -3,12 +3,15 @@
 {% block content %}
   <section class="page-head">
     <h1>Расписание</h1>
-    <p>Просматривайте недельные уроки.</p>
+    <p>Просматривайте недельные уроки и события.</p>
   </section>
 
   <section class="week-toolbar">
     <h2 style="font-size:24px;margin:0;">Неделя: {{ week_start|date:"d.m.Y" }} - {{ week_end|date:"d.m.Y" }}</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      {% if mode == "teacher" %}
+        <a class="btn btn-small btn-accent" href="/calendar/create/">Создать событие</a>
+      {% endif %}
       <a class="btn btn-small" href="?week={{ week_offset|add:'-1' }}">Предыдущая неделя</a>
       <a class="btn btn-small" href="/calendar/">Текущая неделя</a>
       <a class="btn btn-small" href="?week={{ week_offset|add:'1' }}">Следующая неделя</a>

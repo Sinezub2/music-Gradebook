@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import calendar_list, register_event
+from .views import calendar_list, register_event, teacher_event_create
 
 urlpatterns = [
     path("calendar/", calendar_list, name="calendar_list"),
+    path("calendar/create/", teacher_event_create, name="calendar_create_event"),
     path("calendar/register/<int:event_id>/", register_event, name="calendar_register_event"),
 ]
