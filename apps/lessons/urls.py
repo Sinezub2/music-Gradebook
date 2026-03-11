@@ -7,6 +7,7 @@ from .views import (
     attendance_journal,
     lesson_bulk_delete,
     slot_report_fill,
+    slot_reschedule,
     student_schedule_manage,
 )
 
@@ -25,6 +26,7 @@ urlpatterns = [
         name="teacher_student_schedule_manage",
     ),
     path("slots/<int:slot_id>/report/", slot_report_fill, name="slot_report_fill"),
+    path("slots/<int:slot_id>/reschedule/", slot_reschedule, name="slot_reschedule"),
     path("lessons/<int:lesson_id>/", lesson_detail, name="lesson_detail"),
     path("attendance/", attendance_journal, name="attendance_journal"),
 ]

@@ -3,15 +3,62 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 from apps.accounts.models import Profile
 
 from .models import Course, ParentChild
 
 
+BASIC_CYCLE = "BASIC"
+BASIC_CYCLE_LABEL = "Базовый"
+
+
+def _build_cycle_choices() -> tuple[tuple[str, str], ...]:
+    choices = list(Profile.Cycle.choices)
+    basic_choice = (BASIC_CYCLE, BASIC_CYCLE_LABEL)
+    if basic_choice not in choices:
+        choices.append(basic_choice)
+    return tuple(choices)
+
+
+CYCLE_CHOICES = _build_cycle_choices()
+_CYCLE_LOOKUP = {
+    str(value).strip().casefold(): code
+    for code, label in CYCLE_CHOICES
+    for value in (code, label)
+}
+
+
 class SingleClassResolution(NamedTuple):
     status: str
     course: Course | None
+
+
+def _normalize_cycle(cycle: str) -> str:
+    raw = (cycle or "").strip()
+    if not raw:
+        return ""
+    return _CYCLE_LOOKUP.get(raw.casefold(), raw)
+
+
+def _teacher_courses_queryset(user):
+    return (
+        Course.objects.filter(
+            Q(teacher=user)
+            | Q(student_schedules__teacher=user)
+            | Q(lesson_slots__teacher=user)
+            | Q(lessons__created_by=user)
+            | Q(assignments__created_by=user)
+            | Q(student_invitations__teacher=user)
+        )
+        .distinct()
+        .order_by("name", "id")
+    )
+
+
+def get_cycle_choices() -> tuple[tuple[str, str], ...]:
+    return CYCLE_CHOICES
 
 
 def get_user_courses(user, *, include_admin: bool = False):
@@ -25,7 +72,7 @@ def get_user_courses(user, *, include_admin: bool = False):
         return Course.objects.filter(enrollments__student_id__in=child_ids).distinct().order_by("name")
 
     if role == Profile.Role.TEACHER:
-        return Course.objects.filter(teacher=user).order_by("name")
+        return _teacher_courses_queryset(user)
 
     if include_admin and role == Profile.Role.ADMIN:
         return Course.objects.all().order_by("name")
@@ -46,7 +93,7 @@ def get_teacher_students(user, *, cycle: str = ""):
     user_model = get_user_model()
     students = (
         user_model.objects.filter(
-            enrollments__course__teacher=user,
+            enrollments__course__in=_teacher_courses_queryset(user),
             profile__role=Profile.Role.STUDENT,
         )
         .select_related("profile")
@@ -54,7 +101,7 @@ def get_teacher_students(user, *, cycle: str = ""):
         .order_by("first_name", "last_name", "username")
     )
     if cycle:
-        students = students.filter(profile__cycle=cycle)
+        students = students.filter(profile__cycle=_normalize_cycle(cycle))
     return students
 
 
@@ -65,11 +112,16 @@ def get_teacher_student_or_404(teacher, student_id: int):
 
 
 def resolve_teacher_course_for_student(teacher, student):
-    courses = list(
-        Course.objects.filter(teacher=teacher, enrollments__student=student).distinct().order_by("name")[:2]
-    )
+    base_qs = _teacher_courses_queryset(teacher).filter(enrollments__student=student)
+    courses = list(base_qs[:2])
     if not courses:
         return None, "none"
     if len(courses) == 1:
         return courses[0], "single"
-    return courses[0], "multiple"
+
+    preferred_course = (
+        base_qs.filter(student_schedules__teacher=teacher, student_schedules__student=student).first()
+        or base_qs.filter(lesson_slots__teacher=teacher, lesson_slots__student=student).first()
+        or courses[0]
+    )
+    return preferred_course, "multiple"

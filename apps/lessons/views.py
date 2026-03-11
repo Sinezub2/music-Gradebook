@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
+from django.db import transaction
 from django.db.models import Count, Q
 from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,9 +16,9 @@ from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.school.models import Course, Enrollment, ParentChild
 from apps.school.utils import get_user_single_class
-from .forms import LessonCreateForm, SlotReportForm, StudentLessonCreateForm, StudentScheduleForm
+from .forms import LessonCreateForm, SlotReportForm, SlotRescheduleForm, StudentLessonCreateForm, StudentScheduleForm
 from .models import Lesson, LessonReport, LessonSlot, LessonStudent, StudentSchedule
-from .services import generate_slots_for_schedule
+from .services import deactivate_schedule, generate_slots_for_schedule
 from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
 
 
@@ -549,7 +550,7 @@ def lesson_create(request):
 
 @role_required(Profile.Role.TEACHER)
 def lesson_create_for_student(request, student_id: int):
-    messages.info(request, "Создание урока перенесено в расписание. Заполните отчёт в слоте занятия.")
+    messages.info(request, "Создание урока перенесено в расписание. Заполните отчёт в уроке.")
     return redirect(f"/teacher/students/{student_id}/schedule/")
 
 
@@ -584,13 +585,14 @@ def student_schedule_manage(request, student_id: int):
                 teacher=request.user,
                 student=student,
             )
-            schedule.active = not schedule.active
-            schedule.save(update_fields=["active", "updated_at"])
             if schedule.active:
-                created_slots = generate_slots_for_schedule(schedule)
-                messages.success(request, f"Расписание активировано. Новых слотов: {created_slots}.")
+                deleted_slots = deactivate_schedule(schedule, today=today)
+                messages.success(request, f"Регулярный урок отключён. Удалено будущих уроков: {deleted_slots}.")
             else:
-                messages.success(request, "Расписание деактивировано.")
+                schedule.active = True
+                schedule.save(update_fields=["active", "updated_at"])
+                created_slots = generate_slots_for_schedule(schedule)
+                messages.success(request, f"Регулярный урок включён. Создано будущих уроков: {created_slots}.")
             return redirect(f"/teacher/students/{student.id}/schedule/")
 
         schedule_input_rows = _collect_schedule_rows(request.POST)
@@ -672,7 +674,7 @@ def student_schedule_manage(request, student_id: int):
                 created_slots_total += generate_slots_for_schedule(schedule)
                 saved_rows += 1
 
-            messages.success(request, f"Шаблонов сохранено: {saved_rows}. Слотов создано: {created_slots_total}.")
+            messages.success(request, f"Регулярных уроков сохранено: {saved_rows}. Будущих уроков создано: {created_slots_total}.")
             return redirect(f"/teacher/students/{student.id}/schedule/")
 
     schedules = list(
@@ -765,6 +767,125 @@ def slot_report_fill(request, slot_id: int):
             "course": slot.course,
             "form": form,
             "today": timezone.localdate(),
+            "return_url": redirect_url,
+        },
+    )
+
+
+@role_required(Profile.Role.TEACHER, Profile.Role.ADMIN)
+def slot_reschedule(request, slot_id: int):
+    role = request.user.profile.role
+    slot_qs = LessonSlot.objects.select_related("student", "course", "teacher", "schedule")
+    if role == Profile.Role.TEACHER:
+        slot_qs = slot_qs.filter(teacher=request.user)
+    slot = get_object_or_404(slot_qs, id=slot_id)
+
+    raw_next = (request.POST.get("next") or request.GET.get("next") or "").strip()
+    default_redirect = (
+        f"/teacher/students/{slot.student_id}/schedule/"
+        if role == Profile.Role.TEACHER
+        else "/calendar/"
+    )
+    redirect_url = default_redirect
+    if raw_next and url_has_allowed_host_and_scheme(
+        raw_next,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        redirect_url = raw_next
+
+    if slot.status != LessonSlot.Status.PLANNED:
+        messages.error(request, "Перенос доступен только для запланированного урока.")
+        return redirect(redirect_url)
+
+    if request.method == "POST":
+        form = SlotRescheduleForm(request.POST)
+        if form.is_valid():
+            new_date = form.cleaned_data["new_date"]
+            new_start_time = form.cleaned_data["new_start_time"]
+            reason = (form.cleaned_data.get("reason") or "").strip()
+
+            if new_date == slot.scheduled_date and new_start_time == slot.start_time:
+                form.add_error(None, "Укажите новую дату или новое время.")
+            else:
+                has_conflict = (
+                    LessonSlot.objects.filter(
+                        teacher=slot.teacher,
+                        student=slot.student,
+                        scheduled_date=new_date,
+                        start_time=new_start_time,
+                    )
+                    .exclude(id=slot.id)
+                    .exists()
+                )
+                if has_conflict:
+                    form.add_error(None, "На выбранные дату и время у ученика уже есть урок.")
+                else:
+                    with transaction.atomic():
+                        locked_slot = LessonSlot.objects.select_for_update().get(id=slot.id)
+                        if locked_slot.status != LessonSlot.Status.PLANNED:
+                            form.add_error(None, "Урок уже нельзя перенести: статус был изменён.")
+                        else:
+                            locked_conflict = (
+                                LessonSlot.objects.select_for_update()
+                                .filter(
+                                    teacher=locked_slot.teacher,
+                                    student=locked_slot.student,
+                                    scheduled_date=new_date,
+                                    start_time=new_start_time,
+                                )
+                                .exclude(id=locked_slot.id)
+                                .exists()
+                            )
+                            if locked_conflict:
+                                form.add_error(None, "На выбранные дату и время у ученика уже есть урок.")
+                            else:
+                                old_date = locked_slot.scheduled_date
+                                old_time = locked_slot.start_time
+                                if locked_slot.rescheduled_from_date is None:
+                                    locked_slot.rescheduled_from_date = old_date
+                                if locked_slot.rescheduled_from_time is None:
+                                    locked_slot.rescheduled_from_time = old_time
+
+                                locked_slot.scheduled_date = new_date
+                                locked_slot.start_time = new_start_time
+                                locked_slot.rescheduled_at = timezone.now()
+                                locked_slot.reschedule_reason = reason
+                                locked_slot.save(
+                                    update_fields=[
+                                        "scheduled_date",
+                                        "start_time",
+                                        "rescheduled_from_date",
+                                        "rescheduled_from_time",
+                                        "rescheduled_at",
+                                        "reschedule_reason",
+                                        "updated_at",
+                                    ]
+                                )
+                                messages.success(
+                                    request,
+                                    (
+                                        "Урок перенесён: "
+                                        f"{old_date:%d.%m.%Y} {old_time:%H:%M} -> "
+                                        f"{new_date:%d.%m.%Y} {new_start_time:%H:%M}."
+                                    ),
+                                )
+                                return redirect(redirect_url)
+    else:
+        form = SlotRescheduleForm(
+            initial={
+                "new_date": slot.scheduled_date,
+                "new_start_time": slot.start_time,
+                "reason": slot.reschedule_reason,
+            }
+        )
+
+    return render(
+        request,
+        "lessons/slot_reschedule.html",
+        {
+            "slot": slot,
+            "form": form,
             "return_url": redirect_url,
         },
     )

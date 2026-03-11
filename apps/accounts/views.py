@@ -12,6 +12,8 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
 
 from apps.gradebook.models import Grade
 from apps.homework.models import AssignmentTarget
@@ -419,6 +421,7 @@ def _conversation_from_thread(thread):
     ]
 
 
+@never_cache
 def login_view(request):
     if request.user.is_authenticated:
         return redirect("/dashboard")
@@ -431,6 +434,8 @@ def login_view(request):
     return render(request, "accounts/login.html", {"form": form})
 
 
+@never_cache
+@require_POST
 def logout_view(request):
     logout(request)
     return redirect("/login")

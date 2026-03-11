@@ -3,15 +3,15 @@
 {% block content %}
   <section class="page-head">
     <h1>Расписание</h1>
-    <p>Просматривайте недельные слоты занятий.</p>
+    <p>Просматривайте недельные уроки.</p>
   </section>
 
   <section class="week-toolbar">
     <h2 style="font-size:24px;margin:0;">Неделя: {{ week_start|date:"d.m.Y" }} - {{ week_end|date:"d.m.Y" }}</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <a class="btn btn-small" href="?week={{ week_offset|add:'-1' }}">Предыдущая</a>
-      <a class="btn btn-small" href="/calendar/">Текущая</a>
-      <a class="btn btn-small" href="?week={{ week_offset|add:'1' }}">Следующая</a>
+      <a class="btn btn-small" href="?week={{ week_offset|add:'-1' }}">Предыдущая неделя</a>
+      <a class="btn btn-small" href="/calendar/">Текущая неделя</a>
+      <a class="btn btn-small" href="?week={{ week_offset|add:'1' }}">Следующая неделя</a>
     </div>
   </section>
 
@@ -32,6 +32,11 @@
                 <span class="small muted">{{ slot.attendance_label }}</span>
               {% endif %}
 
+              {% if mode == "teacher" and slot.can_reschedule %}
+                <a class="btn btn-small" href="{{ slot.reschedule_url }}?next={{ request.get_full_path|urlencode }}">
+                  Перенести урок
+                </a>
+              {% endif %}
               {% if mode == "teacher" and slot.can_fill_report %}
                 <button
                   class="btn btn-small btn-accent js-slot-report-open"

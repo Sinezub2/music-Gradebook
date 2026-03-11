@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}CSRF проверка{% endblock %}
+{% block content %}
+  <section class="card" style="max-width: 760px;">
+    <h1 style="font-size: 36px;">Форма устарела</h1>
+    <p class="muted">
+      Проверка безопасности не прошла. Это обычно происходит, когда страница была открыта в другой вкладке до входа, выхода или переключения аккаунта.
+    </p>
+    <p class="muted">
+      Обновите страницу и отправьте форму снова. Для одновременной работы под двумя аккаунтами используйте отдельный профиль браузера или режим инкогнито.
+    </p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+      <button class="btn btn-accent" type="button" onclick="window.location.reload();">Обновить страницу</button>
+      <a class="btn" href="{{ return_url }}">Вернуться</a>
+    </div>
+
+    {% if reason %}
+      <p class="muted small" style="margin-top: 10px;">DEBUG: {{ reason }}</p>
+    {% endif %}
+  </section>
+{% endblock %}

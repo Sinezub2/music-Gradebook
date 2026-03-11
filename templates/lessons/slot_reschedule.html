@@ -1,0 +1,45 @@
+﻿{% extends "base.html" %}
+{% block title %}Перенести урок{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Перенести урок</h1>
+    <p>
+      {{ slot.student.get_full_name|default:"Без имени" }} · {{ slot.course.name }} ·
+      {{ slot.scheduled_date|date:"d.m.Y" }} {{ slot.start_time|time:"H:i" }}
+    </p>
+  </section>
+
+  <section class="panel">
+    <form method="post" class="form" style="max-width: 520px;">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ return_url }}">
+
+      {% if form.non_field_errors %}
+        <div class="error">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="form-row">
+        <label for="id_new_date">{{ form.new_date.label }}</label>
+        {{ form.new_date }}
+        {% if form.new_date.errors %}<div class="error">{{ form.new_date.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label for="id_new_start_time">{{ form.new_start_time.label }}</label>
+        {{ form.new_start_time }}
+        {% if form.new_start_time.errors %}<div class="error">{{ form.new_start_time.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label for="id_reason">{{ form.reason.label }}</label>
+        {{ form.reason }}
+        {% if form.reason.errors %}<div class="error">{{ form.reason.errors }}</div>{% endif %}
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 8px;">
+        <button class="btn btn-accent" type="submit">Сохранить перенос</button>
+        <a class="btn" href="{{ return_url }}">Отмена</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

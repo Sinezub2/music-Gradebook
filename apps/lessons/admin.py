@@ -34,6 +34,18 @@ class StudentScheduleAdmin(admin.ModelAdmin):
 
 @admin.register(LessonSlot)
 class LessonSlotAdmin(admin.ModelAdmin):
-    list_display = ("teacher", "student", "course", "scheduled_date", "start_time", "status", "attendance_status")
-    list_filter = ("teacher", "course", "status", "attendance_status")
+    list_display = (
+        "teacher",
+        "student",
+        "course",
+        "schedule",
+        "scheduled_date",
+        "start_time",
+        "status",
+        "attendance_status",
+        "rescheduled_from_date",
+        "rescheduled_from_time",
+        "rescheduled_at",
+    )
+    list_filter = ("teacher", "course", "status", "attendance_status", "schedule")
     search_fields = ("teacher__username", "student__username", "course__name")

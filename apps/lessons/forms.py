@@ -66,3 +66,20 @@ class SlotReportForm(forms.Form):
             (LessonSlot.AttendanceStatus.ABSENT, "Не присутствовал"),
         ),
     )
+
+
+class SlotRescheduleForm(forms.Form):
+    new_date = forms.DateField(
+        label="Новая дата",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    new_start_time = forms.TimeField(
+        label="Новое время начала",
+        widget=forms.TimeInput(attrs={"type": "time"}),
+    )
+    reason = forms.CharField(
+        label="Причина переноса (опционально)",
+        required=False,
+        max_length=255,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )

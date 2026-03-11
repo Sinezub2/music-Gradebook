@@ -112,6 +112,18 @@ a:hover {
   white-space: nowrap;
 }
 
+.nav-item-form {
+  margin: 0;
+}
+
+.nav-item-button {
+  width: 100%;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
 .nav-item:hover {
   background: var(--surface-alt);
   color: var(--accent-strong);

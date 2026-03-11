@@ -8,12 +8,12 @@
 
   {% if show_course_notice %}
     <section class="panel" style="margin-bottom: 12px;">
-      <p class="muted">У ученика несколько ваших курсов. Слоты привязаны к курсу: {{ course.name }}.</p>
+      <p class="muted">У ученика несколько ваших курсов. Уроки привязаны к курсу: {{ course.name }}.</p>
     </section>
   {% endif %}
 
   <section class="panel" style="margin-bottom: 12px;">
-    <h2 style="margin: 0 0 10px;">Добавить регулярный слот</h2>
+    <h2 style="margin: 0 0 10px;">Создать регулярный урок</h2>
     <form method="post" class="form" id="student-schedule-form">
       {% csrf_token %}
       <input type="hidden" name="action" value="add">
@@ -45,7 +45,7 @@
       </div>
       <button class="btn" type="button" id="schedule-add-row">+</button>
       {% if schedule_form_error %}<div class="error">{{ schedule_form_error }}</div>{% endif %}
-      <button class="btn btn-accent" type="submit">Сохранить расписание</button>
+      <button class="btn btn-accent" type="submit">Создать урок</button>
     </form>
     <template id="schedule-row-template">
       <div class="card schedule-input-row" data-schedule-row style="margin-bottom: 10px;">
@@ -71,7 +71,7 @@
   </section>
 
   <section class="panel" style="margin-bottom: 12px;">
-    <h2 style="margin: 0 0 10px;">Шаблоны расписания</h2>
+    <h2 style="margin: 0 0 10px;">Регулярные уроки</h2>
     {% if schedules %}
       <div class="table-wrap">
         <table class="table">
@@ -105,7 +105,7 @@
                     <input type="hidden" name="action" value="toggle">
                     <input type="hidden" name="schedule_id" value="{{ schedule.id }}">
                     <button class="btn btn-small" type="submit">
-                      {% if schedule.active %}Выключить{% else %}Включить{% endif %}
+                      {% if schedule.active %}Отключить уроки{% else %}Включить уроки{% endif %}
                     </button>
                   </form>
                 </td>
@@ -115,12 +115,12 @@
         </table>
       </div>
     {% else %}
-      <p class="muted">Расписание еще не настроено.</p>
+      <p class="muted">Регулярные уроки еще не настроены.</p>
     {% endif %}
   </section>
 
   <section class="panel">
-    <h2 style="margin: 0 0 10px;">Ближайшие слоты</h2>
+    <h2 style="margin: 0 0 10px;">Ближайшие уроки</h2>
     {% if upcoming_slots %}
       <div class="table-wrap">
         <table class="table">
@@ -147,6 +147,11 @@
                   {% endif %}
                 </td>
                 <td>
+                  {% if slot.status == "PLANNED" %}
+                    <a class="btn btn-small" href="/slots/{{ slot.id }}/reschedule/?next={{ request.get_full_path|urlencode }}">
+                      Перенести урок
+                    </a>
+                  {% endif %}
                   {% if slot.scheduled_date <= today or slot.status != "PLANNED" %}
                     <button
                       class="btn btn-small js-slot-report-open"
@@ -168,7 +173,7 @@
         </table>
       </div>
     {% else %}
-      <p class="muted">Слоты еще не сгенерированы.</p>
+      <p class="muted">Уроки еще не сгенерированы.</p>
     {% endif %}
   </section>
 

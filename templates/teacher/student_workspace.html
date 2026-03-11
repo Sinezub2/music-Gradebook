@@ -20,7 +20,7 @@
         <a class="btn btn-small" href="/teacher/students/{{ student.id }}/results/">Ввести результат</a>
       {% else %}
         <a class="btn btn-small" href="/teacher/students/{{ student.id }}/schedule/">Настроить расписание</a>
-        <span class="muted small">Если курсов несколько, слоты привяжутся к одному курсу автоматически.</span>
+        <span class="muted small">Если курсов несколько, уроки привяжутся к одному курсу автоматически.</span>
       {% endif %}
       <a class="btn btn-small" href="/teacher/students/{{ student.id }}/goals/create/">Добавить цель</a>
       <a class="btn btn-small" href="/goals/?student={{ student.id }}&half_year={{ current_half_year }}">Цели (таблица)</a>

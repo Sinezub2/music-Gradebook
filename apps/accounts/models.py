@@ -19,6 +19,7 @@ class Profile(models.Model):
 
     class Cycle(models.TextChoices):
         GENERAL = "GENERAL", "Общий"
+        BASIC = "BASIC", "Базовый"
         ACCELERATED = "ACCELERATED", "Специальный"
         EXTRA = "EXTRA", "Дополнительный"
 

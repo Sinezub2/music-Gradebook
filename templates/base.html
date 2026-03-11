@@ -28,7 +28,7 @@
           {% if user.profile.role == "TEACHER" %}
             <a class="nav-item {% if '/teacher/class/' in request.path or '/teacher/students/' in request.path %}active{% endif %}" href="/teacher/class/">
               {% include "partials/icon.html" with name="class-group" %}
-              <span class="nav-label">Мои занятия</span>
+              <span class="nav-label">Ученики</span>
             </a>
           {% else %}
             <a class="nav-item {% if '/courses/' in request.path or '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}" href="/courses/">
@@ -60,7 +60,10 @@
             {% include "partials/icon.html" with name="profile-user" %}
             <span class="nav-label">Профиль</span>
           </a>
-          <a class="nav-item nav-item--logout" href="/logout">Выйти</a>
+          <form method="post" action="/logout" class="nav-item-form">
+            {% csrf_token %}
+            <button class="nav-item nav-item--logout nav-item-button" type="submit">Выйти</button>
+          </form>
         </div>
       </aside>
       <main class="content-area">
@@ -81,6 +84,61 @@
   {% if user.is_authenticated %}
     </div>
   {% endif %}
+  <script>
+    (function () {
+      function getCookie(name) {
+        const cookieValue = document.cookie
+          .split(";")
+          .map(function (item) {
+            return item.trim();
+          })
+          .find(function (item) {
+            return item.indexOf(name + "=") === 0;
+          });
+        if (!cookieValue) return "";
+        return decodeURIComponent(cookieValue.slice(name.length + 1));
+      }
+
+      function syncCsrfTokens(root) {
+        const token = getCookie("csrftoken");
+        if (!token) return;
+        const scope = root || document;
+        const tokenInputs = scope.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+        tokenInputs.forEach(function (input) {
+          if (input.value !== token) {
+            input.value = token;
+          }
+        });
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+          syncCsrfTokens(document);
+        });
+      } else {
+        syncCsrfTokens(document);
+      }
+
+      document.addEventListener(
+        "submit",
+        function (event) {
+          const form = event.target;
+          if (!(form instanceof HTMLFormElement)) return;
+          const method = (form.getAttribute("method") || "get").toLowerCase();
+          if (method !== "post") return;
+          syncCsrfTokens(form);
+        },
+        true
+      );
+
+      window.addEventListener("pageshow", function (event) {
+        if (!event.persisted) return;
+        if (document.querySelector('form[method="post"], form[method="POST"]')) {
+          window.location.reload();
+        }
+      });
+    })();
+  </script>
   {% block extra_scripts %}{% endblock %}
 </body>
 </html>

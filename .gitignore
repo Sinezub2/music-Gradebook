@@ -19,8 +19,7 @@ ENV/
 
 # Django – local
 
-# Database
-db.sqlite3
+# Database                                                                                                                                                                           
 *.sqlite3
 
 # Local settings

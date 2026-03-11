@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from django.db import transaction
 from django.utils import timezone
 
 from .models import LessonSlot, StudentSchedule
@@ -9,6 +10,34 @@ from .models import LessonSlot, StudentSchedule
 
 SLOT_GENERATION_DAYS = 60
 FIXED_LESSON_DURATION_MINUTES = 40
+
+
+def delete_future_planned_slots_for_schedule(
+    schedule: StudentSchedule,
+    *,
+    today=None,
+) -> int:
+    boundary_date = today or timezone.localdate()
+    deleted_count, _ = LessonSlot.objects.filter(
+        schedule=schedule,
+        scheduled_date__gt=boundary_date,
+        status=LessonSlot.Status.PLANNED,
+    ).delete()
+    return deleted_count
+
+
+def deactivate_schedule(
+    schedule: StudentSchedule,
+    *,
+    today=None,
+) -> int:
+    boundary_date = today or timezone.localdate()
+    with transaction.atomic():
+        if schedule.active:
+            schedule.active = False
+            schedule.save(update_fields=["active", "updated_at"])
+        deleted_count = delete_future_planned_slots_for_schedule(schedule, today=boundary_date)
+    return deleted_count
 
 
 def generate_slots_for_schedule(
@@ -23,10 +52,21 @@ def generate_slots_for_schedule(
     created_count = 0
     today = start_date or timezone.localdate()
     end_date = today + timedelta(days=days)
+    skipped_source_pairs = set(
+        LessonSlot.objects.filter(
+            schedule=schedule,
+            rescheduled_from_date__isnull=False,
+            rescheduled_from_time__isnull=False,
+            rescheduled_from_date__gte=today,
+            rescheduled_from_date__lte=end_date,
+        ).values_list("rescheduled_from_date", "rescheduled_from_time")
+    )
 
     for offset in range(days + 1):
         slot_date = today + timedelta(days=offset)
         if slot_date > end_date or slot_date.weekday() != schedule.weekday:
+            continue
+        if (slot_date, schedule.start_time) in skipped_source_pairs:
             continue
         _, created = LessonSlot.objects.get_or_create(
             teacher=schedule.teacher,

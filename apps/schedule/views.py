@@ -151,6 +151,8 @@ def calendar_list(request):
                     "status": slot.status,
                     "attendance_label": slot.get_attendance_status_display() if slot.status != LessonSlot.Status.PLANNED else "",
                     "report_url": f"/slots/{slot.id}/report/",
+                    "reschedule_url": f"/slots/{slot.id}/reschedule/",
+                    "can_reschedule": mode == "teacher" and slot.status == LessonSlot.Status.PLANNED,
                     "can_fill_report": mode == "teacher" and (slot.scheduled_date <= today or slot.status != LessonSlot.Status.PLANNED),
                 }
             )

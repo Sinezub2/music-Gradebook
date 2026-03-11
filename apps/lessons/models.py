@@ -86,6 +86,8 @@ class StudentSchedule(models.Model):
     class Meta:
         ordering = ("weekday", "start_time", "id")
         unique_together = ("teacher", "student", "weekday", "start_time")
+        verbose_name = "регулярный урок"
+        verbose_name_plural = "регулярные уроки"
 
     def __str__(self) -> str:
         return f"{self.student_id} {self.get_weekday_display()} {self.start_time:%H:%M}"
@@ -137,6 +139,10 @@ class LessonSlot(models.Model):
     result_note = models.CharField(max_length=120, blank=True, default="")
     report_comment = models.TextField(blank=True, default="")
     filled_at = models.DateTimeField(null=True, blank=True)
+    rescheduled_from_date = models.DateField(null=True, blank=True)
+    rescheduled_from_time = models.TimeField(null=True, blank=True)
+    rescheduled_at = models.DateTimeField(null=True, blank=True)
+    reschedule_reason = models.CharField(max_length=255, blank=True, default="")
     lesson = models.OneToOneField(
         Lesson,
         on_delete=models.SET_NULL,
@@ -150,6 +156,14 @@ class LessonSlot(models.Model):
     class Meta:
         ordering = ("scheduled_date", "start_time", "id")
         unique_together = ("teacher", "student", "scheduled_date", "start_time")
+        verbose_name = "урок"
+        verbose_name_plural = "уроки"
+        indexes = [
+            models.Index(
+                fields=("schedule", "rescheduled_from_date", "rescheduled_from_time"),
+                name="lessonslot_resch_src_idx",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.student_id} {self.scheduled_date} {self.start_time:%H:%M}"
