@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}План по полугодиям{% endblock %}
+{% block title %}Полугодовой план{% endblock %}
 {% block content %}
-  <h1>План по полугодиям</h1>
+  <h1>Полугодовой план</h1>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;">
     {% for option in half_year_options %}
       <a class="btn{% if option.active %} btn-accent{% endif %}" href="{{ option.url }}">{{ option.label }}</a>
@@ -12,9 +12,9 @@
     <div style="margin-bottom: 16px;">
       {% if selected_student_id %}
         {% if user.profile.role == "TEACHER" %}
-          <a class="btn" href="/teacher/students/{{ selected_student_id }}/goals/create/?half_year={{ selected_half_year }}">Добавить цель</a>
+          <a class="btn" href="/teacher/students/{{ selected_student_id }}/goals/create/?half_year={{ selected_half_year }}">Добавить в полугодовой план</a>
         {% else %}
-          <a class="btn" href="/goals/create/?student={{ selected_student_id }}&half_year={{ selected_half_year }}">Добавить цель</a>
+          <a class="btn" href="/goals/create/?student={{ selected_student_id }}&half_year={{ selected_half_year }}">Добавить в полугодовой план</a>
         {% endif %}
       {% else %}
         <span class="muted small">Ученик не выбран.</span>
@@ -29,7 +29,7 @@
         <table class="table">
           <thead>
             <tr>
-              <th>Цель</th>
+              <th>Пункт плана</th>
               <th>Статус</th>
             </tr>
           </thead>
@@ -60,6 +60,6 @@
       </div>
     {% endfor %}
   {% else %}
-    <p class="muted">Пока нет целей.</p>
+    <p class="muted">Полугодовой план пока не заполнен.</p>
   {% endif %}
 {% endblock %}

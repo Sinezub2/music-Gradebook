@@ -658,6 +658,59 @@ input.btn[type="submit"]:hover,
   gap: 12px;
 }
 
+.course-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.course-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-alt);
+  padding: 14px;
+}
+
+.course-card h3 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-family: "Literata", Georgia, serif;
+}
+
+.course-meta {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.course-actions,
+.auth-actions,
+.action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.course-actions {
+  margin-top: 10px;
+}
+
+.auth-actions {
+  margin-top: 12px;
+}
+
+.action-row {
+  justify-content: space-between;
+}
+
+.invite-code-output {
+  margin: 0 0 10px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .resource-card p,
 .announcement-card p {
   color: var(--muted);
@@ -725,7 +778,8 @@ input.btn[type="submit"]:hover,
 @media (max-width: 1200px) {
   .student-grid,
   .announcement-grid,
-  .library-grid {
+  .library-grid,
+  .course-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -779,7 +833,8 @@ input.btn[type="submit"]:hover,
   .stats-grid,
   .student-grid,
   .announcement-grid,
-  .library-grid {
+  .library-grid,
+  .course-grid {
     grid-template-columns: 1fr;
   }
 

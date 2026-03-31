@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Код приглашения{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Код приглашения</h1>
+    <p>Создайте одноразовый код для ученика или родителя.</p>
+  </section>
+
+  {% if not has_courses %}
+    <section class="panel">
+      <p class="muted">У вас пока нет назначенных курсов. Обратитесь к администратору.</p>
+    </section>
+  {% else %}
+    <section class="panel" style="max-width: 640px; margin-bottom: 16px;">
+      <form method="post" class="form">
+        {% csrf_token %}
+        <div class="form-row">
+          <label>{{ form.target_role.label }}</label>
+          {{ form.target_role }}
+          {% if form.target_role.errors %}<div class="error">{{ form.target_role.errors }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+          <label>{{ form.course.label }}</label>
+          {{ form.course }}
+          {% if form.course.errors %}<div class="error">{{ form.course.errors }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+          <label>{{ form.cycle.label }}</label>
+          {{ form.cycle }}
+          {% if form.cycle.errors %}<div class="error">{{ form.cycle.errors }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+          <label>{{ form.student.label }}</label>
+          {{ form.student }}
+          {% if form.student.help_text %}<div class="muted small">{{ form.student.help_text }}</div>{% endif %}
+          {% if form.student.errors %}<div class="error">{{ form.student.errors }}</div>{% endif %}
+        </div>
+        {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+        <button class="btn btn-accent" type="submit">Создать код приглашения</button>
+      </form>
+    </section>
+
+    {% if created_code %}
+      <section class="panel" style="max-width: 640px;">
+        <h2>Код готов</h2>
+        <p class="invite-code-output">{{ created_code.code }}</p>
+        <p class="muted">
+          Роль: {{ created_code.get_target_role_display }} ·
+          Курс: {{ created_code.course.name }} ·
+          Цикл: {{ created_code.get_cycle_display }}
+          {% if created_code.target_student %}
+            · Ученик: {{ created_code.target_student.get_full_name|default:created_code.target_student.username }}
+          {% endif %}
+        </p>
+        <p class="muted small" style="margin: 0;">Код одноразовый. Пользователь должен сначала зарегистрироваться, затем ввести его на странице «Добавить курс».</p>
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

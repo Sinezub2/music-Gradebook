@@ -4,6 +4,12 @@
 {% block content %}
   <h1>Курсы</h1>
 
+  {% if user.profile.role == "STUDENT" or user.profile.role == "PARENT" %}
+    <div style="margin: 0 0 12px;">
+      <a class="btn btn-accent" href="/profile/add-course/">Добавить курс</a>
+    </div>
+  {% endif %}
+
   {% if mode == "no_class" %}
     <p class="muted">{{ no_class_message }}</p>
   {% elif mode == "parent_pick" %}

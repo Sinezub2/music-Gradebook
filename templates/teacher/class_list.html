@@ -17,7 +17,7 @@
           {% endfor %}
         </select>
       </form>
-      <a class="btn btn-accent" href="/teacher/students/invite/">Добавить ученика</a>
+      <a class="btn btn-accent" href="/teacher/invite-code/create/">Создать код приглашения</a>
     </div>
   </section>
 
@@ -43,6 +43,8 @@
           <h3>{{ card.student.get_full_name|default:"Без имени" }}</h3>
           <p class="student-meta">{{ card.courses_label|default:"Курс не назначен" }}</p>
           <p class="student-meta">{{ card.instruments }} · {{ card.level_label }}</p>
+          <p class="student-meta">Класс: {% if card.student.profile.school_grade %}{{ card.student.profile.school_grade }}{% else %}<span class="muted">не указан</span>{% endif %}</p>
+          <p class="student-meta">Номер классного руководителя: {% if card.student.profile.class_curator_phone %}{{ card.student.profile.class_curator_phone }}{% else %}<span class="muted">не указан</span>{% endif %}</p>
           <div class="student-stats">
             <div>
               <p class="small muted">Средний балл</p>

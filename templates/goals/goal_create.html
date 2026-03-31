@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Цели на полугодие{% endblock %}
+{% block title %}Полугодовой план{% endblock %}
 {% block content %}
-  <h1>Цели на полугодие</h1>
+  <h1>Полугодовой план</h1>
   <p class="muted">Ученик: {{ selected_student.get_full_name|default:"Без имени" }}</p>
 
   <div class="card" style="margin-bottom: 16px;">
@@ -23,8 +23,8 @@
       <div id="goal-input-list">
         {% for value in entered_titles %}
           <div class="form-row" data-goal-row>
-            <label>Цель</label>
-            <input class="input" type="text" name="goal_titles" value="{{ value }}" placeholder="Цель на полугодие"/>
+            <label>Пункт плана</label>
+            <input class="input" type="text" name="goal_titles" value="{{ value }}" placeholder="Пункт полугодового плана"/>
           </div>
         {% endfor %}
       </div>
@@ -51,7 +51,7 @@
           const row = document.createElement("div");
           row.className = "form-row";
           row.setAttribute("data-goal-row", "1");
-          row.innerHTML = '<label>Цель</label><input class="input" type="text" name="goal_titles" placeholder="Цель на полугодие"/>';
+          row.innerHTML = '<label>Пункт плана</label><input class="input" type="text" name="goal_titles" placeholder="Пункт полугодового плана"/>';
           list.appendChild(row);
         });
       }

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Добавить курс{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Добавить курс</h1>
+    <p>Введите код, который вам передал преподаватель.</p>
+  </section>
+
+  <section class="panel" style="max-width: 560px; margin-bottom: 16px;">
+    <form method="post" class="form">
+      {% csrf_token %}
+      <div class="form-row">
+        <label>{{ form.code.label }}</label>
+        {{ form.code }}
+        {% if form.code.errors %}<div class="error">{{ form.code.errors }}</div>{% endif %}
+      </div>
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+      <button class="btn btn-accent" type="submit">Подключить</button>
+    </form>
+  </section>
+
+  {% if user.profile.role == "STUDENT" %}
+    <section class="panel">
+      <h2>Текущие курсы</h2>
+      {% if student_course_cards %}
+        <div class="course-grid" style="margin-top: 12px;">
+          {% for card in student_course_cards %}
+            <article class="course-card">
+              <h3>{{ card.course.name }}</h3>
+              <p class="course-meta">{{ card.course.course_type.name }}</p>
+              <p class="course-meta">Преподаватель: {{ card.teacher_label }}</p>
+              <div class="course-actions">
+                <a class="btn btn-small" href="{{ card.detail_url }}">Открыть курс</a>
+                <a class="btn btn-small" href="{{ card.grades_url }}">Результаты</a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">Курсы пока не подключены.</p>
+      {% endif %}
+    </section>
+  {% elif user.profile.role == "PARENT" %}
+    <section class="panel">
+      <h2>Подключённые дети и курсы</h2>
+      {% if parent_course_sections %}
+        <div style="display:grid; gap:12px; margin-top: 12px;">
+          {% for section in parent_course_sections %}
+            <div class="panel" style="padding: 12px;">
+              <h3 style="margin: 0 0 8px;">{{ section.child.get_full_name|default:"Без имени" }}</h3>
+              {% if section.courses %}
+                <div class="course-grid">
+                  {% for card in section.courses %}
+                    <article class="course-card">
+                      <h3>{{ card.course.name }}</h3>
+                      <p class="course-meta">{{ card.course.course_type.name }}</p>
+                      <p class="course-meta">Преподаватель: {{ card.teacher_label }}</p>
+                      <div class="course-actions">
+                        <a class="btn btn-small" href="{{ card.detail_url }}">Открыть курс</a>
+                        <a class="btn btn-small" href="{{ card.grades_url }}">Результаты</a>
+                      </div>
+                    </article>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="muted small" style="margin: 0;">У этого ученика пока нет курсов.</p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">Дети пока не подключены.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

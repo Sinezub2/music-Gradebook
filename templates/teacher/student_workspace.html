@@ -4,6 +4,8 @@
   <section class="page-head">
     <h1>{{ student.get_full_name|default:"Без имени" }}</h1>
     <p>Цикл: {{ student.profile.get_cycle_display }}</p>
+    <p class="muted">Класс: {% if student.profile.school_grade %}{{ student.profile.school_grade }}{% else %}не указан{% endif %}</p>
+    <p class="muted">Номер классного руководителя: {% if student.profile.class_curator_phone %}{{ student.profile.class_curator_phone }}{% else %}не указан{% endif %}</p>
   </section>
 
   <section class="panel" style="margin-bottom: 12px;">
@@ -22,8 +24,8 @@
         <a class="btn btn-small" href="/teacher/students/{{ student.id }}/schedule/">Настроить расписание</a>
         <span class="muted small">Если курсов несколько, уроки привяжутся к одному курсу автоматически.</span>
       {% endif %}
-      <a class="btn btn-small" href="/teacher/students/{{ student.id }}/goals/create/">Добавить цель</a>
-      <a class="btn btn-small" href="/goals/?student={{ student.id }}&half_year={{ current_half_year }}">Цели (таблица)</a>
+      <a class="btn btn-small" href="/teacher/students/{{ student.id }}/goals/create/">Добавить в полугодовой план</a>
+      <a class="btn btn-small" href="/goals/?student={{ student.id }}&half_year={{ current_half_year }}">Полугодовой план</a>
     </div>
   </section>
 
@@ -94,7 +96,7 @@
     </article>
 
     <article class="announcement-card">
-      <h3>План по полугодиям</h3>
+      <h3>Полугодовой план</h3>
       {% if goals %}
         <ul class="list">
           {% for goal in goals %}
@@ -112,7 +114,7 @@
           {% endfor %}
         </ul>
       {% else %}
-        <p class="muted">Пока нет целей.</p>
+        <p class="muted">Полугодовой план пока не заполнен.</p>
       {% endif %}
     </article>
   </section>

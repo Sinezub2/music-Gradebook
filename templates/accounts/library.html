@@ -3,34 +3,44 @@
 {% block content %}
   <section class="page-head">
     <h1>Библиотека</h1>
-    <p>Материалы по урокам и домашним заданиям.</p>
+    <p>Материалы по урокам, домашним заданиям и загруженным видео.</p>
   </section>
 
   <section class="panel" style="margin-bottom: 12px;">
-    <form method="get" class="form-row" style="gap: 10px;">
-      {% if student_choices %}
-        <div class="form-row" style="max-width: 360px;">
-          <label for="student">Ученик</label>
-          <select id="student" name="student" onchange="this.form.submit()">
-            {% for student in student_choices %}
-              <option value="{{ student.id }}"{% if selected_student and selected_student.id == student.id %} selected{% endif %}>
-                {{ student.label }}
-              </option>
-            {% endfor %}
-          </select>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;align-items:end;">
+      <form method="get" class="form-row" style="gap: 10px; flex: 1 1 420px;">
+        {% if student_choices %}
+          <div class="form-row" style="max-width: 360px;">
+            <label for="student">Ученик</label>
+            <select id="student" name="student" onchange="this.form.submit()">
+              {% for student in student_choices %}
+                <option value="{{ student.id }}"{% if selected_student and selected_student.id == student.id %} selected{% endif %}>
+                  {{ student.label }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        {% endif %}
+        {% if selected_category %}
+          <input type="hidden" name="category" value="{{ selected_category }}">
+        {% endif %}
+        <div class="form-row">
+          <label for="q">Поиск материалов</label>
+          <div style="display:flex;gap:8px;">
+            <input id="q" type="search" name="q" placeholder="Название, категория, источник..." value="{{ search_query }}">
+            <button class="btn btn-accent" type="submit">Найти</button>
+          </div>
         </div>
+      </form>
+
+      {% if user.profile.role == "TEACHER" %}
+        {% if selected_student %}
+          <a class="btn btn-accent" href="{{ upload_toggle_url }}">Загрузить видео</a>
+        {% else %}
+          <p class="muted small" style="margin: 0;">Сначала выберите ученика.</p>
+        {% endif %}
       {% endif %}
-      {% if selected_category %}
-        <input type="hidden" name="category" value="{{ selected_category }}">
-      {% endif %}
-      <div class="form-row">
-        <label for="q">Поиск материалов</label>
-        <div style="display:flex;gap:8px;">
-          <input id="q" type="search" name="q" placeholder="Название, категория, источник..." value="{{ search_query }}">
-          <button class="btn btn-accent" type="submit">Найти</button>
-        </div>
-      </div>
-    </form>
+    </div>
 
     {% if category_tabs %}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
@@ -42,6 +52,40 @@
       </div>
     {% endif %}
   </section>
+
+  {% if show_upload_form and video_upload_form %}
+    <section class="panel" style="max-width: 720px; margin-bottom: 12px;">
+      <h2 style="margin-top: 0;">Загрузить видео</h2>
+      <p class="muted small">
+        Ученик: {{ selected_student.get_full_name|default:"Без имени" }}
+        {% if selected_parent_names %}
+          · Родитель: {{ selected_parent_names|join:", " }}
+        {% else %}
+          · Родитель будет определён автоматически по привязке ученика
+        {% endif %}
+      </p>
+      <p class="muted small">Видео будет доступно только выбранному ученику, его родителю и вам.</p>
+      <form method="post" enctype="multipart/form-data" class="form" action="{{ upload_form_action }}">
+        {% csrf_token %}
+        <div class="form-row">
+          <label>{{ video_upload_form.title.label }}</label>
+          {{ video_upload_form.title }}
+          {% if video_upload_form.title.errors %}<div class="error">{{ video_upload_form.title.errors }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+          <label>{{ video_upload_form.video.label }}</label>
+          {{ video_upload_form.video }}
+          {% if video_upload_form.video.help_text %}<div class="muted small">{{ video_upload_form.video.help_text }}</div>{% endif %}
+          {% if video_upload_form.video.errors %}<div class="error">{{ video_upload_form.video.errors }}</div>{% endif %}
+        </div>
+        {% if video_upload_form.non_field_errors %}<div class="error">{{ video_upload_form.non_field_errors }}</div>{% endif %}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-accent" type="submit" name="upload_video" value="1">Загрузить видео</button>
+          <a class="btn" href="{{ upload_cancel_url }}">Отмена</a>
+        </div>
+      </form>
+    </section>
+  {% endif %}
 
   {% if resources %}
     <section class="table-wrap">
@@ -61,7 +105,17 @@
           {% for resource in resources %}
             <tr>
               <td><span class="tag">{{ resource.category }}</span></td>
-              <td>{{ resource.title }}</td>
+              <td>
+                <strong>{{ resource.title }}</strong>
+                {% if resource.category == "Видео" and not resource.is_external and resource.url %}
+                  <div style="margin-top:8px;max-width:320px;">
+                    <video controls preload="metadata" style="width:100%;height:auto;border-radius:12px;background:#000;">
+                      <source src="{{ resource.url }}">
+                      Ваш браузер не поддерживает видео.
+                    </video>
+                  </div>
+                {% endif %}
+              </td>
               <td>{{ resource.source }}</td>
               <td>{{ resource.course_name }}</td>
               <td>{{ resource.uploaded_by }}</td>

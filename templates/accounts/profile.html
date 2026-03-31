@@ -4,6 +4,88 @@
   <h1>Профиль</h1>
   <p class="muted">{{ display_name }} · Роль: {{ user.profile.get_role_display }}</p>
 
+  {% if can_add_course %}
+    <div class="card" style="margin-bottom: 16px;">
+      <div class="action-row">
+        <div>
+          <h2 style="margin-bottom: 4px;">Подключения</h2>
+          <p class="muted small" style="margin: 0;">Новые курсы и детей можно подключать по одноразовым кодам активации.</p>
+        </div>
+        <a class="btn btn-accent" href="/profile/add-course/">Добавить курс</a>
+      </div>
+
+      {% if user.profile.role == "STUDENT" %}
+        {% if student_course_cards %}
+          <div class="course-grid" style="margin-top: 12px;">
+            {% for card in student_course_cards %}
+              <article class="course-card">
+                <h3>{{ card.course.name }}</h3>
+                <p class="course-meta">{{ card.course.course_type.name }}</p>
+                <p class="course-meta">Преподаватель: {{ card.teacher_label }}</p>
+                <div class="course-actions">
+                  <a class="btn btn-small" href="{{ card.detail_url }}">Открыть курс</a>
+                  <a class="btn btn-small" href="{{ card.grades_url }}">Результаты</a>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted" style="margin-top: 12px;">Курсы пока не подключены.</p>
+        {% endif %}
+      {% elif user.profile.role == "PARENT" %}
+        {% if parent_course_sections %}
+          <div style="display:grid; gap:12px; margin-top: 12px;">
+            {% for section in parent_course_sections %}
+              <div class="panel" style="padding: 12px;">
+                <h3 style="margin: 0 0 8px;">{{ section.child.get_full_name|default:"Без имени" }}</h3>
+                {% if section.courses %}
+                  <div class="course-grid">
+                    {% for card in section.courses %}
+                      <article class="course-card">
+                        <h3>{{ card.course.name }}</h3>
+                        <p class="course-meta">{{ card.course.course_type.name }}</p>
+                        <p class="course-meta">Преподаватель: {{ card.teacher_label }}</p>
+                        <div class="course-actions">
+                          <a class="btn btn-small" href="{{ card.detail_url }}">Открыть курс</a>
+                          <a class="btn btn-small" href="{{ card.grades_url }}">Результаты</a>
+                        </div>
+                      </article>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <p class="muted small" style="margin: 0;">У этого ученика пока нет курсов.</p>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted" style="margin-top: 12px;">Дети пока не подключены.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if student_details_form %}
+    <div class="card" style="max-width: 520px; margin-bottom: 16px;">
+      <h2>Школьные данные</h2>
+      <form method="post" action="/profile/student-details/" class="form">
+        {% csrf_token %}
+        <div class="form-row">
+          <label>{{ student_details_form.school_grade.label }}</label>
+          {{ student_details_form.school_grade }}
+          {% if student_details_form.school_grade.errors %}<div class="error">{{ student_details_form.school_grade.errors }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+          <label>{{ student_details_form.class_curator_phone.label }}</label>
+          {{ student_details_form.class_curator_phone }}
+          {% if student_details_form.class_curator_phone.errors %}<div class="error">{{ student_details_form.class_curator_phone.errors }}</div>{% endif %}
+        </div>
+        {% if student_details_form.non_field_errors %}<div class="error">{{ student_details_form.non_field_errors }}</div>{% endif %}
+        <button class="btn" type="submit">Сохранить школьные данные</button>
+      </form>
+    </div>
+  {% endif %}
+
   <div class="card" style="max-width: 520px; margin-bottom: 16px;">
     <h2>Изменить логин</h2>
     <form method="post" action="/profile/change-username/" class="form">

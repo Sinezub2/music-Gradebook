@@ -67,6 +67,44 @@
     {% endif %}
 
     <section class="panel" style="margin-bottom: 12px;">
+      <div class="action-row">
+        <div>
+          <h2 style="margin-bottom: 4px;">
+            {% if dashboard_mode == "parent" and selected_child %}
+              Курсы ученика {{ selected_child.get_full_name|default:"Без имени" }}
+            {% elif dashboard_mode == "parent" %}
+              Подключённые курсы
+            {% else %}
+              Мои курсы
+            {% endif %}
+          </h2>
+          <p class="muted small" style="margin: 0;">Откройте нужный курс или подключите новый по коду активации.</p>
+        </div>
+        <a class="btn btn-accent" href="/profile/add-course/">Добавить курс</a>
+      </div>
+
+      {% if course_cards %}
+        <div class="course-grid" style="margin-top: 12px;">
+          {% for card in course_cards %}
+            <article class="course-card">
+              <h3>{{ card.course.name }}</h3>
+              <p class="course-meta">{{ card.course.course_type.name }}</p>
+              <p class="course-meta">Преподаватель: {{ card.teacher_label }}</p>
+              <div class="course-actions">
+                <a class="btn btn-small" href="{{ card.detail_url }}">Открыть курс</a>
+                <a class="btn btn-small" href="{{ card.grades_url }}">Результаты</a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% elif dashboard_mode == "parent" %}
+        <p class="muted" style="margin-top: 12px;">Пока нет подключённых детей или курсов. Используйте код активации от преподавателя.</p>
+      {% else %}
+        <p class="muted" style="margin-top: 12px;">Пока нет подключённых курсов. Используйте код активации от преподавателя.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel" style="margin-bottom: 12px;">
       <h2>Следующий урок</h2>
       {% if next_lesson %}
         <div class="stats-grid">

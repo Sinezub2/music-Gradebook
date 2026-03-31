@@ -4,10 +4,13 @@ import hashlib
 import secrets
 
 from django.conf import settings
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
 from apps.school.models import Course
+
+LIBRARY_VIDEO_EXTENSIONS = ("mp4", "mov", "webm", "m4v")
 
 
 class Profile(models.Model):
@@ -27,6 +30,7 @@ class Profile(models.Model):
     role = models.CharField(max_length=16, choices=Role.choices)
     cycle = models.CharField(max_length=16, choices=Cycle.choices, default=Cycle.GENERAL)
     school_grade = models.CharField(max_length=20, blank=True, default="")
+    class_curator_phone = models.CharField(max_length=50, blank=True, default="")
 
     def __str__(self) -> str:
         full_name = (self.user.get_full_name() or "").strip() or "Без имени"
@@ -66,3 +70,77 @@ class StudentInvitation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name} -> {self.course.name}"
+
+
+class ActivationCode(models.Model):
+    class TargetRole(models.TextChoices):
+        STUDENT = Profile.Role.STUDENT, "Ученик"
+        PARENT = Profile.Role.PARENT, "Родитель"
+
+    code = models.CharField(max_length=32, unique=True)
+    created_by_teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_activation_codes",
+    )
+    target_role = models.CharField(max_length=16, choices=TargetRole.choices)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="activation_codes")
+    cycle = models.CharField(max_length=16, choices=Profile.Cycle.choices, default=Profile.Cycle.GENERAL)
+    target_student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="parent_activation_codes",
+        null=True,
+        blank=True,
+    )
+    is_used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    used_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="used_activation_codes",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    @classmethod
+    def generate_code(cls) -> str:
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        while True:
+            candidate = "MUSIC-" + "".join(secrets.choice(alphabet) for _ in range(6))
+            if not cls.objects.filter(code=candidate).exists():
+                return candidate
+
+    def __str__(self) -> str:
+        return f"{self.code} -> {self.course.name}"
+
+
+class LibraryVideo(models.Model):
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="uploaded_library_videos",
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="library_videos",
+    )
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="library_videos")
+    title = models.CharField(max_length=200, blank=True, default="")
+    video = models.FileField(
+        upload_to="library/videos/%Y/%m/",
+        validators=[FileExtensionValidator(allowed_extensions=LIBRARY_VIDEO_EXTENSIONS)],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        title = self.title.strip() or self.video.name.rsplit("/", 1)[-1]
+        return f"{title} -> {self.student_id}"

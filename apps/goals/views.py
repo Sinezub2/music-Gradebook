@@ -85,7 +85,7 @@ def _normalize_goal_titles(raw_values: list[str], max_input_length: int = 50) ->
             continue
         titles.append(value)
     if not titles and not errors:
-        errors.append("Добавьте хотя бы одну цель.")
+        errors.append("Добавьте хотя бы один пункт плана.")
     return titles, errors
 
 
@@ -245,13 +245,13 @@ def goal_bulk_delete(request):
     teacher_students = _teacher_student_ids(request.user) if profile.role == Profile.Role.TEACHER else set()
     unauthorized = [g.id for g in goals if not _can_delete_goal(request.user, profile.role, g, teacher_students)]
     if unauthorized:
-        return HttpResponseForbidden("Нет доступа к удалению выбранных целей.")
+        return HttpResponseForbidden("Нет доступа к удалению выбранных пунктов плана.")
 
     deleted_count = 0
     for goal in goals:
         goal.delete()
         deleted_count += 1
-    messages.success(request, f"Удалено целей: {deleted_count}.")
+    messages.success(request, f"Удалено пунктов плана: {deleted_count}.")
     return redirect(redirect_url)
 
 
@@ -269,11 +269,11 @@ def goal_status_update(request, goal_id: int):
 
     status_code = (request.POST.get("status") or "").strip()
     if status_code not in (GOAL_STATUS_IN_PROGRESS, GOAL_STATUS_DONE):
-        messages.error(request, "Некорректный статус цели.")
+        messages.error(request, "Некорректный статус пункта плана.")
     else:
         goal.details = _goal_details_with_status(status_code, goal.details)
         goal.save(update_fields=["details"])
-        messages.success(request, "Статус цели обновлён.")
+        messages.success(request, "Статус пункта плана обновлён.")
 
     raw_student_id = request.POST.get("student")
     if raw_student_id is None:
@@ -336,7 +336,7 @@ def goal_create(request):
                     for title in titles
                 ]
             )
-            messages.success(request, f"Добавлено целей: {len(titles)}.")
+            messages.success(request, f"Добавлено пунктов плана: {len(titles)}.")
             return redirect(_build_goals_url(str(selected_student.id), selected_half_year))
 
     ctx = {
@@ -387,7 +387,7 @@ def goal_create_for_student(request, student_id: int):
                     for title in titles
                 ]
             )
-            messages.success(request, f"Добавлено целей: {len(titles)}.")
+            messages.success(request, f"Добавлено пунктов плана: {len(titles)}.")
             return redirect(_build_goals_url(str(student.id), selected_half_year))
 
     return render(

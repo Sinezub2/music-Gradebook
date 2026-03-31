@@ -9,9 +9,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.utils import timezone
-from django.utils.crypto import constant_time_compare
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
@@ -20,12 +18,20 @@ from apps.homework.models import AssignmentTarget
 from apps.lessons.models import Lesson
 from apps.schedule.models import Event
 from apps.school.models import ParentChild, Course, Enrollment
-from apps.school.utils import get_user_single_class, get_teacher_students
+from apps.school.utils import get_teacher_students
 
 from .decorators import role_required
-from .forms import InviteRegistrationForm, LoginForm, StudentInviteCreateForm, UsernameChangeForm
-from .library_service import LIBRARY_CATEGORIES, build_library_items_for_student
-from .models import Profile, StudentInvitation
+from .forms import (
+    ActivationCodeApplyForm,
+    ActivationCodeCreateForm,
+    LibraryVideoUploadForm,
+    LoginForm,
+    RegistrationForm,
+    StudentProfileDetailsForm,
+    UsernameChangeForm,
+)
+from .library_service import CATEGORY_VIDEO, LIBRARY_CATEGORIES, build_library_items_for_student
+from .models import ActivationCode, Profile
 from .utils import get_user_display_name
 
 
@@ -124,6 +130,91 @@ def _countdown_parts(target_dt):
     return {"days": days, "hours": hours, "minutes": minutes}
 
 
+def _build_course_cards_for_student(student, *, viewer_role: str) -> list[dict]:
+    enrollments = (
+        Enrollment.objects.filter(student=student)
+        .select_related("course", "course__course_type", "course__teacher")
+        .order_by("course__name", "course_id")
+    )
+    query_suffix = f"?student={student.id}" if viewer_role == Profile.Role.PARENT else ""
+    cards = []
+    for enrollment in enrollments:
+        course = enrollment.course
+        cards.append(
+            {
+                "course": course,
+                "teacher_label": _display_name(course.teacher) if course.teacher else "Преподаватель не назначен",
+                "detail_url": f"/courses/{course.id}/{query_suffix}",
+                "grades_url": f"/courses/{course.id}/grades/{query_suffix}",
+            }
+        )
+    return cards
+
+
+def _build_parent_course_sections(parent) -> list[dict]:
+    child_links = (
+        ParentChild.objects.filter(parent=parent)
+        .select_related("child", "child__profile")
+        .order_by("child__first_name", "child__last_name", "child__username")
+    )
+    return [
+        {
+            "child": link.child,
+            "courses": _build_course_cards_for_student(link.child, viewer_role=Profile.Role.PARENT),
+        }
+        for link in child_links
+    ]
+
+
+def _empty_student_dashboard_payload():
+    return {
+        "next_lesson": None,
+        "next_lesson_countdown": {"days": 0, "hours": 0, "minutes": 0},
+        "homework_status": "Нет активных заданий",
+        "homework_hint": "",
+        "progress_points": [],
+        "announcements": DEFAULT_SCHOOL_LIFE_ITEMS,
+        "course_cards": [],
+    }
+
+
+def _course_summary_context(user) -> dict:
+    role = user.profile.role
+    ctx = {"can_add_course": role in (Profile.Role.STUDENT, Profile.Role.PARENT)}
+    if role == Profile.Role.STUDENT:
+        ctx["student_course_cards"] = _build_course_cards_for_student(user, viewer_role=Profile.Role.STUDENT)
+    elif role == Profile.Role.PARENT:
+        ctx["parent_course_sections"] = _build_parent_course_sections(user)
+    return ctx
+
+
+def _profile_context(user, *, username_form, password_form, student_details_form=None) -> dict:
+    if student_details_form is None and user.profile.role == Profile.Role.STUDENT:
+        student_details_form = StudentProfileDetailsForm(instance=user.profile)
+    return {
+        "display_name": get_user_display_name(user),
+        "username_form": username_form,
+        "password_form": password_form,
+        "student_details_form": student_details_form,
+        **_course_summary_context(user),
+    }
+
+
+def _build_library_url(*, student=None, category: str = "", search: str = "", upload: bool = False) -> str:
+    params = {}
+    student_id = getattr(student, "id", student)
+    if student_id:
+        params["student"] = student_id
+    if search:
+        params["q"] = search
+    if category:
+        params["category"] = category
+    if upload:
+        params["upload"] = "1"
+    query = urlencode(params)
+    return f"/library/?{query}" if query else "/library/"
+
+
 def _next_lesson_for_student(student):
     now = timezone.now()
     today = timezone.localdate()
@@ -164,10 +255,11 @@ def _next_lesson_for_student(student):
     return None
 
 
-def _student_dashboard_payload(student):
+def _student_dashboard_payload(student, *, viewer_role: str = Profile.Role.STUDENT):
     today = timezone.localdate()
     courses = Course.objects.filter(enrollments__student=student).distinct()
     next_lesson = _next_lesson_for_student(student)
+    course_cards = _build_course_cards_for_student(student, viewer_role=viewer_role)
 
     latest_target = (
         AssignmentTarget.objects.filter(student=student)
@@ -218,6 +310,7 @@ def _student_dashboard_payload(student):
         "homework_hint": homework_hint,
         "progress_points": progress_points,
         "announcements": announcements,
+        "course_cards": course_cards,
     }
 
 
@@ -441,6 +534,31 @@ def logout_view(request):
     return redirect("/login")
 
 
+@never_cache
+def register_view(request):
+    if request.user.is_authenticated:
+        return redirect("/dashboard")
+
+    form = RegistrationForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        role = form.cleaned_data["role"]
+        try:
+            with transaction.atomic():
+                user = form.save()
+                Profile.objects.create(user=user, role=role)
+        except IntegrityError:
+            form.add_error("username", "Этот логин уже занят.")
+        else:
+            login(request, user)
+            if role == Profile.Role.TEACHER:
+                messages.success(request, "Регистрация завершена.")
+                return redirect("/dashboard")
+            messages.success(request, "Аккаунт создан. Теперь подключите курс кодом активации.")
+            return redirect("/profile/add-course/")
+
+    return render(request, "accounts/register.html", {"form": form})
+
+
 @login_required
 def dashboard(request):
     profile = getattr(request.user, "profile", None)
@@ -500,7 +618,7 @@ def dashboard(request):
         return render(request, "accounts/dashboard.html", ctx)
 
     if profile.role == Profile.Role.STUDENT:
-        ctx.update({"dashboard_mode": "student", **_student_dashboard_payload(request.user)})
+        ctx.update({"dashboard_mode": "student", **_student_dashboard_payload(request.user, viewer_role=Profile.Role.STUDENT)})
         return render(request, "accounts/dashboard.html", ctx)
 
     if profile.role == Profile.Role.PARENT:
@@ -527,7 +645,9 @@ def dashboard(request):
             }
         )
         if selected_child:
-            ctx.update(_student_dashboard_payload(selected_child))
+            ctx.update(_student_dashboard_payload(selected_child, viewer_role=Profile.Role.PARENT))
+        else:
+            ctx.update(_empty_student_dashboard_payload())
         return render(request, "accounts/dashboard.html", ctx)
 
     return render(request, "accounts/dashboard.html", ctx)
@@ -598,6 +718,12 @@ def library_view(request):
     selected_student = None
     student_choices = []
     resources = []
+    show_upload_form = False
+    upload_toggle_url = ""
+    upload_cancel_url = ""
+    upload_form_action = ""
+    video_upload_form = None
+    selected_parent_names = []
 
     if role == Profile.Role.TEACHER:
         teacher_students = list(get_teacher_students(request.user))
@@ -610,7 +736,47 @@ def library_view(request):
                 (student for student in teacher_students if str(student.id) == str(selected_student_id)),
                 teacher_students[0],
             )
+            selected_parent_names = list(
+                ParentChild.objects.filter(child=selected_student)
+                .select_related("parent")
+                .order_by("parent__first_name", "parent__last_name", "parent__username")
+                .values_list("parent__first_name", "parent__last_name", "parent__username")
+            )
             resources = build_library_items_for_student(selected_student, teacher=request.user)
+            upload_requested = request.GET.get("upload") == "1"
+            is_upload_submission = request.method == "POST" and request.POST.get("upload_video") == "1"
+            show_upload_form = upload_requested or is_upload_submission
+            upload_toggle_url = _build_library_url(
+                student=selected_student,
+                category=selected_category,
+                search=search_query,
+                upload=True,
+            )
+            upload_cancel_url = _build_library_url(
+                student=selected_student,
+                category=selected_category,
+                search=search_query,
+            )
+            upload_form_action = _build_library_url(
+                student=selected_student,
+                category=selected_category,
+                search=search_query,
+                upload=True,
+            )
+            if show_upload_form:
+                video_upload_form = LibraryVideoUploadForm(
+                    request.POST or None,
+                    request.FILES or None,
+                    teacher_user=request.user,
+                    student=selected_student,
+                )
+                if is_upload_submission and video_upload_form.is_valid():
+                    uploaded_video = video_upload_form.save(teacher=request.user, student=selected_student)
+                    uploaded_title = uploaded_video.title.strip() or uploaded_video.video.name.rsplit("/", 1)[-1]
+                    messages.success(request, f"Видео «{uploaded_title}» загружено для ученика и его родителя.")
+                    return redirect(_build_library_url(student=selected_student, category=CATEGORY_VIDEO))
+            else:
+                video_upload_form = LibraryVideoUploadForm(teacher_user=request.user, student=selected_student)
 
     elif role == Profile.Role.STUDENT:
         selected_student = request.user
@@ -716,128 +882,120 @@ def library_view(request):
             "selected_student": selected_student,
             "selected_category": selected_category,
             "category_tabs": category_tabs,
+            "show_upload_form": show_upload_form,
+            "upload_toggle_url": upload_toggle_url,
+            "upload_cancel_url": upload_cancel_url,
+            "upload_form_action": upload_form_action,
+            "video_upload_form": video_upload_form,
+            "selected_parent_names": [
+                " ".join(part for part in names[:2] if part).strip() or names[2] or "Без имени"
+                for names in selected_parent_names
+            ],
         },
     )
-
-
-def _get_invitation_by_token(raw_token: str):
-    token_hash = StudentInvitation.hash_token(raw_token)
-    invitation = StudentInvitation.objects.select_related("course", "teacher").filter(token=token_hash).first()
-    if not invitation:
-        return None
-    if not constant_time_compare(invitation.token, token_hash):
-        return None
-    return invitation
 
 
 @role_required(Profile.Role.TEACHER)
-def teacher_student_invite_create(request):
-    class_resolution = get_user_single_class(request.user)
-    if class_resolution.status == "none":
-        messages.error(request, "Класс не назначен. Обратитесь к администратору.")
-        return redirect("/teacher/class/")
-    if class_resolution.status == "multiple":
-        messages.error(request, "Для приглашений должен быть назначен один класс.")
-        return redirect("/teacher/class/")
+def teacher_activation_code_create(request):
+    form = ActivationCodeCreateForm(request.POST or None, teacher_user=request.user)
+    created_code = None
 
-    course = class_resolution.course
-    registration_url = ""
-    created_invitation = None
-
-    if request.method == "POST":
-        form = StudentInviteCreateForm(request.POST)
-        if form.is_valid():
-            raw_token = StudentInvitation.generate_raw_token()
-            created_invitation = StudentInvitation.objects.create(
-                teacher=request.user,
-                course=course,
-                first_name=form.cleaned_data["first_name"].strip(),
-                last_name=form.cleaned_data["last_name"].strip(),
-                school_grade=form.cleaned_data.get("school_grade", "").strip(),
-                token=StudentInvitation.hash_token(raw_token),
-            )
-            registration_url = request.build_absolute_uri(
-                reverse("register_by_invite", kwargs={"token": raw_token})
-            )
-            messages.success(request, "Ссылка-приглашение создана.")
-            form = StudentInviteCreateForm()
-    else:
-        form = StudentInviteCreateForm()
+    if request.method == "POST" and form.is_valid():
+        target_role = form.cleaned_data["target_role"]
+        target_student = form.cleaned_data["student"] if target_role == ActivationCode.TargetRole.PARENT else None
+        created_code = ActivationCode.objects.create(
+            code=ActivationCode.generate_code(),
+            created_by_teacher=request.user,
+            target_role=target_role,
+            course=form.cleaned_data["course"],
+            cycle=form.cleaned_data["cycle"],
+            target_student=target_student,
+        )
+        messages.success(request, "Код приглашения создан.")
+        form = ActivationCodeCreateForm(
+            teacher_user=request.user,
+            initial={
+                "target_role": created_code.target_role,
+                "course": created_code.course_id,
+                "cycle": created_code.cycle,
+                "student": created_code.target_student_id,
+            },
+        )
 
     return render(
         request,
-        "accounts/student_invite_create.html",
+        "accounts/invite_code_create.html",
         {
             "form": form,
-            "course": course,
-            "registration_url": registration_url,
-            "created_invitation": created_invitation,
+            "created_code": created_code,
+            "has_courses": form.fields["course"].queryset.exists(),
         },
     )
 
 
-def register_by_invite(request, token: str):
-    if request.user.is_authenticated:
+def _apply_activation_code(*, user, activation_code: ActivationCode) -> str:
+    if activation_code.target_role != user.profile.role:
+        raise ValueError("Этот код предназначен для другой роли.")
+    if activation_code.is_used:
+        raise ValueError("Этот код уже использован.")
+
+    if activation_code.target_role == ActivationCode.TargetRole.STUDENT:
+        if user.profile.cycle != activation_code.cycle:
+            user.profile.cycle = activation_code.cycle
+            user.profile.save(update_fields=["cycle"])
+        _, created = Enrollment.objects.get_or_create(course=activation_code.course, student=user)
+        message = "Курс подключён." if created else "Этот курс уже был подключён к вашему аккаунту."
+    else:
+        student = activation_code.target_student
+        if not student:
+            raise ValueError("Код родителя не содержит ученика.")
+        if not Enrollment.objects.filter(course=activation_code.course, student=student).exists():
+            raise ValueError("Ученик для этого кода не записан на курс.")
+        _, created = ParentChild.objects.get_or_create(parent=user, child=student)
+        if created:
+            child_name = _display_name(student)
+            message = f"Ребёнок {child_name} подключён к вашему аккаунту."
+        else:
+            message = "Этот ребёнок уже был подключён к вашему аккаунту."
+
+    activation_code.is_used = True
+    activation_code.used_at = timezone.now()
+    activation_code.used_by = user
+    activation_code.save(update_fields=["is_used", "used_at", "used_by"])
+    return message
+
+
+@login_required
+def profile_add_course(request):
+    role = request.user.profile.role
+    if role not in (Profile.Role.STUDENT, Profile.Role.PARENT):
+        messages.info(request, "Эта страница доступна только ученикам и родителям.")
         return redirect("/dashboard")
 
-    invitation = _get_invitation_by_token(token)
-    if not invitation or invitation.is_used or invitation.is_expired:
-        return render(
-            request,
-            "accounts/register_by_invite.html",
-            {"invite_invalid": True},
-            status=404,
-        )
-
-    if request.method == "POST":
-        form = InviteRegistrationForm(request.POST)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    locked_invitation = (
-                        StudentInvitation.objects.select_for_update()
-                        .select_related("course")
-                        .get(id=invitation.id)
-                    )
-                    token_hash = StudentInvitation.hash_token(token)
-                    if (
-                        not constant_time_compare(locked_invitation.token, token_hash)
-                        or locked_invitation.is_used
-                        or locked_invitation.is_expired
-                    ):
-                        messages.error(request, "Ссылка приглашения недействительна.")
-                        return redirect(request.path)
-
-                    user = form.save(commit=False)
-                    user.first_name = locked_invitation.first_name
-                    user.last_name = locked_invitation.last_name
-                    user.save()
-
-                    Profile.objects.create(
-                        user=user,
-                        role=Profile.Role.STUDENT,
-                        school_grade=locked_invitation.school_grade,
-                    )
-                    Enrollment.objects.get_or_create(course=locked_invitation.course, student=user)
-
-                    locked_invitation.is_used = True
-                    locked_invitation.used_at = timezone.now()
-                    locked_invitation.save(update_fields=["is_used", "used_at"])
-            except IntegrityError:
-                form.add_error("username", "Этот логин уже занят.")
-            else:
-                messages.success(request, "Регистрация завершена. Войдите под новым логином.")
-                return redirect("/login")
-    else:
-        form = InviteRegistrationForm()
+    form = ActivationCodeApplyForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            with transaction.atomic():
+                activation_code = (
+                    ActivationCode.objects.select_for_update()
+                    .select_related("course", "target_student", "course__course_type", "course__teacher")
+                    .get(code=form.cleaned_data["code"])
+                )
+                message = _apply_activation_code(user=request.user, activation_code=activation_code)
+        except ActivationCode.DoesNotExist:
+            form.add_error("code", "Код не найден.")
+        except ValueError as exc:
+            form.add_error("code", str(exc))
+        else:
+            messages.success(request, message)
+            return redirect("/dashboard")
 
     return render(
         request,
-        "accounts/register_by_invite.html",
+        "accounts/add_course.html",
         {
-            "invite_invalid": False,
             "form": form,
-            "invitation": invitation,
+            **_course_summary_context(request.user),
         },
     )
 
@@ -847,11 +1005,38 @@ def profile_view(request):
     return render(
         request,
         "accounts/profile.html",
-        {
-            "display_name": get_user_display_name(request.user),
-            "username_form": UsernameChangeForm(request.user),
-            "password_form": PasswordChangeForm(request.user),
-        },
+        _profile_context(
+            request.user,
+            username_form=UsernameChangeForm(request.user),
+            password_form=PasswordChangeForm(request.user),
+        ),
+    )
+
+
+@login_required
+def profile_change_student_details(request):
+    if request.method != "POST":
+        return redirect("/profile/")
+    if request.user.profile.role != Profile.Role.STUDENT:
+        messages.info(request, "Эта форма доступна только ученикам.")
+        return redirect("/profile/")
+
+    student_details_form = StudentProfileDetailsForm(request.POST, instance=request.user.profile)
+    if student_details_form.is_valid():
+        student_details_form.save()
+        messages.success(request, "Школьные данные обновлены.")
+        return redirect("/profile/")
+
+    return render(
+        request,
+        "accounts/profile.html",
+        _profile_context(
+            request.user,
+            username_form=UsernameChangeForm(request.user),
+            password_form=PasswordChangeForm(request.user),
+            student_details_form=student_details_form,
+        ),
+        status=400,
     )
 
 
@@ -870,11 +1055,7 @@ def profile_change_username(request):
     return render(
         request,
         "accounts/profile.html",
-        {
-            "display_name": get_user_display_name(request.user),
-            "username_form": username_form,
-            "password_form": password_form,
-        },
+        _profile_context(request.user, username_form=username_form, password_form=password_form),
         status=400,
     )
 
@@ -895,10 +1076,6 @@ def profile_change_password(request):
     return render(
         request,
         "accounts/profile.html",
-        {
-            "display_name": get_user_display_name(request.user),
-            "username_form": username_form,
-            "password_form": password_form,
-        },
+        _profile_context(request.user, username_form=username_form, password_form=password_form),
         status=400,
     )

@@ -8,6 +8,8 @@ from django.db.models import Q
 from apps.homework.models import AssignmentTarget
 from apps.lessons.models import LessonReport, LessonStudent
 
+from .models import LibraryVideo
+
 
 CATEGORY_SHEET = "Ноты/табы"
 CATEGORY_VIDEO = "Видео"
@@ -79,6 +81,36 @@ def categorize_library_item(raw_name: str, mime_type: str = "") -> str:
 def build_library_items_for_student(student, *, teacher=None) -> list[dict]:
     items = []
     seen = set()
+
+    video_qs = (
+        LibraryVideo.objects.filter(student=student)
+        .select_related("course", "teacher")
+        .order_by("-created_at")
+    )
+    if teacher is not None:
+        video_qs = video_qs.filter(course__teacher=teacher)
+
+    for video in video_qs:
+        if not video.video:
+            continue
+        url = video.video.url
+        dedupe_key = ("library_video", video.id, url)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        items.append(
+            {
+                "title": video.title.strip() or Path(video.video.name).name,
+                "category": CATEGORY_VIDEO,
+                "source": "Библиотека",
+                "course_name": video.course.name,
+                "uploaded_by": _display_name(video.teacher),
+                "created_at": video.created_at,
+                "date_label": video.created_at.strftime("%d.%m.%Y"),
+                "url": url,
+                "is_external": False,
+            }
+        )
 
     assignment_targets = (
         AssignmentTarget.objects.filter(student=student)

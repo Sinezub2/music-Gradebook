@@ -3,9 +3,8 @@
 {% block content %}
   <h1>Профиль: {{ student.get_full_name|default:"Без имени" }}</h1>
   <p class="muted">Цикл: {{ student.profile.get_cycle_display }}</p>
-  {% if student.profile.school_grade %}
-    <p class="muted">Класс: {{ student.profile.school_grade }}</p>
-  {% endif %}
+  <p class="muted">Класс: {% if student.profile.school_grade %}{{ student.profile.school_grade }}{% else %}не указан{% endif %}</p>
+  <p class="muted">Номер классного руководителя: {% if student.profile.class_curator_phone %}{{ student.profile.class_curator_phone }}{% else %}не указан{% endif %}</p>
 
   <div class="card">
     <h2>Курсы</h2>
