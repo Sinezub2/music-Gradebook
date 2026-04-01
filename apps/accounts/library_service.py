@@ -84,7 +84,7 @@ def build_library_items_for_student(student, *, teacher=None) -> list[dict]:
 
     video_qs = (
         LibraryVideo.objects.filter(student=student)
-        .select_related("course", "teacher")
+        .select_related("course", "teacher", "assignment_target", "assignment_target__assignment")
         .order_by("-created_at")
     )
     if teacher is not None:
@@ -98,13 +98,21 @@ def build_library_items_for_student(student, *, teacher=None) -> list[dict]:
         if dedupe_key in seen:
             continue
         seen.add(dedupe_key)
+        if video.assignment_target_id and video.assignment_target and video.assignment_target.assignment:
+            title = video.title.strip() or video.assignment_target.assignment.title
+            source = "Домашнее задание / Ответ ученика"
+            uploaded_by = _display_name(video.student)
+        else:
+            title = video.title.strip() or Path(video.video.name).name
+            source = "Библиотека"
+            uploaded_by = _display_name(video.teacher)
         items.append(
             {
-                "title": video.title.strip() or Path(video.video.name).name,
+                "title": title,
                 "category": CATEGORY_VIDEO,
-                "source": "Библиотека",
+                "source": source,
                 "course_name": video.course.name,
-                "uploaded_by": _display_name(video.teacher),
+                "uploaded_by": uploaded_by,
                 "created_at": video.created_at,
                 "date_label": video.created_at.strftime("%d.%m.%Y"),
                 "url": url,

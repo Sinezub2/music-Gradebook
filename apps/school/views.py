@@ -1,9 +1,12 @@
 # apps/school/views.py
+from pathlib import Path
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Profile
 from apps.gradebook.models import Grade
@@ -11,6 +14,7 @@ from apps.goals.models import Goal
 from apps.homework.models import AssignmentTarget
 from apps.lessons.models import LessonReport, LessonStudent
 from .models import Course, Enrollment, ParentChild
+from .speech import SpeechToTextConfigError, transcribe_wav_bytes
 from .utils import (
     get_teacher_student_or_404,
     get_teacher_students,
@@ -254,3 +258,24 @@ def teacher_student_workspace(request, student_id: int):
             "current_half_year": current_half_year,
         },
     )
+
+
+@require_POST
+@login_required
+def speech_transcribe(request):
+    audio = request.FILES.get("audio")
+    if not audio:
+        return JsonResponse({"error": "Аудиофайл не получен."}, status=400)
+
+    file_name = Path(getattr(audio, "name", "")).name.lower()
+    if not file_name.endswith(".wav"):
+        return JsonResponse({"error": "Поддерживаются только WAV-записи."}, status=400)
+
+    try:
+        text = transcribe_wav_bytes(audio.read())
+    except SpeechToTextConfigError as exc:
+        return JsonResponse({"error": str(exc)}, status=503)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    return JsonResponse({"text": text})

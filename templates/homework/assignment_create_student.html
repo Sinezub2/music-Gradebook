@@ -7,36 +7,86 @@
   <div class="card">
     <form method="post" class="form" enctype="multipart/form-data">
       {% csrf_token %}
+      <input type="hidden" name="half_year" value="{{ selected_half_year }}">
       <div class="form-row">
         <label>{{ form.title.label }}</label>
-        {{ form.title }}
+        <div class="speech-field" data-speech-field>
+          {{ form.title }}
+          {% include "partials/speech_button.html" %}
+        </div>
         {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
         <div class="muted small">Если добавлены композиции ниже, для каждой создаётся отдельное задание.</div>
       </div>
 
       <div class="form-row">
         <label>{{ form.description.label }}</label>
-        {{ form.description }}
+        <div class="speech-field speech-field--textarea" data-speech-field>
+          {{ form.description }}
+          {% include "partials/speech_button.html" %}
+        </div>
         {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
       </div>
 
       <h2 style="margin: 0;">Композиции</h2>
+      {% if carried_over_titles %}
+        <div class="muted small">Активные композиции из предыдущего домашнего задания уже подставлены ниже. При необходимости их можно удалить или изменить.</div>
+      {% endif %}
       <div id="composition-list">
         {% for composition in initial_compositions %}
           <div class="card" style="margin-bottom: 10px;" data-composition-row>
             <div class="form-row">
               <label>Название композиции</label>
-              <input class="input" type="text" name="composition_name" value="{{ composition }}" placeholder="Например, Этюд №5">
+              <div class="speech-field" data-speech-field>
+                <input class="input" type="text" name="composition_name" value="{{ composition }}" placeholder="Например, Этюд №5" data-speech-input="1">
+                {% include "partials/speech_button.html" %}
+              </div>
             </div>
           </div>
         {% endfor %}
       </div>
+      <template id="student-composition-row-template">
+        <div class="card" style="margin-bottom: 10px;" data-composition-row>
+          <div class="form-row">
+            <label>Название композиции</label>
+            <div class="speech-field" data-speech-field>
+              <input class="input" type="text" name="composition_name" placeholder="Например, Этюд №5" data-speech-input="1">
+              {% include "partials/speech_button.html" %}
+            </div>
+          </div>
+        </div>
+      </template>
       <button class="btn" type="button" id="composition-add">+</button>
       {% if composition_errors %}
         {% for error in composition_errors %}
           <div class="error">{{ error }}</div>
         {% endfor %}
       {% endif %}
+
+      <div class="card">
+        <div class="form-row">
+          <label>Полугодовой план</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            {% for option in half_year_options %}
+              <a class="btn {% if option.active %}btn-accent{% endif %}" href="{{ option.url }}">{{ option.label }}</a>
+            {% endfor %}
+          </div>
+        </div>
+        {% if plan_compositions %}
+          <div class="form-row">
+            <label>Добавить композиции из выбранного полугодия</label>
+            <div class="plan-checkbox-list">
+              {% for plan in plan_compositions %}
+                <label class="plan-checkbox-item">
+                  <input type="checkbox" name="plan_compositions" value="{{ plan.title }}"{% if plan.checked %} checked{% endif %}>
+                  <span>{{ plan.title }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% else %}
+          <p class="muted small">В выбранном полугодии пока нет пунктов плана для импорта.</p>
+        {% endif %}
+      </div>
 
       <div class="form-row">
         <label>{{ form.due_date.label }}</label>
@@ -61,15 +111,13 @@
     (function () {
       const list = document.getElementById("composition-list");
       const addButton = document.getElementById("composition-add");
+      const template = document.getElementById("student-composition-row-template");
       if (!list || !addButton) return;
 
       addButton.addEventListener("click", function () {
-        const row = document.createElement("div");
-        row.className = "card";
-        row.style.marginBottom = "10px";
-        row.setAttribute("data-composition-row", "1");
-        row.innerHTML = '<div class="form-row"><label>Название композиции</label><input class="input" type="text" name="composition_name" placeholder="Например, Этюд №5"></div>';
-        list.appendChild(row);
+        if (template && "content" in template) {
+          list.appendChild(template.content.cloneNode(true));
+        }
       });
     })();
   </script>

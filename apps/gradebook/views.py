@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.accounts.utils import get_user_display_name
+from apps.homework.models import AssignmentTarget
 from apps.school.models import Course, Enrollment, ParentChild
 from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
 from .models import Assessment, Grade
@@ -175,7 +176,6 @@ def student_course_grades(request, course_id: int):
     # ---- Progress summary + trend ----
     # If homework app doesn't have AssignmentTarget yet, this import will fail.
     # In that case either create it or temporarily wrap this block in try/except.
-    from apps.homework.models import AssignmentTarget
     from django.utils import timezone
 
     today = timezone.localdate()
@@ -281,6 +281,14 @@ def teacher_student_results(request, student_id: int):
     assessments = list(Assessment.objects.filter(course=course).order_by("id"))
     grades = Grade.objects.filter(assessment__in=assessments, student=student).select_related("assessment")
     grade_map = {g.assessment_id: g for g in grades}
+    assignment_ids = [assessment.source_assignment_id for assessment in assessments if assessment.source_assignment_id]
+    target_map = {
+        target.assignment_id: target
+        for target in AssignmentTarget.objects.filter(student=student, assignment_id__in=assignment_ids).select_related(
+            "assignment",
+            "submission_video",
+        )
+    }
 
     if request.method == "POST":
         with transaction.atomic():
@@ -316,7 +324,14 @@ def teacher_student_results(request, student_id: int):
         messages.success(request, "Результаты сохранены.")
         return redirect(f"/teacher/students/{student.id}/results/")
 
-    rows = [{"assessment": a, "grade": grade_map.get(a.id)} for a in assessments]
+    rows = [
+        {
+            "assessment": a,
+            "grade": grade_map.get(a.id),
+            "target": target_map.get(a.source_assignment_id),
+        }
+        for a in assessments
+    ]
     return render(
         request,
         "gradebook/teacher_student_results.html",

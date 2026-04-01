@@ -12,6 +12,7 @@
           <thead>
             <tr>
               <th>Оценка</th>
+              <th>Ответ ученика</th>
               <th>Результат (0–100)</th>
               <th>Комментарий</th>
             </tr>
@@ -20,6 +21,24 @@
             {% for row in rows %}
               <tr>
                 <td class="th-title">{{ row.assessment.title }}</td>
+                <td>
+                  {% if row.target %}
+                    <div class="muted small">Статус: {{ row.target.status }}</div>
+                    {% if row.target.student_comment %}
+                      <div style="margin-top:6px;">{{ row.target.student_comment }}</div>
+                    {% endif %}
+                    {% if row.target.submission_video %}
+                      <div class="muted small" style="margin-top:6px;">
+                        <a href="{{ row.target.submission_video.video.url }}">Видео ответа</a>
+                      </div>
+                    {% endif %}
+                    {% if not row.target.student_comment and not row.target.submission_video %}
+                      <span class="muted">Без вложения</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
                 <td>
                   <input class="input input-score" type="number" min="0" max="100" name="grade-{{ row.assessment.id }}"
                          value="{% if row.grade and row.grade.score != None %}{{ row.grade.score }}{% endif %}">

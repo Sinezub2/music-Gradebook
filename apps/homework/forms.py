@@ -1,6 +1,7 @@
 from django import forms
 from django.utils import timezone
 
+from apps.accounts.forms import validate_library_video_upload
 from apps.accounts.utils import get_user_display_name
 from apps.school.models import Course
 
@@ -8,8 +9,17 @@ from apps.school.models import Course
 class AssignmentCreateForm(forms.Form):
     max_input_length = 50
     course = forms.ModelChoiceField(label="Курс", queryset=Course.objects.none())
-    title = forms.CharField(label="Название (опционально)", max_length=200, required=False)
-    description = forms.CharField(label="Описание", required=False, widget=forms.Textarea(attrs={"rows": 4}))
+    title = forms.CharField(
+        label="Название (опционально)",
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input", "data-speech-input": "1"}),
+    )
+    description = forms.CharField(
+        label="Описание",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4, "class": "input", "data-speech-input": "1"}),
+    )
     due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
 
@@ -56,8 +66,17 @@ class AssignmentCreateForm(forms.Form):
 
 class StudentAssignmentCreateForm(forms.Form):
     max_input_length = 50
-    title = forms.CharField(label="Название (опционально)", max_length=200, required=False)
-    description = forms.CharField(label="Описание", required=False, widget=forms.Textarea(attrs={"rows": 4}))
+    title = forms.CharField(
+        label="Название (опционально)",
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input", "data-speech-input": "1"}),
+    )
+    description = forms.CharField(
+        label="Описание",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4, "class": "input", "data-speech-input": "1"}),
+    )
     due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
 
@@ -67,4 +86,44 @@ class StudentAssignmentCreateForm(forms.Form):
             value = cleaned_data.get(field_name)
             if value and len(value) >= self.max_input_length:
                 self.add_error(field_name, "Введите значение короче 50 символов.")
+        return cleaned_data
+
+
+class AssignmentSubmissionForm(forms.Form):
+    student_comment = forms.CharField(
+        label="Комментарий",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3, "class": "input", "data-speech-input": "1"}),
+    )
+    video = forms.FileField(
+        label="Видео",
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": ",".join(
+                    [
+                        ".mp4",
+                        ".mov",
+                        ".webm",
+                        ".m4v",
+                        "video/mp4",
+                        "video/webm",
+                        "video/quicktime",
+                    ]
+                )
+            }
+        ),
+    )
+
+    def clean_video(self):
+        return validate_library_video_upload(self.cleaned_data.get("video"))
+
+    def clean(self):
+        cleaned_data = super().clean()
+        comment = (cleaned_data.get("student_comment") or "").strip()
+        video = cleaned_data.get("video")
+        if comment and len(comment) >= 500:
+            self.add_error("student_comment", "Комментарий слишком длинный.")
+        if not comment and not video:
+            raise forms.ValidationError("Добавьте комментарий или видео.")
         return cleaned_data

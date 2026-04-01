@@ -4,20 +4,24 @@ from datetime import date
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from urllib.parse import urlencode
 
 from apps.accounts.decorators import role_required
-from apps.accounts.models import Profile
+from apps.accounts.models import LibraryVideo, Profile
 from apps.gradebook.models import Assessment
+from apps.goals.models import Goal
 from apps.school.models import Course, ParentChild
-from apps.school.utils import get_user_single_class
-from .forms import AssignmentCreateForm, StudentAssignmentCreateForm
+from apps.school.utils import get_teacher_student_or_404, get_user_single_class, resolve_teacher_course_for_student
+from .forms import AssignmentCreateForm, AssignmentSubmissionForm, StudentAssignmentCreateForm
 from .models import Assignment, AssignmentTarget
 from .services import create_assignment_with_targets_and_gradebook
-from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
+
+HALF_YEAR_I = "H1"
+HALF_YEAR_II = "H2"
 
 
 def _effective_status(assignment: Assignment, target: AssignmentTarget | None) -> str:
@@ -59,6 +63,104 @@ def _collect_compositions(post_data) -> list[str]:
         items.append(value)
         seen.add(value)
     return items
+
+
+def _normalize_title_key(value: str) -> str:
+    return " ".join((value or "").split()).strip().casefold()
+
+
+def _merge_unique_titles(*groups) -> list[str]:
+    items = []
+    seen = set()
+    for group in groups:
+        for raw_value in group:
+            value = " ".join((raw_value or "").split()).strip()
+            if not value:
+                continue
+            key = _normalize_title_key(value)
+            if key in seen:
+                continue
+            items.append(value)
+            seen.add(key)
+    return items
+
+
+def _current_half_year_code() -> str:
+    return HALF_YEAR_I if date.today().month <= 6 else HALF_YEAR_II
+
+
+def _normalize_half_year(raw_value: str) -> str:
+    value = (raw_value or "").strip()
+    if value in (HALF_YEAR_I, HALF_YEAR_II):
+        return value
+    return _current_half_year_code()
+
+
+def _build_student_assignment_create_url(student_id: int, half_year: str = "") -> str:
+    params = {}
+    if half_year:
+        params["half_year"] = half_year
+    query = urlencode(params)
+    base_url = f"/teacher/students/{student_id}/assignments/create/"
+    return f"{base_url}?{query}" if query else base_url
+
+
+def _get_carried_over_compositions(*, student, course: Course) -> list[str]:
+    titles = AssignmentTarget.objects.filter(
+        student=student,
+        assignment__course=course,
+        status=AssignmentTarget.Status.TODO,
+    ).values_list("assignment__title", flat=True)
+    return _merge_unique_titles(titles)
+
+
+def _get_half_year_plan_titles(*, student, selected_half_year: str) -> list[str]:
+    goals = Goal.objects.filter(student=student).order_by("month", "created_at")
+    if selected_half_year == HALF_YEAR_I:
+        goals = goals.filter(month__month__lte=6)
+    else:
+        goals = goals.filter(month__month__gte=7)
+    return _merge_unique_titles(goals.values_list("title", flat=True))
+
+
+def _filter_selected_plan_titles(raw_values: list[str], plan_titles: list[str]) -> list[str]:
+    plan_lookup = {_normalize_title_key(title): title for title in plan_titles}
+    selected = []
+    seen = set()
+    for raw_value in raw_values:
+        key = _normalize_title_key(raw_value)
+        if not key or key not in plan_lookup or key in seen:
+            continue
+        selected.append(plan_lookup[key])
+        seen.add(key)
+    return selected
+
+
+def _sync_submission_video(*, target: AssignmentTarget, video_file):
+    if not video_file:
+        return None
+
+    title = f"{target.assignment.title} — ответ ученика"
+    existing_video = getattr(target, "submission_video", None)
+    if existing_video:
+        if existing_video.video and existing_video.video.name != getattr(video_file, "name", ""):
+            existing_video.video.delete(save=False)
+        existing_video.teacher = target.assignment.created_by
+        existing_video.student = target.student
+        existing_video.course = target.assignment.course
+        existing_video.title = title
+        existing_video.video = video_file
+        existing_video.save()
+        return existing_video
+
+    return LibraryVideo.objects.create(
+        teacher=target.assignment.created_by,
+        student=target.student,
+        course=target.assignment.course,
+        assignment_target=target,
+        title=title,
+        video=video_file,
+    )
 
 
 def _create_assignments(
@@ -172,7 +274,7 @@ def assignment_list(request):
     if profile.role == Profile.Role.STUDENT:
         targets = (
             AssignmentTarget.objects.filter(student=request.user)
-            .select_related("assignment", "assignment__course")
+            .select_related("assignment", "assignment__course", "submission_video")
             .order_by("assignment__due_date", "assignment_id")
         )
         rows = []
@@ -193,7 +295,7 @@ def assignment_list(request):
             child = link.child
             targets = (
                 AssignmentTarget.objects.filter(student=child)
-                .select_related("assignment", "assignment__course")
+                .select_related("assignment", "assignment__course", "submission_video")
                 .order_by("assignment__due_date", "assignment_id")
             )
             rows = []
@@ -344,16 +446,21 @@ def assignment_create_for_student(request, student_id: int):
         messages.error(request, "У ученика несколько ваших курсов. Уточните курс у администратора.")
         return redirect(f"/teacher/students/{student.id}/")
 
-    initial_compositions = [""]
+    selected_half_year = _normalize_half_year(request.GET.get("half_year") or request.POST.get("half_year") or "")
+    carried_over_titles = _get_carried_over_compositions(student=student, course=course)
+    plan_titles = _get_half_year_plan_titles(student=student, selected_half_year=selected_half_year)
+    selected_plan_titles = []
+    initial_compositions = carried_over_titles or [""]
     composition_errors = []
 
     if request.method == "POST":
-        initial_compositions = request.POST.getlist("composition_name") or [""]
+        initial_compositions = request.POST.getlist("composition_name") or carried_over_titles or [""]
+        selected_plan_titles = _filter_selected_plan_titles(request.POST.getlist("plan_compositions"), plan_titles)
         form = StudentAssignmentCreateForm(request.POST, request.FILES)
         if form.is_valid():
             title = (form.cleaned_data.get("title") or "").strip()
             compositions = _collect_compositions(request.POST)
-            titles = compositions or ([title] if title else [])
+            titles = _merge_unique_titles(compositions, selected_plan_titles) or ([title] if title else [])
 
             if not titles:
                 composition_errors = ["Укажите название задания или добавьте хотя бы одну композицию."]
@@ -384,6 +491,29 @@ def assignment_create_for_student(request, student_id: int):
             "course": course,
             "initial_compositions": initial_compositions,
             "composition_errors": composition_errors,
+            "carried_over_titles": carried_over_titles,
+            "selected_half_year": selected_half_year,
+            "half_year_options": [
+                {
+                    "value": HALF_YEAR_I,
+                    "label": "I полугодие",
+                    "url": _build_student_assignment_create_url(student.id, HALF_YEAR_I),
+                    "active": selected_half_year == HALF_YEAR_I,
+                },
+                {
+                    "value": HALF_YEAR_II,
+                    "label": "II полугодие",
+                    "url": _build_student_assignment_create_url(student.id, HALF_YEAR_II),
+                    "active": selected_half_year == HALF_YEAR_II,
+                },
+            ],
+            "plan_compositions": [
+                {
+                    "title": plan_title,
+                    "checked": _normalize_title_key(plan_title) in {_normalize_title_key(value) for value in selected_plan_titles},
+                }
+                for plan_title in plan_titles
+            ],
         },
     )
 
@@ -404,4 +534,29 @@ def mark_done(request, target_id: int):
     target.save()
 
     messages.success(request, "Отмечено как DONE (результат выставляется преподавателем отдельно).")
+    return redirect("/assignments/")
+
+
+@require_POST
+@role_required(Profile.Role.STUDENT)
+def submit_assignment(request, target_id: int):
+    target = get_object_or_404(
+        AssignmentTarget.objects.select_related("assignment", "assignment__course", "assignment__created_by"),
+        id=target_id,
+        student=request.user,
+    )
+    form = AssignmentSubmissionForm(request.POST, request.FILES)
+    if not form.is_valid():
+        for field_errors in form.errors.values():
+            for error in field_errors:
+                messages.error(request, error)
+        return redirect("/assignments/")
+
+    with transaction.atomic():
+        target.student_comment = (form.cleaned_data.get("student_comment") or "").strip()
+        target.status = AssignmentTarget.Status.DONE
+        target.save(update_fields=["student_comment", "status", "updated_at"])
+        _sync_submission_video(target=target, video_file=form.cleaned_data.get("video"))
+
+    messages.success(request, "Ответ по заданию сохранён.")
     return redirect("/assignments/")

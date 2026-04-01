@@ -131,6 +131,13 @@ class LibraryVideo(models.Model):
         related_name="library_videos",
     )
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="library_videos")
+    assignment_target = models.OneToOneField(
+        "homework.AssignmentTarget",
+        on_delete=models.SET_NULL,
+        related_name="submission_video",
+        null=True,
+        blank=True,
+    )
     title = models.CharField(max_length=200, blank=True, default="")
     video = models.FileField(
         upload_to="library/videos/%Y/%m/",

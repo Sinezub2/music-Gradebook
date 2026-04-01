@@ -24,10 +24,22 @@
         {% for value in entered_titles %}
           <div class="form-row" data-goal-row>
             <label>Пункт плана</label>
-            <input class="input" type="text" name="goal_titles" value="{{ value }}" placeholder="Пункт полугодового плана"/>
+            <div class="speech-field" data-speech-field>
+              <input class="input" type="text" name="goal_titles" value="{{ value }}" placeholder="Пункт полугодового плана" data-speech-input="1"/>
+              {% include "partials/speech_button.html" %}
+            </div>
           </div>
         {% endfor %}
       </div>
+      <template id="goal-row-template">
+        <div class="form-row" data-goal-row>
+          <label>Пункт плана</label>
+          <div class="speech-field" data-speech-field>
+            <input class="input" type="text" name="goal_titles" placeholder="Пункт полугодового плана" data-speech-input="1"/>
+            {% include "partials/speech_button.html" %}
+          </div>
+        </div>
+      </template>
 
       <button class="btn" type="button" id="goal-add-row">+</button>
 
@@ -46,13 +58,12 @@
     (function () {
       const addButton = document.getElementById("goal-add-row");
       const list = document.getElementById("goal-input-list");
+      const template = document.getElementById("goal-row-template");
       if (addButton && list) {
         addButton.addEventListener("click", function () {
-          const row = document.createElement("div");
-          row.className = "form-row";
-          row.setAttribute("data-goal-row", "1");
-          row.innerHTML = '<label>Пункт плана</label><input class="input" type="text" name="goal_titles" placeholder="Пункт полугодового плана"/>';
-          list.appendChild(row);
+          if (template && "content" in template) {
+            list.appendChild(template.content.cloneNode(true));
+          }
         });
       }
 

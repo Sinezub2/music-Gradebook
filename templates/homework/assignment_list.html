@@ -105,18 +105,37 @@
                   {% if r.assignment.attachment %}
                     <div class="muted small"><a href="{{ r.assignment.attachment.url }}">Материалы</a></div>
                   {% endif %}
+                  {% if r.target.student_comment %}
+                    <div class="muted small" style="margin-top:8px;"><strong>Ваш комментарий:</strong> {{ r.target.student_comment }}</div>
+                  {% endif %}
+                  {% if r.target.submission_video %}
+                    <div class="muted small" style="margin-top:4px;">
+                      <a href="{{ r.target.submission_video.video.url }}">Видео ответа</a>
+                    </div>
+                  {% endif %}
                 </td>
                 <td>
                   <span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span>
                 </td>
                 <td>
                   {% if r.target.status != "DONE" %}
-                    <form method="post" action="/assignments/targets/{{ r.target.id }}/mark_done/">
+                    <form method="post" action="/assignments/targets/{{ r.target.id }}/submit/" enctype="multipart/form-data" class="inline-assignment-form">
                       {% csrf_token %}
-                      <button class="btn" type="submit">DONE</button>
+                      <div class="form-row">
+                        <label for="student-comment-{{ r.target.id }}">Комментарий</label>
+                        <div class="speech-field speech-field--textarea" data-speech-field>
+                          <textarea class="input" id="student-comment-{{ r.target.id }}" name="student_comment" rows="3" data-speech-input="1" placeholder="Коротко опишите результат"></textarea>
+                          {% include "partials/speech_button.html" %}
+                        </div>
+                      </div>
+                      <div class="form-row">
+                        <label for="student-video-{{ r.target.id }}">Видео</label>
+                        <input id="student-video-{{ r.target.id }}" type="file" name="video" accept=".mp4,.mov,.webm,.m4v,video/mp4,video/webm,video/quicktime">
+                      </div>
+                      <button class="btn" type="submit">Готово</button>
                     </form>
                   {% else %}
-                    <span class="muted">—</span>
+                    <span class="muted">Ответ отправлен</span>
                   {% endif %}
                 </td>
               </tr>
@@ -160,6 +179,14 @@
                       {% endif %}
                       {% if r.assignment.attachment %}
                         <div class="muted small"><a href="{{ r.assignment.attachment.url }}">Материалы</a></div>
+                      {% endif %}
+                      {% if r.target.student_comment %}
+                        <div class="muted small" style="margin-top:8px;"><strong>Комментарий ученика:</strong> {{ r.target.student_comment }}</div>
+                      {% endif %}
+                      {% if r.target.submission_video %}
+                        <div class="muted small" style="margin-top:4px;">
+                          <a href="{{ r.target.submission_video.video.url }}">Видео ответа</a>
+                        </div>
                       {% endif %}
                     </td>
                     <td>

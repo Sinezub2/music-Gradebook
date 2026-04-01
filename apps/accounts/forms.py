@@ -9,6 +9,19 @@ from apps.school.models import Course, Enrollment
 from .models import ActivationCode, LibraryVideo, Profile, LIBRARY_VIDEO_EXTENSIONS
 
 
+def validate_library_video_upload(video):
+    if not video:
+        return video
+
+    content_type = (getattr(video, "content_type", "") or "").lower()
+    extension = video.name.rsplit(".", 1)[-1].lower() if "." in video.name else ""
+    if extension not in LIBRARY_VIDEO_EXTENSIONS:
+        raise forms.ValidationError("Загрузите видео в формате mp4, mov, webm или m4v.")
+    if content_type and not content_type.startswith("video/"):
+        raise forms.ValidationError("Файл должен быть видео.")
+    return video
+
+
 class LoginForm(AuthenticationForm):
     username = forms.CharField(label="Логин", widget=forms.TextInput(attrs={"autofocus": True}))
     password = forms.CharField(label="Пароль", widget=forms.PasswordInput())
@@ -195,15 +208,7 @@ class LibraryVideoUploadForm(forms.ModelForm):
 
     def clean_video(self):
         video = self.cleaned_data.get("video")
-        if not video:
-            return video
-        content_type = (getattr(video, "content_type", "") or "").lower()
-        extension = video.name.rsplit(".", 1)[-1].lower() if "." in video.name else ""
-        if extension not in LIBRARY_VIDEO_EXTENSIONS:
-            raise forms.ValidationError("Загрузите видео в формате mp4, mov, webm или m4v.")
-        if content_type and not content_type.startswith("video/"):
-            raise forms.ValidationError("Файл должен быть видео.")
-        return video
+        return validate_library_video_upload(video)
 
     def clean(self):
         cleaned_data = super().clean()

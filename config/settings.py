@@ -116,6 +116,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+VOSK_MODEL_PATH = Path(os.getenv("VOSK_MODEL_PATH", BASE_DIR / "models" / "vosk" / "vosk-model-small-ru-0.22"))
 
 # Use plain static paths in local debug, fingerprinted assets in production.
 if DEBUG:

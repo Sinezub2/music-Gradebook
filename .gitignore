@@ -29,10 +29,13 @@ local_settings.py
 # Media & collected static
 media/
 staticfiles/
+models/vosk/
 
 # Django cache / temp
 .cache/
 *.log
+tmp_test_media/
+tmp_test_speech/
 
 .pytest_cache/
 .coverage

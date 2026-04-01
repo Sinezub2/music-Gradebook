@@ -5,6 +5,23 @@ from apps.school.models import Course, Enrollment
 from .models import Assignment, AssignmentTarget
 
 
+def _build_unique_assessment_title(*, course: Course, base_title: str, due_date) -> str:
+    normalized_title = (base_title or "").strip() or "Домашнее задание"
+    if not Assessment.objects.filter(course=course, title=normalized_title).exists():
+        return normalized_title
+
+    dated_title = f"{normalized_title} ({due_date:%d.%m.%Y})"
+    if not Assessment.objects.filter(course=course, title=dated_title).exists():
+        return dated_title
+
+    suffix = 2
+    while True:
+        candidate = f"{dated_title} #{suffix}"
+        if not Assessment.objects.filter(course=course, title=candidate).exists():
+            return candidate
+        suffix += 1
+
+
 @transaction.atomic
 def create_assignment_with_targets_and_gradebook(
     *,
@@ -35,23 +52,39 @@ def create_assignment_with_targets_and_gradebook(
         created_by=teacher,
     )
 
+    assessment_title = _build_unique_assessment_title(course=course, base_title=assignment.title, due_date=due_date)
+
     # One Assessment per Assignment
     assessment, _ = Assessment.objects.get_or_create(
         source_assignment=assignment,
         defaults={
             "course": course,
-            "title": assignment.title,
+            "title": assessment_title,
             "assessment_type": Assessment.AssessmentType.HOMEWORK,
             "max_score": 100,
             "weight": 1,
         },
     )
 
-    # If assignment title changed (not typical on create), keep assessment aligned
-    # (optional safety)
-    if assessment.title != assignment.title:
-        assessment.title = assignment.title
-        assessment.save()
+    # Keep shared assessment metadata aligned without breaking the per-course title uniqueness rule.
+    fields_to_update = []
+    if assessment.course_id != course.id:
+        assessment.course = course
+        fields_to_update.append("course")
+    if assessment.assessment_type != Assessment.AssessmentType.HOMEWORK:
+        assessment.assessment_type = Assessment.AssessmentType.HOMEWORK
+        fields_to_update.append("assessment_type")
+    if assessment.max_score != 100:
+        assessment.max_score = 100
+        fields_to_update.append("max_score")
+    if assessment.weight != 1:
+        assessment.weight = 1
+        fields_to_update.append("weight")
+    if not assessment.title:
+        assessment.title = assessment_title
+        fields_to_update.append("title")
+    if fields_to_update:
+        assessment.save(update_fields=fields_to_update)
 
     # Ensure student_ids belong to enrollments of this course
     enrolled_ids = set(
