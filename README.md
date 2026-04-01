@@ -158,6 +158,23 @@ python manage.py runserver
 python manage.py runserver 0.0.0.0:8000
 ```
 
+## Docker Compose
+
+Для запуска через Docker Compose теперь используется отдельный образ приложения и отдельный volume для Vosk-модели:
+
+```bash
+docker compose up --build
+```
+
+Что важно:
+
+- контейнер автоматически скачает полную модель `vosk-model-ru-0.22`, если её ещё нет в Docker volume;
+- модель сохраняется в named volume и не скачивается заново при каждом старте;
+- внутри контейнера модель лежит по пути `/opt/music-gradebook/models/vosk/vosk-model-ru-0.22`;
+- при необходимости автозагрузку можно отключить через `VOSK_AUTO_DOWNLOAD=0` и смонтировать модель вручную.
+
+Первый запуск может занять заметно больше времени, потому что Docker скачивает Python-зависимости и саму Vosk-модель.
+
 ## Настройки проекта
 
 Сейчас по умолчанию используются:
@@ -188,10 +205,10 @@ pip install -r requirements.txt
 
 ### Какую модель использовать
 
-Нужна русская модель Vosk. Для этого проекта рекомендуется использовать только компактную модель:
+Нужна русская модель Vosk. Для этого проекта рекомендуется использовать полную модель:
 
-- `vosk-model-small-ru-0.22`
-- Ссылка на скачивание: `https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip`
+- `vosk-model-ru-0.22`
+- Ссылка на скачивание: `https://alphacephei.com/vosk/models/vosk-model-ru-0.22.zip`
 
 Важно: внутри папки модели должны лежать реальные файлы модели, например:
 
@@ -206,7 +223,7 @@ pip install -r requirements.txt
 ```text
 models/
   vosk/
-    vosk-model-small-ru-0.22/
+    vosk-model-ru-0.22/
       am/
       conf/
       graph/
@@ -217,13 +234,13 @@ models/
 Важно, чтобы не было лишней вложенности после распаковки архива. Неправильно:
 
 ```text
-models/vosk/vosk-model-small-ru-0.22/vosk-model-small-ru-0.22/am/...
+ models/vosk/vosk-model-ru-0.22/vosk-model-ru-0.22/am/...
 ```
 
 Правильно:
 
 ```text
-models/vosk/vosk-model-small-ru-0.22/am/...
+ models/vosk/vosk-model-ru-0.22/am/...
 ```
 
 ### Как проект ищет модель
@@ -243,13 +260,13 @@ models/vosk/vosk-model-small-ru-0.22/am/...
 Linux:
 
 ```bash
-export VOSK_MODEL_PATH=/opt/music-gradebook/models/vosk/vosk-model-small-ru-0.22
+export VOSK_MODEL_PATH=/opt/music-gradebook/models/vosk/vosk-model-ru-0.22
 ```
 
 Windows:
 
 ```powershell
-$env:VOSK_MODEL_PATH='C:\path\to\music-gradebook\models\vosk\vosk-model-small-ru-0.22'
+$env:VOSK_MODEL_PATH='C:\path\to\music-gradebook\models\vosk\vosk-model-ru-0.22'
 ```
 
 ### Важная особенность Windows

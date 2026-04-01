@@ -33,6 +33,17 @@ class SpeechModuleTests(SimpleTestCase):
         (model_dir / "graph" / "words.txt").write_text("", encoding="utf-8")
         return model_dir
 
+    def _create_small_model_dir(self, root: Path, name: str) -> Path:
+        model_dir = root / name
+        (model_dir / "am").mkdir(parents=True, exist_ok=True)
+        (model_dir / "conf").mkdir(parents=True, exist_ok=True)
+        (model_dir / "graph" / "phones").mkdir(parents=True, exist_ok=True)
+        (model_dir / "am" / "final.mdl").write_text("", encoding="utf-8")
+        (model_dir / "conf" / "model.conf").write_text("", encoding="utf-8")
+        (model_dir / "graph" / "HCLr.fst").write_text("", encoding="utf-8")
+        (model_dir / "graph" / "phones" / "word_boundary.int").write_text("", encoding="utf-8")
+        return model_dir
+
     def test_discover_model_path_prefers_configured_model_name_inside_parent_directory(self):
         models_root = self.temp_root / "models" / "vosk"
         self._create_model_dir(models_root, "vosk-model-ru-0.22")
@@ -74,3 +85,15 @@ class SpeechModuleTests(SimpleTestCase):
 
         self.assertEqual(len(build_calls), 1)
         self.assertTrue(all(result == results[0] for result in results))
+
+    def test_discover_model_path_accepts_small_model_layout_without_words_txt(self):
+        models_root = self.temp_root / "models" / "vosk"
+        expected_model = self._create_small_model_dir(models_root, "vosk-model-small-ru-0.22")
+
+        with self.settings(
+            BASE_DIR=self.temp_root,
+            VOSK_MODEL_PATH=models_root / "vosk-model-small-ru-0.22",
+        ):
+            discovered_model = speech._discover_model_path()
+
+        self.assertEqual(discovered_model, expected_model)

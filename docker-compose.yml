@@ -1,15 +1,26 @@
 services:
   web:
-    image: python:3.12-slim
+    build:
+      context: .
+      dockerfile: Dockerfile
     working_dir: /app
     volumes:
       - .:/app
+      - vosk_models:/opt/music-gradebook/models/vosk
     ports:
       - "8000:8000"
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
-    command: >
-      sh -c "pip install --no-cache-dir -r requirements.txt &&
-             python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+      VOSK_MODEL_PATH: /opt/music-gradebook/models/vosk/vosk-model-ru-0.22
+      VOSK_MODEL_URL: https://alphacephei.com/vosk/models/vosk-model-ru-0.22.zip
+      VOSK_AUTO_DOWNLOAD: "1"
+    entrypoint:
+      - music-gradebook-entrypoint
+    command:
+      - sh
+      - -c
+      - python manage.py migrate && python manage.py runserver 0.0.0.0:8000
+
+volumes:
+  vosk_models:

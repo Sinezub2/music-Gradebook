@@ -23,13 +23,22 @@ _MODEL_LOAD_LOCK = Lock()
 _CACHED_VOSK_MODEL = None
 
 
+def _has_supported_graph_layout(path: Path) -> bool:
+    graph_dir = path / "graph"
+    return (
+        (graph_dir / "words.txt").exists()
+        or (graph_dir / "HCLr.fst").exists()
+        or (graph_dir / "phones" / "word_boundary.int").exists()
+    )
+
+
 def _is_vosk_model_dir(path: Path) -> bool:
     return (
         path.exists()
         and path.is_dir()
         and (path / "am" / "final.mdl").exists()
         and (path / "conf" / "model.conf").exists()
-        and (path / "graph" / "words.txt").exists()
+        and _has_supported_graph_layout(path)
     )
 
 
@@ -65,7 +74,8 @@ def _discover_model_path() -> Path:
 
     raise SpeechToTextConfigError(
         f"Vosk-модель не найдена или неполная: {configured_path}. "
-        "Ожидаются файлы вроде am/final.mdl, conf/model.conf и graph/words.txt."
+        "Ожидаются файлы вроде am/final.mdl, conf/model.conf и graph/words.txt "
+        "или файлы компактной модели вроде graph/HCLr.fst."
     )
 
 
