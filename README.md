@@ -160,7 +160,7 @@ python manage.py runserver 0.0.0.0:8000
 
 ## Docker Compose
 
-Для запуска через Docker Compose теперь используется отдельный образ приложения и отдельный volume для Vosk-модели:
+Базовый `docker-compose.yml` теперь рассчитан на server/staging запуск и использует стандартную команду:
 
 ```bash
 docker compose up --build
@@ -168,12 +168,28 @@ docker compose up --build
 
 Что важно:
 
-- контейнер автоматически скачает полную модель `vosk-model-ru-0.22`, если её ещё нет в Docker volume;
-- модель сохраняется в named volume и не скачивается заново при каждом старте;
-- внутри контейнера модель лежит по пути `/opt/music-gradebook/models/vosk/vosk-model-ru-0.22`;
-- при необходимости автозагрузку можно отключить через `VOSK_AUTO_DOWNLOAD=0` и смонтировать модель вручную.
+- приложение запускается из `/home/sysuser/music-Gradebook`;
+- полная Vosk-модель читается из `/home/sysuser/music-Gradebook/models/vosk`;
+- на host перед запуском должна лежать полная модель в `./models/vosk`;
+- модель монтируется в контейнер отдельно как `./models/vosk:/home/sysuser/music-Gradebook/models/vosk:ro`;
+- серверная SQLite-база монтируется напрямую из host-файла `./db.sqlite3`;
+- `media/` тоже монтируется отдельно и не теряется при пересборке контейнера;
+- автозагрузка модели в базовом compose отключена через `VOSK_AUTO_DOWNLOAD=0`;
+- compact-модель `vosk-model-small-ru-0.22` исключена из Docker build context, чтобы не раздувать образ.
 
-Первый запуск может занять заметно больше времени, потому что Docker скачивает Python-зависимости и саму Vosk-модель.
+Первый запуск может занять больше времени из-за сборки образа и установки Python-зависимостей.
+
+Для локальной Docker-разработки с bind mount всего репозитория можно использовать дополнительный overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+В dev-варианте:
+
+- весь репозиторий монтируется в контейнер для быстрых правок;
+- SQLite снова смотрит на обычный путь проекта `db.sqlite3`, чтобы локально можно было использовать существующую базу;
+- `VOSK_AUTO_DOWNLOAD=1`, поэтому локально контейнер при необходимости сможет докачать модель.
 
 ## Настройки проекта
 
@@ -223,24 +239,23 @@ pip install -r requirements.txt
 ```text
 models/
   vosk/
-    vosk-model-ru-0.22/
-      am/
-      conf/
-      graph/
-      ivector/
-      ...
+    am/
+    conf/
+    graph/
+    ivector/
+    ...
 ```
 
 Важно, чтобы не было лишней вложенности после распаковки архива. Неправильно:
 
 ```text
- models/vosk/vosk-model-ru-0.22/vosk-model-ru-0.22/am/...
+ models/vosk/vosk-model-ru-0.22/am/...
 ```
 
 Правильно:
 
 ```text
- models/vosk/vosk-model-ru-0.22/am/...
+ models/vosk/am/...
 ```
 
 ### Как проект ищет модель
@@ -251,7 +266,7 @@ models/
 2. Родительская директория `VOSK_MODEL_PATH`
 3. Стандартная папка проекта `models/vosk`
 
-Если в `models/vosk` лежит одна валидная Vosk-модель, проект сможет её подобрать автоматически.
+Если `models/vosk` уже является валидной Vosk-моделью, проект использует её сразу. Если нет, код дополнительно просматривает вложенные каталоги.
 
 ### Переменная окружения для сервера
 
@@ -260,13 +275,13 @@ models/
 Linux:
 
 ```bash
-export VOSK_MODEL_PATH=/opt/music-gradebook/models/vosk/vosk-model-ru-0.22
+export VOSK_MODEL_PATH=/home/sysuser/music-Gradebook/models/vosk
 ```
 
 Windows:
 
 ```powershell
-$env:VOSK_MODEL_PATH='C:\path\to\music-gradebook\models\vosk\vosk-model-ru-0.22'
+$env:VOSK_MODEL_PATH='C:\path\to\music-gradebook\models\vosk'
 ```
 
 ### Важная особенность Windows
@@ -319,7 +334,7 @@ python manage.py collectstatic --noinput
    - `media/`
    - `staticfiles/`
    - Vosk-модели
-5. Положить русскую Vosk-модель в `models/vosk/...` или указать точный путь через `VOSK_MODEL_PATH`.
+5. Положить полную русскую Vosk-модель прямо в `models/vosk/` или указать точный путь через `VOSK_MODEL_PATH`.
 6. Убедиться, что процесс приложения имеет права на чтение модели и запись в системный temp-каталог.
 7. Прописать корректные:
    - `DJANGO_SECRET_KEY`

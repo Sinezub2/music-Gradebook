@@ -13,7 +13,7 @@ __pycache__
 htmlcov
 media
 staticfiles
-models
+models/vosk
 tmp_test_media
 tmp_test_speech
 backups

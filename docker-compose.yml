@@ -3,24 +3,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    working_dir: /app
+    working_dir: /home/sysuser/music-Gradebook
     volumes:
-      - .:/app
-      - vosk_models:/opt/music-gradebook/models/vosk
+      - ./models/vosk:/home/sysuser/music-Gradebook/models/vosk:ro
+      - ./media:/home/sysuser/music-Gradebook/media
+      - ./db.sqlite3:/home/sysuser/music-Gradebook/db.sqlite3
     ports:
       - "8000:8000"
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
-      VOSK_MODEL_PATH: /opt/music-gradebook/models/vosk/vosk-model-ru-0.22
+      DJANGO_SQLITE_PATH: /home/sysuser/music-Gradebook/db.sqlite3
+      VOSK_MODEL_PATH: /home/sysuser/music-Gradebook/models/vosk
       VOSK_MODEL_URL: https://alphacephei.com/vosk/models/vosk-model-ru-0.22.zip
-      VOSK_AUTO_DOWNLOAD: "1"
+      VOSK_AUTO_DOWNLOAD: "0"
     entrypoint:
       - music-gradebook-entrypoint
     command:
       - sh
       - -c
       - python manage.py migrate && python manage.py runserver 0.0.0.0:8000
-
-volumes:
-  vosk_models:

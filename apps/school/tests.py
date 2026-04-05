@@ -57,6 +57,18 @@ class SpeechModuleTests(SimpleTestCase):
 
         self.assertEqual(discovered_model, expected_model)
 
+    def test_discover_model_path_accepts_project_models_root_as_full_model_directory(self):
+        models_root = self._create_model_dir(self.temp_root / "models", "vosk")
+        self._create_small_model_dir(models_root, "vosk-model-small-ru-0.22")
+
+        with self.settings(
+            BASE_DIR=self.temp_root,
+            VOSK_MODEL_PATH=models_root,
+        ):
+            discovered_model = speech._discover_model_path()
+
+        self.assertEqual(discovered_model, models_root)
+
     def test_get_vosk_model_builds_only_once_for_concurrent_calls(self):
         resolved_model_path = self._create_model_dir(self.temp_root, "vosk-model-small-ru-0.22")
         barrier = threading.Barrier(5)
