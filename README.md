@@ -174,6 +174,7 @@ docker compose up --build
 - модель монтируется в контейнер отдельно как `./models/vosk:/home/sysuser/music-Gradebook/models/vosk:ro`;
 - серверная SQLite-база монтируется напрямую из host-файла `./db.sqlite3`;
 - `media/` тоже монтируется отдельно и не теряется при пересборке контейнера;
+- контейнер перед запуском выполняет `collectstatic`, чтобы актуальные иконки, CSS и JS попадали в `staticfiles/`;
 - автозагрузка модели в базовом compose отключена через `VOSK_AUTO_DOWNLOAD=0`;
 - compact-модель `vosk-model-small-ru-0.22` исключена из Docker build context, чтобы не раздувать образ.
 
@@ -188,6 +189,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 В dev-варианте:
 
 - весь репозиторий монтируется в контейнер для быстрых правок;
+- `DJANGO_DEBUG=1`, поэтому локально Django берёт статику прямо из `static/`;
 - SQLite снова смотрит на обычный путь проекта `db.sqlite3`, чтобы локально можно было использовать существующую базу;
 - `VOSK_AUTO_DOWNLOAD=1`, поэтому локально контейнер при необходимости сможет докачать модель.
 

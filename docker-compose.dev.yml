@@ -3,5 +3,6 @@ services:
     volumes:
       - .:/home/sysuser/music-Gradebook
     environment:
+      DJANGO_DEBUG: "1"
       DJANGO_SQLITE_PATH: /home/sysuser/music-Gradebook/db.sqlite3
       VOSK_AUTO_DOWNLOAD: "1"
