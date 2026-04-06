@@ -8,6 +8,7 @@ services:
       - ./models/vosk:/home/sysuser/music-Gradebook/models/vosk:ro
       - ./media:/home/sysuser/music-Gradebook/media
       - ./db.sqlite3:/home/sysuser/music-Gradebook/db.sqlite3
+      - ./staticfiles:/home/sysuser/music-Gradebook/staticfiles
     ports:
       - "8000:8000"
     environment:
