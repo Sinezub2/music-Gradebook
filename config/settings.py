@@ -119,14 +119,13 @@ MEDIA_ROOT = BASE_DIR / "media"
 VOSK_MODEL_PATH = Path(os.getenv("VOSK_MODEL_PATH", BASE_DIR / "models" / "vosk"))
 
 # Use plain static paths in local debug, fingerprinted assets in production.
+use_compressed_static = _env_bool("DJANGO_STATICFILES_COMPRESS", not DEBUG)
 if DEBUG:
     staticfiles_backend = "django.contrib.staticfiles.storage.StaticFilesStorage"
+elif use_compressed_static and HAS_WHITENOISE:
+    staticfiles_backend = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 else:
-    staticfiles_backend = (
-        "whitenoise.storage.CompressedManifestStaticFilesStorage"
-        if HAS_WHITENOISE
-        else "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
-    )
+    staticfiles_backend = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
 
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

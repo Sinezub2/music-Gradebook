@@ -5,7 +5,12 @@ from pathlib import Path
 from uuid import uuid4
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
+
+from apps.accounts.models import Profile
 
 from . import speech
 
@@ -109,3 +114,34 @@ class SpeechModuleTests(SimpleTestCase):
             discovered_model = speech._discover_model_path()
 
         self.assertEqual(discovered_model, expected_model)
+
+
+class SpeechViewTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="speech-user", password="test-pass-123")
+        Profile.objects.create(user=self.user, role=Profile.Role.TEACHER)
+        self.client.force_login(self.user)
+
+    def test_speech_warmup_returns_ready_json(self):
+        with patch("apps.school.views.warmup_vosk_model", return_value=Path("/tmp/vosk")) as warmup:
+            response = self.client.get(reverse("speech_warmup"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"status": "ready", "model_path": str(Path("/tmp/vosk"))},
+        )
+        warmup.assert_called_once_with()
+
+    def test_speech_transcribe_returns_json_for_unexpected_errors(self):
+        audio = SimpleUploadedFile("speech.wav", b"RIFF", content_type="audio/wav")
+
+        with patch("apps.school.views.transcribe_wav_bytes", side_effect=RuntimeError("boom")):
+            response = self.client.post(reverse("speech_transcribe"), {"audio": audio})
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Внутренняя ошибка распознавания речи."},
+        )

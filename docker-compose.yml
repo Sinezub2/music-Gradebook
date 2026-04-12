@@ -13,15 +13,17 @@ services:
       - "8000:8000"
     environment:
       DJANGO_DEBUG: "0"
+      DJANGO_STATICFILES_COMPRESS: "0"
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
       DJANGO_SQLITE_PATH: /home/sysuser/music-Gradebook/db.sqlite3
       VOSK_MODEL_PATH: /home/sysuser/music-Gradebook/models/vosk
       VOSK_MODEL_URL: https://alphacephei.com/vosk/models/vosk-model-ru-0.22.zip
       VOSK_AUTO_DOWNLOAD: "0"
+      VOSK_WARMUP_ON_STARTUP: "1"
     entrypoint:
       - music-gradebook-entrypoint
     command:
       - sh
       - -c
-      - python manage.py collectstatic --noinput && python manage.py migrate && python manage.py runserver 0.0.0.0:8000
+      - python manage.py collectstatic --noinput && python manage.py migrate && if [ "${VOSK_WARMUP_ON_STARTUP:-1}" = "1" ]; then python manage.py runserver_vosk 0.0.0.0:8000; else python manage.py runserver 0.0.0.0:8000; fi

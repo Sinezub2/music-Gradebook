@@ -1,4 +1,5 @@
 # apps/school/views.py
+import logging
 from pathlib import Path
 
 from django.shortcuts import render, get_object_or_404, redirect
@@ -6,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, JsonResponse
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from apps.accounts.models import Profile
 from apps.gradebook.models import Grade
@@ -14,13 +15,15 @@ from apps.goals.models import Goal
 from apps.homework.models import AssignmentTarget
 from apps.lessons.models import LessonReport, LessonStudent
 from .models import Course, Enrollment, ParentChild
-from .speech import SpeechToTextConfigError, transcribe_wav_bytes
+from .speech import SpeechToTextConfigError, transcribe_wav_bytes, warmup_vosk_model
 from .utils import (
     get_teacher_student_or_404,
     get_teacher_students,
     get_user_single_class,
     resolve_teacher_course_for_student,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -260,6 +263,20 @@ def teacher_student_workspace(request, student_id: int):
     )
 
 
+@require_GET
+@login_required
+def speech_warmup(request):
+    try:
+        model_path = warmup_vosk_model()
+    except SpeechToTextConfigError as exc:
+        return JsonResponse({"error": str(exc)}, status=503)
+    except Exception:
+        logger.exception("Speech warm-up failed unexpectedly.")
+        return JsonResponse({"error": "Не удалось подготовить распознавание речи."}, status=500)
+
+    return JsonResponse({"status": "ready", "model_path": str(model_path)})
+
+
 @require_POST
 @login_required
 def speech_transcribe(request):
@@ -277,5 +294,8 @@ def speech_transcribe(request):
         return JsonResponse({"error": str(exc)}, status=503)
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
+    except Exception:
+        logger.exception("Speech transcription failed unexpectedly.")
+        return JsonResponse({"error": "Внутренняя ошибка распознавания речи."}, status=500)
 
     return JsonResponse({"text": text})

@@ -5,6 +5,9 @@
       navigator.mediaDevices.getUserMedia &&
       AudioContextClass
   );
+  const speechButtons = Array.from(document.querySelectorAll("[data-speech-button]"));
+  let warmupPromise = null;
+  let isWarm = false;
 
   function getCookie(name) {
     const cookieValue = document.cookie
@@ -90,6 +93,70 @@
     field.focus();
   }
 
+  async function parseJsonResponse(response, fallbackMessage) {
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const text = (await response.text()).replace(/\s+/g, " ").trim();
+      const snippet = text.slice(0, 120);
+      throw new Error(
+        snippet
+          ? "Сервер вернул HTML вместо JSON: " + snippet
+          : fallbackMessage
+      );
+    }
+    return response.json();
+  }
+
+  function setWarmupLoading(isLoading) {
+    speechButtons.forEach(function (button) {
+      if (!isSupported || (activeSession && activeSession.button === button)) {
+        return;
+      }
+      button.disabled = isLoading;
+      button.classList.toggle("is-loading", isLoading);
+      if (isLoading) {
+        button.title = "Подготавливаем распознавание речи...";
+      } else {
+        button.removeAttribute("title");
+      }
+    });
+  }
+
+  async function warmupSpeech() {
+    if (!isSupported || !speechButtons.length || isWarm) {
+      return;
+    }
+    if (!warmupPromise) {
+      setWarmupLoading(true);
+      warmupPromise = fetch("/speech/warmup/", {
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      })
+        .then(async function (response) {
+          const data = await parseJsonResponse(
+            response,
+            "Не удалось подготовить распознавание речи."
+          );
+          if (!response.ok) {
+            throw new Error(
+              data.error || "Не удалось подготовить распознавание речи."
+            );
+          }
+          isWarm = true;
+          return data;
+        })
+        .catch(function (error) {
+          warmupPromise = null;
+          throw error;
+        })
+        .finally(function () {
+          setWarmupLoading(false);
+        });
+    }
+    return warmupPromise;
+  }
+
   let activeSession = null;
 
   async function stopRecording(button) {
@@ -120,7 +187,10 @@
         },
         body: payload,
       });
-      const data = await response.json();
+      const data = await parseJsonResponse(
+        response,
+        "Не удалось распознать аудио."
+      );
       if (!response.ok) {
         throw new Error(data.error || "Не удалось распознать аудио.");
       }
@@ -170,11 +240,15 @@
     button.classList.add("is-recording");
   }
 
-  document.querySelectorAll("[data-speech-button]").forEach(function (button) {
+  speechButtons.forEach(function (button) {
     if (!isSupported) {
       button.disabled = true;
       button.title = "Запись с микрофона не поддерживается в этом браузере.";
     }
+  });
+
+  warmupSpeech().catch(function () {
+    // Allow a retry when the user clicks the button later.
   });
 
   document.addEventListener("click", async function (event) {
@@ -190,6 +264,7 @@
       if (activeSession && activeSession.button === button) {
         await stopRecording(button);
       } else {
+        await warmupSpeech();
         await startRecording(button);
       }
     } catch (error) {

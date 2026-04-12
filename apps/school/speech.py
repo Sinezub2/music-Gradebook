@@ -167,6 +167,12 @@ def _get_vosk_model():
     return _CACHED_VOSK_MODEL
 
 
+def warmup_vosk_model() -> Path:
+    model_path = _discover_model_path()
+    _get_vosk_model()
+    return model_path
+
+
 def transcribe_wav_bytes(audio_bytes: bytes) -> str:
     try:
         from vosk import KaldiRecognizer
