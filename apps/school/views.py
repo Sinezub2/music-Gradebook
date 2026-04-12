@@ -2,6 +2,7 @@
 import logging
 from pathlib import Path
 
+from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, JsonResponse
@@ -9,6 +10,7 @@ from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from apps.accounts.forms import TeacherStudentCycleForm
 from apps.accounts.models import Profile
 from apps.gradebook.models import Grade
 from apps.goals.models import Goal
@@ -217,6 +219,14 @@ def teacher_student_workspace(request, student_id: int):
         return HttpResponseForbidden("Доступ запрещён.")
 
     student = get_teacher_student_or_404(request.user, student_id)
+    cycle_form = TeacherStudentCycleForm(instance=student.profile)
+    if request.method == "POST":
+        cycle_form = TeacherStudentCycleForm(request.POST, instance=student.profile)
+        if cycle_form.is_valid():
+            cycle_form.save()
+            messages.success(request, "Цикл ученика обновлён.")
+            return redirect(f"/teacher/students/{student.id}/")
+
     teacher_courses = list(
         Course.objects.filter(teacher=request.user, enrollments__student=student).distinct().order_by("name")
     )
@@ -259,6 +269,7 @@ def teacher_student_workspace(request, student_id: int):
             "recent_grades": recent_grades,
             "goals": goals,
             "current_half_year": current_half_year,
+            "cycle_form": cycle_form,
         },
     )
 

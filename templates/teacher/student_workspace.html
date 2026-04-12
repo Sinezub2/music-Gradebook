@@ -3,7 +3,15 @@
 {% block content %}
   <section class="page-head">
     <h1>{{ student.get_full_name|default:"Без имени" }}</h1>
-    <p>Цикл: {{ student.profile.get_cycle_display }}</p>
+    <form method="post" class="form-row" style="align-items:end; gap:8px; margin: 8px 0 0;">
+      {% csrf_token %}
+      <div>
+        <label class="muted small">{{ cycle_form.cycle.label }}</label>
+        {{ cycle_form.cycle }}
+        {% if cycle_form.cycle.errors %}<div class="error">{{ cycle_form.cycle.errors }}</div>{% endif %}
+      </div>
+      <button class="btn btn-small" type="submit" style="padding:5px 9px; font-size:12px; line-height:1.2; white-space:nowrap;">Сохранить</button>
+    </form>
     <p class="muted">Класс: {% if student.profile.school_grade %}{{ student.profile.school_grade }}{% else %}не указан{% endif %}</p>
     <p class="muted">Номер классного руководителя: {% if student.profile.class_curator_phone %}{{ student.profile.class_curator_phone }}{% else %}не указан{% endif %}</p>
   </section>
@@ -24,7 +32,6 @@
         <a class="btn btn-small" href="/teacher/students/{{ student.id }}/schedule/">Настроить расписание</a>
         <span class="muted small">Если курсов несколько, уроки привяжутся к одному курсу автоматически.</span>
       {% endif %}
-      <a class="btn btn-small" href="/teacher/students/{{ student.id }}/goals/create/">Добавить в полугодовой план</a>
       <a class="btn btn-small" href="/goals/?student={{ student.id }}&half_year={{ current_half_year }}">Полугодовой план</a>
     </div>
   </section>

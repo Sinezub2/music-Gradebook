@@ -26,6 +26,7 @@ from .forms import (
     ActivationCodeCreateForm,
     LibraryVideoUploadForm,
     LoginForm,
+    ParentChildLinkForm,
     RegistrationForm,
     StudentProfileDetailsForm,
     UsernameChangeForm,
@@ -188,14 +189,17 @@ def _course_summary_context(user) -> dict:
     return ctx
 
 
-def _profile_context(user, *, username_form, password_form, student_details_form=None) -> dict:
+def _profile_context(user, *, username_form, password_form, student_details_form=None, parent_child_link_form=None) -> dict:
     if student_details_form is None and user.profile.role == Profile.Role.STUDENT:
         student_details_form = StudentProfileDetailsForm(instance=user.profile)
+    if parent_child_link_form is None and user.profile.role == Profile.Role.PARENT:
+        parent_child_link_form = ParentChildLinkForm(parent_user=user)
     return {
         "display_name": get_user_display_name(user),
         "username_form": username_form,
         "password_form": password_form,
         "student_details_form": student_details_form,
+        "parent_child_link_form": parent_child_link_form,
         **_course_summary_context(user),
     }
 
@@ -1035,6 +1039,36 @@ def profile_change_student_details(request):
             username_form=UsernameChangeForm(request.user),
             password_form=PasswordChangeForm(request.user),
             student_details_form=student_details_form,
+        ),
+        status=400,
+    )
+
+
+@login_required
+@require_POST
+def profile_add_child(request):
+    if request.user.profile.role != Profile.Role.PARENT:
+        messages.info(request, "Эта форма доступна только родителям.")
+        return redirect("/profile/")
+
+    parent_child_link_form = ParentChildLinkForm(request.POST, parent_user=request.user)
+    if parent_child_link_form.is_valid():
+        child, created = parent_child_link_form.save(parent=request.user)
+        child_name = _display_name(child)
+        if created:
+            messages.success(request, f"Ребёнок {child_name} подключён к вашему аккаунту.")
+        else:
+            messages.info(request, f"Ребёнок {child_name} уже подключён к вашему аккаунту.")
+        return redirect("/profile/")
+
+    return render(
+        request,
+        "accounts/profile.html",
+        _profile_context(
+            request.user,
+            username_form=UsernameChangeForm(request.user),
+            password_form=PasswordChangeForm(request.user),
+            parent_child_link_form=parent_child_link_form,
         ),
         status=400,
     )

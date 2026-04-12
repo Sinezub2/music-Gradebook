@@ -9,9 +9,17 @@
       <div class="action-row">
         <div>
           <h2 style="margin-bottom: 4px;">Подключения</h2>
-          <p class="muted small" style="margin: 0;">Новые курсы и детей можно подключать по одноразовым кодам активации.</p>
+          <p class="muted small" style="margin: 0;">
+            Новые курсы подключаются по одноразовым кодам активации.
+            {% if user.profile.role == "PARENT" %}Детей можно добавить по логину и паролю ученика.{% endif %}
+          </p>
         </div>
-        <a class="btn btn-accent" href="/profile/add-course/">Добавить курс</a>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a class="btn btn-accent" href="/profile/add-course/">Добавить курс</a>
+          {% if user.profile.role == "PARENT" %}
+            <a class="btn" href="#parent-child-link-form">Добавить ребёнка</a>
+          {% endif %}
+        </div>
       </div>
 
       {% if user.profile.role == "STUDENT" %}
@@ -60,6 +68,27 @@
           </div>
         {% else %}
           <p class="muted" style="margin-top: 12px;">Дети пока не подключены.</p>
+        {% endif %}
+
+        {% if parent_child_link_form %}
+          <div class="panel" id="parent-child-link-form" style="padding: 12px; margin-top: 12px;">
+            <h3 style="margin: 0 0 8px;">Подключить ребёнка</h3>
+            <form method="post" action="/profile/add-child/" class="form">
+              {% csrf_token %}
+              <div class="form-row">
+                <label>{{ parent_child_link_form.child_username.label }}</label>
+                {{ parent_child_link_form.child_username }}
+                {% if parent_child_link_form.child_username.errors %}<div class="error">{{ parent_child_link_form.child_username.errors }}</div>{% endif %}
+              </div>
+              <div class="form-row">
+                <label>{{ parent_child_link_form.child_password.label }}</label>
+                {{ parent_child_link_form.child_password }}
+                {% if parent_child_link_form.child_password.errors %}<div class="error">{{ parent_child_link_form.child_password.errors }}</div>{% endif %}
+              </div>
+              {% if parent_child_link_form.non_field_errors %}<div class="error">{{ parent_child_link_form.non_field_errors }}</div>{% endif %}
+              <button class="btn" type="submit">Подключить ребёнка</button>
+            </form>
+          </div>
         {% endif %}
       {% endif %}
     </div>

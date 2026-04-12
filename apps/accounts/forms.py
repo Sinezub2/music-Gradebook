@@ -1,10 +1,10 @@
 # apps/accounts/forms.py
 from django import forms
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.exceptions import ValidationError
 
-from apps.school.models import Course, Enrollment
+from apps.school.models import Course, Enrollment, ParentChild
 
 from .models import ActivationCode, LibraryVideo, Profile, LIBRARY_VIDEO_EXTENSIONS
 
@@ -159,6 +159,62 @@ class StudentProfileDetailsForm(forms.ModelForm):
             "school_grade": forms.TextInput(attrs={"placeholder": "Например, 7Б"}),
             "class_curator_phone": forms.TextInput(attrs={"placeholder": "Например, +7 777 123 45 67"}),
         }
+
+
+class TeacherStudentCycleForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ("cycle",)
+        labels = {
+            "cycle": "Цикл",
+        }
+
+
+class ParentChildLinkForm(forms.Form):
+    child_username = forms.CharField(
+        label="Логин ребёнка",
+        max_length=150,
+        widget=forms.TextInput(attrs={"placeholder": "Логин ученика"}),
+    )
+    child_password = forms.CharField(
+        label="Пароль ребёнка",
+        widget=forms.PasswordInput(attrs={"placeholder": "Пароль ученика"}),
+    )
+
+    def __init__(self, *args, parent_user=None, **kwargs):
+        self.parent_user = parent_user
+        self.child_user = None
+        super().__init__(*args, **kwargs)
+
+    def clean_child_username(self):
+        return (self.cleaned_data.get("child_username") or "").strip()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        username = cleaned_data.get("child_username")
+        password = cleaned_data.get("child_password")
+        if not username or not password:
+            return cleaned_data
+
+        child_user = authenticate(username=username, password=password)
+        if child_user is None:
+            raise forms.ValidationError("Проверьте логин и пароль ученика.")
+
+        profile = getattr(child_user, "profile", None)
+        if profile is None or profile.role != Profile.Role.STUDENT:
+            raise forms.ValidationError("Можно подключить только аккаунт ученика.")
+
+        if self.parent_user and child_user.id == self.parent_user.id:
+            raise forms.ValidationError("Нельзя подключить собственный аккаунт.")
+
+        self.child_user = child_user
+        return cleaned_data
+
+    def save(self, *, parent):
+        if self.child_user is None:
+            raise ValueError("Форма должна быть валидной перед сохранением.")
+        _, created = ParentChild.objects.get_or_create(parent=parent, child=self.child_user)
+        return self.child_user, created
 
 
 class LibraryVideoUploadForm(forms.ModelForm):

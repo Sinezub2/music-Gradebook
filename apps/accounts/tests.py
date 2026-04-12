@@ -156,6 +156,7 @@ class LibraryAndStudentProfileTests(TestCase):
         self.teacher = self._create_user("teacher_library", Profile.Role.TEACHER)
         self.student = self._create_user("student_library", Profile.Role.STUDENT)
         self.parent = self._create_user("parent_library", Profile.Role.PARENT)
+        self.second_child = self._create_user("student_second", Profile.Role.STUDENT)
         self.course = Course.objects.create(name="Скрипка 1", course_type=self.course_type, teacher=self.teacher)
         Enrollment.objects.create(course=self.course, student=self.student)
         ParentChild.objects.create(parent=self.parent, child=self.student)
@@ -235,3 +236,29 @@ class LibraryAndStudentProfileTests(TestCase):
         workspace_response = self.client.get(f"/teacher/students/{self.student.id}/")
         self.assertContains(workspace_response, "Класс: 7Б")
         self.assertContains(workspace_response, "Номер классного руководителя: +7 777 123 45 67")
+
+    def test_parent_profile_shows_child_link_form(self):
+        self.client.force_login(self.parent)
+
+        response = self.client.get("/profile/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Подключить ребёнка")
+        self.assertContains(response, "Логин ребёнка")
+        self.assertContains(response, "Пароль ребёнка")
+
+    def test_parent_can_link_second_child_from_profile_using_student_credentials(self):
+        self.client.force_login(self.parent)
+
+        response = self.client.post(
+            "/profile/add-child/",
+            data={
+                "child_username": self.second_child.username,
+                "child_password": "pass12345",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(ParentChild.objects.filter(parent=self.parent, child=self.second_child).exists())
+        self.assertContains(response, "student_second User")
