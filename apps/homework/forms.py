@@ -13,12 +13,12 @@ class AssignmentCreateForm(forms.Form):
         label="Название (опционально)",
         max_length=200,
         required=False,
-        widget=forms.TextInput(attrs={"class": "input", "data-speech-input": "1"}),
+        widget=forms.TextInput(attrs={"class": "input"}),
     )
     description = forms.CharField(
         label="Описание",
         required=False,
-        widget=forms.Textarea(attrs={"rows": 4, "class": "input", "data-speech-input": "1"}),
+        widget=forms.Textarea(attrs={"rows": 4, "class": "input"}),
     )
     due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
@@ -70,12 +70,12 @@ class StudentAssignmentCreateForm(forms.Form):
         label="Название (опционально)",
         max_length=200,
         required=False,
-        widget=forms.TextInput(attrs={"class": "input", "data-speech-input": "1"}),
+        widget=forms.TextInput(attrs={"class": "input"}),
     )
     description = forms.CharField(
         label="Описание",
         required=False,
-        widget=forms.Textarea(attrs={"rows": 4, "class": "input", "data-speech-input": "1"}),
+        widget=forms.Textarea(attrs={"rows": 4, "class": "input"}),
     )
     due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
@@ -93,7 +93,7 @@ class AssignmentSubmissionForm(forms.Form):
     student_comment = forms.CharField(
         label="Комментарий",
         required=False,
-        widget=forms.Textarea(attrs={"rows": 3, "class": "input", "data-speech-input": "1"}),
+        widget=forms.Textarea(attrs={"rows": 3, "class": "input"}),
     )
     video = forms.FileField(
         label="Видео",

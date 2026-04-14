@@ -24,20 +24,14 @@
         {% for value in entered_titles %}
           <div class="form-row" data-goal-row>
             <label>Пункт плана</label>
-            <div class="speech-field" data-speech-field>
-              <input class="input" type="text" name="goal_titles" value="{{ value }}" placeholder="Пункт полугодового плана" data-speech-input="1"/>
-              {% include "partials/speech_button.html" %}
-            </div>
+            <input class="input" type="text" name="goal_titles" value="{{ value }}" placeholder="Пункт полугодового плана"/>
           </div>
         {% endfor %}
       </div>
       <template id="student-goal-row-template">
         <div class="form-row" data-goal-row>
           <label>Пункт плана</label>
-          <div class="speech-field" data-speech-field>
-            <input class="input" type="text" name="goal_titles" placeholder="Пункт полугодового плана" data-speech-input="1"/>
-            {% include "partials/speech_button.html" %}
-          </div>
+          <input class="input" type="text" name="goal_titles" placeholder="Пункт полугодового плана"/>
         </div>
       </template>
 

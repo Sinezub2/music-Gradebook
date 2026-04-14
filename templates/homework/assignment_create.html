@@ -38,20 +38,14 @@
 
       <div class="form-row">
         <label>{{ form.title.label }}</label>
-        <div class="speech-field" data-speech-field>
-          {{ form.title }}
-          {% include "partials/speech_button.html" %}
-        </div>
+        {{ form.title }}
         {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
         <div class="muted small">Если добавлены композиции ниже, для каждой создаётся отдельное задание.</div>
       </div>
 
       <div class="form-row">
         <label>{{ form.description.label }}</label>
-        <div class="speech-field speech-field--textarea" data-speech-field>
-          {{ form.description }}
-          {% include "partials/speech_button.html" %}
-        </div>
+        {{ form.description }}
         {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
       </div>
 
@@ -61,10 +55,7 @@
           <div class="card" style="margin-bottom: 10px;" data-composition-row>
             <div class="form-row">
               <label>Название композиции</label>
-              <div class="speech-field" data-speech-field>
-                <input class="input" type="text" name="composition_name" value="{{ composition }}" placeholder="Например, Этюд №5" data-speech-input="1">
-                {% include "partials/speech_button.html" %}
-              </div>
+              <input class="input" type="text" name="composition_name" value="{{ composition }}" placeholder="Например, Этюд №5">
             </div>
           </div>
         {% endfor %}
@@ -73,10 +64,7 @@
         <div class="card" style="margin-bottom: 10px;" data-composition-row>
           <div class="form-row">
             <label>Название композиции</label>
-            <div class="speech-field" data-speech-field>
-              <input class="input" type="text" name="composition_name" placeholder="Например, Этюд №5" data-speech-input="1">
-              {% include "partials/speech_button.html" %}
-            </div>
+            <input class="input" type="text" name="composition_name" placeholder="Например, Этюд №5">
           </div>
         </div>
       </template>

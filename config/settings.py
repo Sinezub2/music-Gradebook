@@ -116,7 +116,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-VOSK_MODEL_PATH = Path(os.getenv("VOSK_MODEL_PATH", BASE_DIR / "models" / "vosk"))
+SERVE_MEDIA = _env_bool("DJANGO_SERVE_MEDIA", DEBUG)
 
 # Use plain static paths in local debug, fingerprinted assets in production.
 use_compressed_static = _env_bool("DJANGO_STATICFILES_COMPRESS", not DEBUG)

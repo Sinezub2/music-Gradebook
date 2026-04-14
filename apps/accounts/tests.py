@@ -213,6 +213,35 @@ class LibraryAndStudentProfileTests(TestCase):
         self.assertContains(response, "Родитель: parent_library User")
         self.assertContains(response, "Видео будет доступно только выбранному ученику, его родителю и вам.")
 
+    def test_uploaded_library_video_file_is_served_with_debug_disabled_when_media_serving_enabled(self):
+        with self.settings(
+            DEBUG=False,
+            SERVE_MEDIA=True,
+            MEDIA_ROOT=self.media_root,
+            STORAGES={
+                "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+                "staticfiles": settings.STORAGES["staticfiles"],
+            },
+        ):
+            self.client.force_login(self.teacher)
+            upload = SimpleUploadedFile("practice.mp4", b"video-bytes", content_type="video/mp4")
+            response = self.client.post(
+                f"/library/?student={self.student.id}&upload=1",
+                data={
+                    "title": "Проверка доступа",
+                    "video": upload,
+                    "upload_video": "1",
+                },
+            )
+
+            self.assertEqual(response.status_code, 302)
+            saved_video = LibraryVideo.objects.get()
+            self.assertTrue(Path(saved_video.video.path).exists())
+
+            media_response = self.client.get(saved_video.video.url)
+            self.assertEqual(media_response.status_code, 200)
+            self.assertEqual(media_response.content, b"video-bytes")
+
     def test_student_can_update_school_details_and_teacher_sees_them(self):
         self.client.force_login(self.student)
         response = self.client.post(

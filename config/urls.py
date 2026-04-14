@@ -1,13 +1,22 @@
+import re
+from urllib.parse import urlsplit
+
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.http import Http404
+from django.urls import path, include, re_path
 from django.shortcuts import redirect
-from django.views.generic import TemplateView
+from django.views.static import serve as serve_static_file
 
 
 def root_redirect(_request):
     return redirect("/dashboard")
+
+
+def serve_media(request, path):
+    if not settings.DEBUG and not settings.SERVE_MEDIA:
+        raise Http404()
+    return serve_static_file(request, path, document_root=settings.MEDIA_ROOT, show_indexes=False)
 
 
 urlpatterns = [
@@ -33,5 +42,16 @@ urlpatterns = [
 
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.MEDIA_URL and not urlsplit(settings.MEDIA_URL).netloc:
+    urlpatterns += [
+        path(
+            f"{settings.MEDIA_URL.lstrip('/')}" if settings.MEDIA_URL.endswith("/") else settings.MEDIA_URL.lstrip("/"),
+            root_redirect,
+        )
+    ]
+    urlpatterns += [
+        re_path(
+            r"^%s(?P<path>.*)$" % re.escape(settings.MEDIA_URL.lstrip("/")),
+            serve_media,
+        )
+    ]

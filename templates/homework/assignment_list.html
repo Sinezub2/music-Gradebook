@@ -123,10 +123,7 @@
                       {% csrf_token %}
                       <div class="form-row">
                         <label for="student-comment-{{ r.target.id }}">Комментарий</label>
-                        <div class="speech-field speech-field--textarea" data-speech-field>
-                          <textarea class="input" id="student-comment-{{ r.target.id }}" name="student_comment" rows="3" data-speech-input="1" placeholder="Коротко опишите результат"></textarea>
-                          {% include "partials/speech_button.html" %}
-                        </div>
+                        <textarea class="input" id="student-comment-{{ r.target.id }}" name="student_comment" rows="3" placeholder="Коротко опишите результат"></textarea>
                       </div>
                       <div class="form-row">
                         <label for="student-video-{{ r.target.id }}">Видео</label>

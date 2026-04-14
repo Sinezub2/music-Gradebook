@@ -446,48 +446,6 @@ input.btn[type="submit"]:hover,
   max-width: 120px;
 }
 
-.speech-field {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.speech-field > .input,
-.speech-field > input,
-.speech-field > textarea {
-  flex: 1 1 auto;
-}
-
-.speech-btn {
-  width: 38px;
-  min-width: 38px;
-  height: 38px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-alt);
-}
-
-.speech-btn:hover {
-  background: rgba(79, 138, 124, 0.12);
-}
-
-.speech-btn.is-recording {
-  border-color: rgba(154, 89, 89, 0.48);
-  background: rgba(154, 89, 89, 0.12);
-}
-
-.speech-btn.is-loading {
-  border-color: rgba(79, 138, 124, 0.38);
-  background: rgba(79, 138, 124, 0.12);
-}
-
-.speech-btn-icon {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
-}
 
 .plan-checkbox-list {
   display: grid;
