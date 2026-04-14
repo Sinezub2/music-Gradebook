@@ -9,7 +9,7 @@
   </div>
 
   {% if can_edit %}
-    <div style="margin-bottom: 16px;">
+    <div id="goals-actions-root" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px;">
       {% if selected_student_id %}
         {% if user.profile.role == "TEACHER" %}
           <a class="btn" href="/teacher/students/{{ selected_student_id }}/goals/create/?half_year={{ selected_half_year }}">Добавить в полугодовой план</a>
@@ -19,23 +19,49 @@
       {% else %}
         <span class="muted small">Ученик не выбран.</span>
       {% endif %}
+      {% if can_bulk_delete %}
+        <button class="btn" type="button" data-delete-toggle>Режим удаления</button>
+      {% endif %}
     </div>
   {% endif %}
 
   {% if goal_groups %}
+    {% if can_bulk_delete %}
+      <form id="goal-bulk-delete-form" method="post" action="/goals/bulk-delete/" onsubmit="return confirm('Удалить выбранные элементы?')">
+        {% csrf_token %}
+        <input type="hidden" name="student" value="{{ selected_student_id }}"/>
+        <input type="hidden" name="half_year" value="{{ selected_half_year }}"/>
+        <div class="delete-mode-only" style="margin:0 0 10px;display:none;">
+          <button class="btn" type="submit">Удалить выбранное</button>
+        </div>
+      </form>
+    {% endif %}
     {% for group in goal_groups %}
       <h2>{{ group.label }}</h2>
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
+              {% if can_bulk_delete %}
+                <th class="delete-mode-only" style="display:none;"></th>
+              {% endif %}
               <th>Пункт плана</th>
               <th>Статус</th>
+              {% if can_edit %}
+                <th>Действия</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody>
             {% for row in group.rows %}
               <tr>
+                {% if can_bulk_delete %}
+                  <td class="delete-mode-only" style="display:none;">
+                    {% if row.can_delete %}
+                      <input type="checkbox" name="selected_ids" value="{{ row.goal.id }}" form="goal-bulk-delete-form"/>
+                    {% endif %}
+                  </td>
+                {% endif %}
                 <td><strong>{{ row.goal.title }}</strong></td>
                 <td>
                   {% if row.can_update_status %}
@@ -53,6 +79,15 @@
                     <span class="tag">{{ row.status_label }}</span>
                   {% endif %}
                 </td>
+                {% if can_edit %}
+                  <td>
+                    {% if row.can_edit %}
+                      <a class="btn btn-small" href="{{ row.edit_url }}">Изменить</a>
+                    {% else %}
+                      <span class="muted small">—</span>
+                    {% endif %}
+                  </td>
+                {% endif %}
               </tr>
             {% endfor %}
           </tbody>
@@ -62,4 +97,26 @@
   {% else %}
     <p class="muted">Полугодовой план пока не заполнен.</p>
   {% endif %}
+
+  <script>
+    (function () {
+      const root = document.getElementById("goals-actions-root");
+      if (!root) return;
+      const toggle = root.querySelector("[data-delete-toggle]");
+      if (!toggle) return;
+      const controls = document.querySelectorAll(".delete-mode-only");
+      toggle.addEventListener("click", function () {
+        root.classList.toggle("delete-mode");
+        const visible = root.classList.contains("delete-mode");
+        toggle.textContent = visible ? "Скрыть удаление" : "Режим удаления";
+        controls.forEach(function (el) {
+          if (el.tagName === "TH" || el.tagName === "TD") {
+            el.style.display = visible ? "table-cell" : "none";
+          } else {
+            el.style.display = visible ? "block" : "none";
+          }
+        });
+      });
+    })();
+  </script>
 {% endblock %}

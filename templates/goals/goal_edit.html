@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Полугодовой план{% endblock %}
+{% block content %}
+  <h1>Полугодовой план</h1>
+  <p class="muted">Ученик: {{ goal.student.get_full_name|default:"Без имени" }}</p>
+
+  <div class="card">
+    <form method="post" class="form" id="goal-edit-form">
+      {% csrf_token %}
+      <input type="hidden" name="student" value="{{ selected_student_id }}">
+      <input type="hidden" name="half_year" id="goal-edit-half-year" value="{{ selected_half_year }}">
+
+      <div class="form-row">
+        <label>Полугодие</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn js-half-year-btn" data-value="H1">I полугодие</button>
+          <button type="button" class="btn js-half-year-btn" data-value="H2">II полугодие</button>
+        </div>
+      </div>
+      {% if half_year_error %}
+        <div class="error">{{ half_year_error }}</div>
+      {% endif %}
+
+      <div class="form-row">
+        <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+        {{ form.title }}
+      </div>
+      {% for error in form.title.errors %}
+        <div class="error">{{ error }}</div>
+      {% endfor %}
+
+      <button class="btn" type="submit">Сохранить</button>
+      <a class="btn" href="{{ cancel_url }}">Отмена</a>
+    </form>
+  </div>
+
+  <script>
+    (function () {
+      const halfYearInput = document.getElementById("goal-edit-half-year");
+      const halfYearButtons = document.querySelectorAll(".js-half-year-btn");
+      if (!halfYearInput || !halfYearButtons.length) return;
+
+      function paintHalfYearButtons() {
+        halfYearButtons.forEach(function (button) {
+          const active = button.getAttribute("data-value") === halfYearInput.value;
+          button.style.background = active ? "#2f7a64" : "";
+          button.style.borderColor = active ? "#2f7a64" : "";
+          button.style.color = active ? "#fff" : "";
+        });
+      }
+
+      halfYearButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          halfYearInput.value = button.getAttribute("data-value");
+          paintHalfYearButtons();
+        });
+      });
+
+      paintHalfYearButtons();
+    })();
+  </script>
+{% endblock %}

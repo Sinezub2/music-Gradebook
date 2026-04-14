@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 from apps.accounts.models import Profile
 from apps.school.models import Course, ParentChild
+from .forms import GoalForm
 from .models import Goal
 from apps.school.utils import get_teacher_student_or_404
 
@@ -59,18 +60,33 @@ def _build_goals_url(student_id: str, half_year: str = "") -> str:
     return f"/goals/?{urlencode(params)}" if params else "/goals/"
 
 
-def _half_year_start_from_selection(selected_half_year: str):
-    today = date.today()
+def _build_goal_edit_url(goal_id: int, student_id: str = "", half_year: str = "") -> str:
+    params = {}
+    if student_id:
+        params["student"] = student_id
+    normalized_half_year = _normalize_half_year(half_year, fallback_to_current=False)
+    if normalized_half_year:
+        params["half_year"] = normalized_half_year
+    base_url = f"/goals/{goal_id}/edit/"
+    return f"{base_url}?{urlencode(params)}" if params else base_url
+
+
+def _half_year_start_from_selection(selected_half_year: str, *, year: int | None = None):
+    target_year = year or date.today().year
     if selected_half_year == HALF_YEAR_I:
-        return date(today.year, 1, 1)
+        return date(target_year, 1, 1)
     if selected_half_year == HALF_YEAR_II:
-        return date(today.year, 7, 1)
+        return date(target_year, 7, 1)
     return None
 
 
 def _half_year_label(month_value: date) -> str:
     half = "I полугодие" if month_value.month <= 6 else "II полугодие"
     return f"{half} {month_value.year}"
+
+
+def _half_year_code_from_month(month_value: date) -> str:
+    return HALF_YEAR_I if month_value.month <= 6 else HALF_YEAR_II
 
 
 def _normalize_goal_titles(raw_values: list[str], max_input_length: int = 50) -> tuple[list[str], list[str]]:
@@ -173,6 +189,7 @@ def goal_list(request):
     for goal in goals:
         half_start = goal.month.replace(day=1, month=(1 if goal.month.month <= 6 else 7))
         status_code, _ = _goal_status_from_details(goal.details)
+        can_manage_goal = _can_delete_goal(request.user, profile.role, goal, teacher_students)
         group_key = (half_start.year, half_start.month)
         if group_key not in groups:
             group_data = {
@@ -184,10 +201,12 @@ def goal_list(request):
         groups[group_key]["rows"].append(
             {
                 "goal": goal,
-                "can_delete": _can_delete_goal(request.user, profile.role, goal, teacher_students),
+                "can_delete": can_manage_goal,
+                "can_edit": can_manage_goal,
+                "edit_url": _build_goal_edit_url(goal.id, selected_student_id, selected_half_year),
                 "status_code": status_code,
                 "status_label": _goal_status_label(status_code),
-                "can_update_status": can_edit and _can_delete_goal(request.user, profile.role, goal, teacher_students),
+                "can_update_status": can_edit and can_manage_goal,
             }
         )
 
@@ -282,6 +301,55 @@ def goal_status_update(request, goal_id: int):
         selected_student_id = (raw_student_id or "").strip()
     selected_half_year = _normalize_half_year(request.POST.get("half_year") or "", fallback_to_current=False)
     return redirect(_build_goals_url(selected_student_id, selected_half_year))
+
+
+@login_required
+def goal_edit(request, goal_id: int):
+    profile = request.user.profile
+    if profile.role not in (Profile.Role.TEACHER, Profile.Role.ADMIN):
+        return HttpResponseForbidden("Доступ запрещён.")
+
+    goal = get_object_or_404(Goal.objects.select_related("student", "teacher", "student__profile"), id=goal_id)
+    teacher_students = _teacher_student_ids(request.user) if profile.role == Profile.Role.TEACHER else set()
+    if not _can_delete_goal(request.user, profile.role, goal, teacher_students):
+        return HttpResponseForbidden("Доступ запрещён.")
+
+    selected_student_id = request.GET.get("student")
+    selected_half_year = _normalize_half_year(request.GET.get("half_year") or "", fallback_to_current=False)
+    if not selected_half_year:
+        selected_half_year = _half_year_code_from_month(goal.month)
+
+    half_year_error = ""
+    if request.method == "POST":
+        raw_student_id = request.POST.get("student")
+        if raw_student_id is not None:
+            selected_student_id = (raw_student_id or "").strip()
+        selected_half_year = (request.POST.get("half_year") or "").strip()
+        form = GoalForm(request.POST, instance=goal)
+        half_start = _half_year_start_from_selection(selected_half_year, year=goal.month.year)
+        if not half_start:
+            half_year_error = "Выберите полугодие."
+        if form.is_valid() and not half_year_error:
+            updated_goal = form.save(commit=False)
+            updated_goal.month = half_start
+            updated_goal.save(update_fields=["title", "month"])
+            messages.success(request, "Пункт плана обновлён.")
+            return redirect(_build_goals_url(selected_student_id or "", selected_half_year))
+    else:
+        form = GoalForm(instance=goal)
+
+    return render(
+        request,
+        "goals/goal_edit.html",
+        {
+            "goal": goal,
+            "form": form,
+            "selected_student_id": selected_student_id or "",
+            "selected_half_year": selected_half_year,
+            "half_year_error": half_year_error,
+            "cancel_url": _build_goals_url(selected_student_id or "", selected_half_year),
+        },
+    )
 
 
 @login_required
