@@ -39,7 +39,7 @@
               <th class="delete-mode-only" style="display: none;"></th>
               <th>Дедлайн</th>
               <th>Курс</th>
-              <th>Задание</th>
+              <th>Композиция / задание</th>
               <th>Назначено</th>
             </tr>
           </thead>
@@ -56,7 +56,7 @@
                 <td>
                   <div>{{ r.assignment.title }}</div>
                   {% if r.assignment.description %}
-                    <div class="muted small">{{ r.assignment.description }}</div>
+                    <div class="muted small">Задание: {{ r.assignment.description }}</div>
                   {% endif %}
                   {% if r.assignment.attachment %}
                     <div class="muted small"><a href="{{ r.assignment.attachment.url }}">Материалы</a></div>
@@ -87,7 +87,7 @@
             <tr>
               <th>Дедлайн</th>
               <th>Курс</th>
-              <th>Задание</th>
+              <th>Композиция / задание</th>
               <th>Статус</th>
               <th></th>
             </tr>
@@ -100,7 +100,7 @@
                 <td>
                   <div>{{ r.assignment.title }}</div>
                   {% if r.assignment.description %}
-                    <div class="muted small">{{ r.assignment.description }}</div>
+                    <div class="muted small">Задание: {{ r.assignment.description }}</div>
                   {% endif %}
                   {% if r.assignment.attachment %}
                     <div class="muted small"><a href="{{ r.assignment.attachment.url }}">Материалы</a></div>
@@ -160,7 +160,7 @@
                 <tr>
                   <th>Дедлайн</th>
                   <th>Курс</th>
-                  <th>Задание</th>
+                  <th>Композиция / задание</th>
                   <th>Статус</th>
                 </tr>
               </thead>
@@ -172,7 +172,7 @@
                     <td>
                       <div>{{ r.assignment.title }}</div>
                       {% if r.assignment.description %}
-                        <div class="muted small">{{ r.assignment.description }}</div>
+                        <div class="muted small">Задание: {{ r.assignment.description }}</div>
                       {% endif %}
                       {% if r.assignment.attachment %}
                         <div class="muted small"><a href="{{ r.assignment.attachment.url }}">Материалы</a></div>
@@ -231,7 +231,7 @@
               <th class="delete-mode-only" style="display: none;"></th>
               <th>Дедлайн</th>
               <th>Курс</th>
-              <th>Задание</th>
+              <th>Композиция / задание</th>
               <th class="muted small">Создал</th>
             </tr>
           </thead>

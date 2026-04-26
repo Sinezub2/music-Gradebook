@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Домашние задания{% endblock %}
+{% block content %}
+  <h1>Домашние задания</h1>
+  <p class="muted">Ученик: {{ student.get_full_name|default:"Без имени" }}</p>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px;">
+    {% if course_status == "single" %}
+      <a class="btn" href="/teacher/students/{{ student.id }}/assignments/create/">Добавить задание</a>
+    {% else %}
+      <span class="muted small">Добавление доступно, когда у ученика один курс преподавателя.</span>
+    {% endif %}
+    <a class="btn" href="/teacher/students/{{ student.id }}/">Назад к карточке</a>
+  </div>
+
+  {% if rows %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Дедлайн</th>
+            <th>Курс</th>
+            <th>Композиция</th>
+            <th>Задание</th>
+            <th>Статус</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>{{ row.assignment.due_date|date:"d.m.Y" }}</td>
+              <td class="muted small">{{ row.assignment.course.name }}</td>
+              <td><strong>{{ row.assignment.title }}</strong></td>
+              <td>
+                {% if row.assignment.description %}
+                  {{ row.assignment.description }}
+                {% else %}
+                  <span class="muted small">—</span>
+                {% endif %}
+                {% if row.assignment.attachment %}
+                  <div class="muted small" style="margin-top:4px;"><a href="{{ row.assignment.attachment.url }}">Материалы</a></div>
+                {% endif %}
+              </td>
+              <td><span class="badge badge-{{ row.status|lower }}">{{ row.status }}</span></td>
+              <td>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <a class="btn btn-small" href="/teacher/students/{{ student.id }}/assignments/{{ row.assignment.id }}/edit/">Изменить</a>
+                  {% if row.can_delete %}
+                    <form method="post" action="/teacher/students/{{ student.id }}/assignments/{{ row.assignment.id }}/delete/" onsubmit="return confirm('Удалить это задание?')">
+                      {% csrf_token %}
+                      <button class="btn btn-small" type="submit">Удалить</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Домашних заданий пока нет.</p>
+  {% endif %}
+{% endblock %}

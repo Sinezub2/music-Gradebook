@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 from apps.accounts.models import Profile
 from apps.school.models import Course, ParentChild
+from apps.text_limits import TEXT_CHAR_LIMIT, char_limit_error, exceeds_char_limit
 from .forms import GoalForm
 from .models import Goal
 from apps.school.utils import get_teacher_student_or_404
@@ -89,15 +90,15 @@ def _half_year_code_from_month(month_value: date) -> str:
     return HALF_YEAR_I if month_value.month <= 6 else HALF_YEAR_II
 
 
-def _normalize_goal_titles(raw_values: list[str], max_input_length: int = 50) -> tuple[list[str], list[str]]:
+def _normalize_goal_titles(raw_values: list[str], max_input_length: int = TEXT_CHAR_LIMIT) -> tuple[list[str], list[str]]:
     titles = []
     errors = []
     for raw_value in raw_values:
         value = (raw_value or "").strip()
         if not value:
             continue
-        if len(value) >= max_input_length:
-            errors.append("Введите значение короче 50 символов.")
+        if exceeds_char_limit(value, max_input_length):
+            errors.append(char_limit_error(max_input_length))
             continue
         titles.append(value)
     if not titles and not errors:

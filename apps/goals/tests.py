@@ -70,6 +70,38 @@ class GoalManagementTests(TestCase):
         self.assertEqual(goal.month, date(2026, 7, 1))
         self.assertEqual(goal.details, "__status__:DONE\nКомментарий")
 
+    def test_teacher_goal_create_allows_100_characters_but_rejects_101(self):
+        self.client.force_login(self.teacher)
+        valid_title = "А" * 100
+        too_long_title = "Б" * 101
+
+        valid_response = self.client.post(
+            reverse("teacher_student_goal_create", args=[self.student.id]),
+            data={
+                "half_year": "H1",
+                "goal_titles": [valid_title],
+            },
+        )
+
+        self.assertRedirects(
+            valid_response,
+            f"/goals/?student={self.student.id}&half_year=H1",
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(Goal.objects.filter(student=self.student, title=valid_title).exists())
+
+        invalid_response = self.client.post(
+            reverse("teacher_student_goal_create", args=[self.student.id]),
+            data={
+                "half_year": "H1",
+                "goal_titles": [too_long_title],
+            },
+        )
+
+        self.assertEqual(invalid_response.status_code, 200)
+        self.assertContains(invalid_response, "Введите значение не длиннее 100 символов.")
+        self.assertFalse(Goal.objects.filter(student=self.student, title=too_long_title).exists())
+
     def test_teacher_can_bulk_delete_goal_from_goal_list(self):
         goal = Goal.objects.create(student=self.student, teacher=self.teacher, month=date(2026, 1, 1), title="Этюд")
 

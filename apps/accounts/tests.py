@@ -240,7 +240,7 @@ class LibraryAndStudentProfileTests(TestCase):
 
             media_response = self.client.get(saved_video.video.url)
             self.assertEqual(media_response.status_code, 200)
-            self.assertEqual(media_response.content, b"video-bytes")
+            self.assertEqual(b"".join(media_response.streaming_content), b"video-bytes")
 
     def test_student_can_update_school_details_and_teacher_sees_them(self):
         self.client.force_login(self.student)

@@ -26,10 +26,18 @@
           </a>
 
           {% if user.profile.role == "TEACHER" %}
-            <a class="nav-item {% if '/teacher/class/' in request.path or '/teacher/students/' in request.path %}active{% endif %}" href="/teacher/class/">
-              {% include "partials/icon.html" with name="class-group" %}
-              <span class="nav-label">Ученики</span>
-            </a>
+            {% if user.profile.can_access_individual_teacher_flow %}
+              <a class="nav-item {% if '/teacher/class/' in request.path or '/teacher/students/' in request.path %}active{% endif %}" href="/teacher/class/">
+                {% include "partials/icon.html" with name="class-group" %}
+                <span class="nav-label">Ученики</span>
+              </a>
+            {% endif %}
+            {% if user.profile.can_access_group_teacher_flow %}
+              <a class="nav-item {% if '/teacher/groups/' in request.path %}active{% endif %}" href="/teacher/groups/">
+                {% include "partials/icon.html" with name="class-group" %}
+                <span class="nav-label">Группы</span>
+              </a>
+            {% endif %}
           {% else %}
             <a class="nav-item {% if '/courses/' in request.path or '/students/' in request.path or '/portfolio/' in request.path %}active{% endif %}" href="/courses/">
               {% include "partials/icon.html" with name="class-group" %}

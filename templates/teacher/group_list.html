@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Мои группы{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Мои группы</h1>
+    <p>Теория, сольфеджио и другие групповые курсы.</p>
+  </section>
+
+  {% if group_cards %}
+    <section class="student-grid">
+      {% for card in group_cards %}
+        <article class="student-card">
+          <h3>{{ card.group.name }}</h3>
+          <p class="student-meta">{{ card.group.course_type.name }}</p>
+          <p class="student-meta">Учеников: {{ card.student_total }}</p>
+          <p class="student-meta">Заданий: {{ card.assignment_total }}</p>
+          <p class="student-meta">
+            Выполнение:
+            {% if card.total_targets %}
+              {{ card.done_targets }}/{{ card.total_targets }}
+            {% else %}
+              0/0
+            {% endif %}
+          </p>
+          <p class="student-meta">
+            Последняя тема:
+            {% if card.latest_lesson %}
+              {{ card.latest_lesson.topic }} · {{ card.latest_lesson.date|date:"d.m.Y" }}
+            {% else %}
+              <span class="muted">пока нет</span>
+            {% endif %}
+          </p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 10px;">
+            <a class="btn btn-small" href="/teacher/groups/{{ card.group.id }}/">Открыть группу</a>
+            <a class="btn btn-small" href="/teacher/groups/{{ card.group.id }}/assignments/">Задания</a>
+            <a class="btn btn-small" href="/teacher/groups/{{ card.group.id }}/attendance/">Посещаемость</a>
+            <a class="btn btn-small" href="/teacher/groups/{{ card.group.id }}/grades/">Оценки</a>
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <p class="muted">У вас пока нет назначенных групп.</p>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Новое задание группы{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Новое задание для группы</h1>
+    <p>{{ group.name }} · учеников: {{ student_total }}</p>
+  </section>
+
+  <section class="panel">
+    <form method="post" enctype="multipart/form-data" class="form">
+      {% csrf_token %}
+      <div class="form-row">
+        <div>
+          <label>{{ form.title.label }}</label>
+          {{ form.title }}
+          {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="form-row">
+        <div style="width:100%;">
+          <label>{{ form.description.label }}</label>
+          {{ form.description }}
+          {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>{{ form.due_date.label }}</label>
+          {{ form.due_date }}
+          {% if form.due_date.errors %}<div class="error">{{ form.due_date.errors }}</div>{% endif %}
+        </div>
+        <div>
+          <label>{{ form.attachment.label }}</label>
+          {{ form.attachment }}
+          {% if form.attachment.errors %}<div class="error">{{ form.attachment.errors }}</div>{% endif %}
+        </div>
+      </div>
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 12px;">
+        <button class="btn btn-accent" type="submit">Создать задание</button>
+        <a class="btn" href="/teacher/groups/{{ group.id }}/assignments/">Отмена</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

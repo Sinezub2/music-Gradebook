@@ -13,6 +13,10 @@ from apps.homework.models import AssignmentTarget
 from apps.lessons.models import LessonReport, LessonStudent
 from .models import Course, Enrollment, ParentChild
 from .utils import (
+    get_group_student_enrollments,
+    get_teacher_group_courses,
+    get_teacher_group_or_404,
+    get_teacher_group_student_or_404,
     get_teacher_student_or_404,
     get_teacher_students,
     get_user_single_class,
@@ -61,7 +65,7 @@ def course_list(request):
         return render(request, "school/course_list.html", {"courses": courses, "mode": "parent_child", "student": child})
 
     if profile.role == Profile.Role.TEACHER:
-        redirect_url = "/teacher/class/"
+        redirect_url = profile.teacher_home_url
         if cycle:
             redirect_url = f"{redirect_url}?cycle={cycle}"
         return redirect(redirect_url)
@@ -129,6 +133,8 @@ def teacher_class_list(request):
     profile = request.user.profile
     if profile.role != Profile.Role.TEACHER:
         return HttpResponseForbidden("Доступ запрещён.")
+    if profile.can_access_group_teacher_flow and not profile.can_access_individual_teacher_flow:
+        return redirect("/teacher/groups/")
 
     cycle = request.GET.get("cycle") or ""
     students = list(get_teacher_students(request.user, cycle=cycle))
@@ -200,6 +206,166 @@ def teacher_class_list(request):
             "summary_stats": summary_stats,
             "cycle": cycle,
             "cycle_options": Profile.Cycle.choices,
+        },
+    )
+
+
+@login_required
+def teacher_group_list(request):
+    profile = request.user.profile
+    if profile.role != Profile.Role.TEACHER:
+        return HttpResponseForbidden("Доступ запрещён.")
+    if not profile.can_access_group_teacher_flow:
+        return redirect("/teacher/class/")
+
+    groups = list(get_teacher_group_courses(request.user))
+    group_cards = []
+    for group in groups:
+        assignment_qs = group.assignments.all()
+        total_targets = AssignmentTarget.objects.filter(assignment__course=group).count()
+        done_targets = AssignmentTarget.objects.filter(
+            assignment__course=group,
+            status=AssignmentTarget.Status.DONE,
+        ).count()
+        latest_lesson = group.lessons.order_by("-date", "-id").first()
+        group_cards.append(
+            {
+                "group": group,
+                "student_total": getattr(group, "student_total", group.enrollments.count()),
+                "assignment_total": assignment_qs.count(),
+                "done_targets": done_targets,
+                "total_targets": total_targets,
+                "latest_lesson": latest_lesson,
+            }
+        )
+
+    return render(
+        request,
+        "teacher/group_list.html",
+        {
+            "group_cards": group_cards,
+        },
+    )
+
+
+@login_required
+def teacher_group_detail(request, group_id: int):
+    profile = request.user.profile
+    if profile.role != Profile.Role.TEACHER:
+        return HttpResponseForbidden("Доступ запрещён.")
+    if not profile.can_access_group_teacher_flow:
+        return redirect("/teacher/class/")
+
+    group = get_teacher_group_or_404(request.user, group_id)
+    enrollments = list(get_group_student_enrollments(group))
+    students = [enrollment.student for enrollment in enrollments]
+    student_ids = [student.id for student in students]
+
+    recent_assignment_rows = []
+    assignments = list(
+        group.assignments.all()
+        .prefetch_related("targets")
+        .order_by("-due_date", "-id")[:5]
+    )
+    for assignment in assignments:
+        total = assignment.targets.count()
+        done = assignment.targets.filter(status=AssignmentTarget.Status.DONE).count()
+        recent_assignment_rows.append(
+            {
+                "assignment": assignment,
+                "done_targets": done,
+                "total_targets": total,
+            }
+        )
+    recent_lessons = list(group.lessons.order_by("-date", "-id")[:5])
+    recent_materials = [lesson for lesson in recent_lessons if lesson.attachment][:3]
+    grade_rows = (
+        Grade.objects.filter(student_id__in=student_ids, assessment__course=group, score__isnull=False)
+        .values("student_id")
+        .annotate(avg_score=Avg("score"))
+    )
+    grade_map = {row["student_id"]: row["avg_score"] for row in grade_rows}
+
+    student_rows = []
+    for enrollment in enrollments:
+        student = enrollment.student
+        targets_qs = AssignmentTarget.objects.filter(student=student, assignment__course=group)
+        total_targets = targets_qs.count()
+        done_targets = targets_qs.filter(status=AssignmentTarget.Status.DONE).count()
+        student_rows.append(
+            {
+                "student": student,
+                "avg_score": grade_map.get(student.id),
+                "done_targets": done_targets,
+                "total_targets": total_targets,
+            }
+        )
+
+    total_targets = AssignmentTarget.objects.filter(assignment__course=group).count()
+    done_targets = AssignmentTarget.objects.filter(
+        assignment__course=group,
+        status=AssignmentTarget.Status.DONE,
+    ).count()
+    latest_lesson = recent_lessons[0] if recent_lessons else None
+
+    return render(
+        request,
+        "teacher/group_detail.html",
+        {
+            "group": group,
+            "student_rows": student_rows,
+            "recent_assignments": recent_assignment_rows,
+            "recent_lessons": recent_lessons,
+            "recent_materials": recent_materials,
+            "summary_stats": {
+                "students_total": len(students),
+                "assignments_total": group.assignments.count(),
+                "done_targets": done_targets,
+                "total_targets": total_targets,
+                "topics_total": group.lessons.count(),
+            },
+            "latest_lesson": latest_lesson,
+        },
+    )
+
+
+@login_required
+def teacher_group_student_detail(request, group_id: int, student_id: int):
+    profile = request.user.profile
+    if profile.role != Profile.Role.TEACHER:
+        return HttpResponseForbidden("Доступ запрещён.")
+    if not profile.can_access_group_teacher_flow:
+        return redirect("/teacher/class/")
+
+    group = get_teacher_group_or_404(request.user, group_id)
+    enrollment = get_teacher_group_student_or_404(request.user, group, student_id)
+    student = enrollment.student
+
+    recent_assignments = list(
+        AssignmentTarget.objects.filter(student=student, assignment__course=group)
+        .select_related("assignment")
+        .order_by("-assignment__due_date", "-assignment_id")[:8]
+    )
+    recent_grades = list(
+        Grade.objects.filter(student=student, assessment__course=group)
+        .select_related("assessment")
+        .order_by("-assessment_id")[:8]
+    )
+    attendance_rows = list(
+        LessonStudent.objects.filter(student=student, lesson__course=group)
+        .select_related("lesson")
+        .order_by("-lesson__date", "-lesson_id")[:8]
+    )
+
+    return render(
+        request,
+        "teacher/group_student_detail.html",
+        {
+            "group": group,
+            "student": student,
+            "recent_assignments": recent_assignments,
+            "recent_grades": recent_grades,
+            "attendance_rows": attendance_rows,
         },
     )
 

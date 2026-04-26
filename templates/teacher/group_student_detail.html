@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Ученик группы{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>{{ student.get_full_name|default:"Без имени" }}</h1>
+    <p>Группа: {{ group.name }} · {{ group.course_type.name }}</p>
+  </section>
+
+  <section class="panel" style="margin-bottom: 12px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/">Назад к группе</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/assignments/">Задания группы</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/grades/">Оценки группы</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/attendance/">Посещаемость</a>
+    </div>
+  </section>
+
+  <section class="announcement-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+    <article class="announcement-card">
+      <h3>Задания</h3>
+      {% if recent_assignments %}
+        <ul class="list">
+          {% for row in recent_assignments %}
+            <li>
+              <div>
+                <strong>{{ row.assignment.title }}</strong>
+                <div class="muted small">до {{ row.assignment.due_date|date:"d.m.Y" }}</div>
+              </div>
+              <span class="tag">{{ row.get_status_display|default:row.status }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет заданий.</p>
+      {% endif %}
+    </article>
+
+    <article class="announcement-card">
+      <h3>Оценки</h3>
+      {% if recent_grades %}
+        <ul class="list">
+          {% for grade in recent_grades %}
+            <li>
+              <div>
+                <strong>{{ grade.assessment.title }}</strong>
+              </div>
+              {% if grade.score != None %}
+                <span class="tag">{{ grade.score }}</span>
+              {% else %}
+                <span class="muted small">—</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет оценок.</p>
+      {% endif %}
+    </article>
+
+    <article class="announcement-card">
+      <h3>Посещаемость</h3>
+      {% if attendance_rows %}
+        <ul class="list">
+          {% for row in attendance_rows %}
+            <li>
+              <div>
+                <strong>{{ row.lesson.topic }}</strong>
+                <div class="muted small">{{ row.lesson.date|date:"d.m.Y" }}</div>
+              </div>
+              {% if row.attended %}
+                <span class="tag">Присутствовал</span>
+              {% else %}
+                <span class="tag">Отсутствовал</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Посещаемость пока не отмечалась.</p>
+      {% endif %}
+    </article>
+  </section>
+{% endblock %}

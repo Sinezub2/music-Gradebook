@@ -11,6 +11,14 @@
     <section class="panel">
       <h2>Расписание на сегодня</h2>
       <p class="muted">{{ today_label }}</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 12px;">
+        {% if user.profile.can_access_individual_teacher_flow %}
+          <a class="btn btn-small" href="/teacher/class/">Мои ученики</a>
+        {% endif %}
+        {% if user.profile.can_access_group_teacher_flow %}
+          <a class="btn btn-small" href="/teacher/groups/">Мои группы</a>
+        {% endif %}
+      </div>
       {% if today_schedule %}
         <div class="schedule-list">
           {% for item in today_schedule %}

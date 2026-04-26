@@ -24,8 +24,8 @@
     {% endif %}
 
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 8px;">
+      <a class="btn btn-small" href="/teacher/students/{{ student.id }}/assignments/">Домашние задания</a>
       {% if course_status == "single" %}
-        <a class="btn btn-small" href="/teacher/students/{{ student.id }}/assignments/create/">Добавить задание</a>
         <a class="btn btn-small" href="/teacher/students/{{ student.id }}/schedule/">Настроить расписание</a>
         <a class="btn btn-small" href="/teacher/students/{{ student.id }}/results/">Ввести результат</a>
       {% else %}
@@ -46,6 +46,9 @@
               <div>
                 <strong>{{ t.assignment.title }}</strong>
                 <div class="muted small">{{ t.assignment.course.name }} · до {{ t.assignment.due_date|date:"d.m.Y" }}</div>
+                {% if t.assignment.description %}
+                  <div class="muted small">{{ t.assignment.description }}</div>
+                {% endif %}
               </div>
               <span class="tag">{{ t.status }}</span>
             </li>

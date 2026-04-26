@@ -20,6 +20,11 @@ class Profile(models.Model):
         STUDENT = "STUDENT", "Ученик"
         PARENT = "PARENT", "Родитель"
 
+    class TeacherMode(models.TextChoices):
+        INDIVIDUAL = "INDIVIDUAL", "Индивидуальный"
+        GROUP = "GROUP", "Групповой"
+        BOTH = "BOTH", "Оба режима"
+
     class Cycle(models.TextChoices):
         GENERAL = "GENERAL", "Общий"
         BASIC = "BASIC", "Базовый"
@@ -28,9 +33,30 @@ class Profile(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=16, choices=Role.choices)
+    teacher_mode = models.CharField(max_length=16, choices=TeacherMode.choices, default=TeacherMode.INDIVIDUAL)
     cycle = models.CharField(max_length=16, choices=Cycle.choices, default=Cycle.GENERAL)
     school_grade = models.CharField(max_length=20, blank=True, default="")
     class_curator_phone = models.CharField(max_length=50, blank=True, default="")
+
+    @property
+    def can_access_individual_teacher_flow(self) -> bool:
+        return self.role == self.Role.TEACHER and self.teacher_mode in (
+            self.TeacherMode.INDIVIDUAL,
+            self.TeacherMode.BOTH,
+        )
+
+    @property
+    def can_access_group_teacher_flow(self) -> bool:
+        return self.role == self.Role.TEACHER and self.teacher_mode in (
+            self.TeacherMode.GROUP,
+            self.TeacherMode.BOTH,
+        )
+
+    @property
+    def teacher_home_url(self) -> str:
+        if self.can_access_group_teacher_flow and not self.can_access_individual_teacher_flow:
+            return "/teacher/groups/"
+        return "/teacher/class/"
 
     def __str__(self) -> str:
         full_name = (self.user.get_full_name() or "").strip() or "Без имени"

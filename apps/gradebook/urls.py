@@ -4,11 +4,13 @@ from .views import (
     teacher_course_grades,
     student_course_grades,
     teacher_course_grades_bulk_clear,
+    teacher_group_grades,
     teacher_student_results,
 )
 
 urlpatterns = [
     path("teacher/courses/<int:course_id>/grades/", teacher_course_grades, name="teacher_course_grades"),
+    path("teacher/groups/<int:group_id>/grades/", teacher_group_grades, name="teacher_group_grades"),
     path(
         "teacher/courses/<int:course_id>/grades/bulk-clear/",
         teacher_course_grades_bulk_clear,

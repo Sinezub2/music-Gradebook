@@ -1,10 +1,12 @@
 from django import forms
+
 from apps.school.models import Course
+from apps.text_limits import TEXT_CHAR_LIMIT, char_limit_error, exceeds_char_limit
 from .models import LessonSlot, StudentSchedule
 
 
 class LessonCreateForm(forms.Form):
-    max_input_length = 50
+    max_input_length = TEXT_CHAR_LIMIT
     course = forms.ModelChoiceField(label="Курс", queryset=Course.objects.none())
     date = forms.DateField(label="Дата", widget=forms.DateInput(attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
@@ -22,13 +24,13 @@ class LessonCreateForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         value = cleaned_data.get("media_url")
-        if value and len(value) >= self.max_input_length:
-            self.add_error("media_url", "Введите значение короче 50 символов.")
+        if value and exceeds_char_limit(value, self.max_input_length):
+            self.add_error("media_url", char_limit_error(self.max_input_length))
         return cleaned_data
 
 
 class StudentLessonCreateForm(forms.Form):
-    max_input_length = 50
+    max_input_length = TEXT_CHAR_LIMIT
     date = forms.DateField(label="Дата", widget=forms.DateInput(attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
     media_url = forms.URLField(label="Ссылка на медиа", required=False)
@@ -36,9 +38,25 @@ class StudentLessonCreateForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         value = cleaned_data.get("media_url")
-        if value and len(value) >= self.max_input_length:
-            self.add_error("media_url", "Введите значение короче 50 символов.")
+        if value and exceeds_char_limit(value, self.max_input_length):
+            self.add_error("media_url", char_limit_error(self.max_input_length))
         return cleaned_data
+
+
+class GroupAttendanceSessionForm(forms.Form):
+    date = forms.DateField(label="Дата", widget=forms.DateInput(attrs={"type": "date"}))
+    topic = forms.CharField(
+        label="Тема занятия",
+        max_length=200,
+        widget=forms.TextInput(attrs={"class": "input"}),
+    )
+    attachment = forms.FileField(label="Материалы", required=False)
+
+    def clean_topic(self):
+        value = " ".join((self.cleaned_data.get("topic") or "").split()).strip()
+        if not value:
+            raise forms.ValidationError("Укажите тему занятия.")
+        return value
 
 
 class StudentScheduleForm(forms.Form):

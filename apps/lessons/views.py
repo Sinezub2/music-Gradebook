@@ -16,10 +16,22 @@ from apps.accounts.decorators import role_required
 from apps.accounts.models import Profile
 from apps.school.models import Course, Enrollment, ParentChild
 from apps.school.utils import get_user_single_class
-from .forms import LessonCreateForm, SlotReportForm, SlotRescheduleForm, StudentLessonCreateForm, StudentScheduleForm
+from .forms import (
+    GroupAttendanceSessionForm,
+    LessonCreateForm,
+    SlotReportForm,
+    SlotRescheduleForm,
+    StudentLessonCreateForm,
+    StudentScheduleForm,
+)
 from .models import Lesson, LessonReport, LessonSlot, LessonStudent, StudentSchedule
 from .services import deactivate_schedule, generate_slots_for_schedule
-from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
+from apps.school.utils import (
+    get_group_student_enrollments,
+    get_teacher_group_or_404,
+    get_teacher_student_or_404,
+    resolve_teacher_course_for_student,
+)
 
 
 PLAYS_PREFIX = "__plays__:"
@@ -455,6 +467,99 @@ def attendance_journal(request):
             "show_course_selector": show_course_selector,
             "selected_course": selected_course,
             "no_class_message": no_class_message,
+        },
+    )
+
+
+@role_required(Profile.Role.TEACHER)
+def group_attendance(request, group_id: int):
+    if not request.user.profile.can_access_group_teacher_flow:
+        return redirect("/teacher/class/")
+
+    group = get_teacher_group_or_404(request.user, group_id)
+    enrollments = list(get_group_student_enrollments(group))
+    students = [enrollment.student for enrollment in enrollments]
+    recent_lessons = list(group.lessons.order_by("-date", "-id")[:20])
+    selected_lesson = None
+
+    raw_lesson_id = request.GET.get("lesson") or request.POST.get("lesson_id") or ""
+    if raw_lesson_id:
+        try:
+            selected_lesson = next(lesson for lesson in recent_lessons if lesson.id == int(raw_lesson_id))
+        except (StopIteration, ValueError):
+            selected_lesson = None
+
+    if request.method == "POST":
+        form = GroupAttendanceSessionForm(request.POST, request.FILES)
+        if form.is_valid():
+            if not students:
+                messages.error(request, "В группе пока нет учеников.")
+            else:
+                with transaction.atomic():
+                    lesson = selected_lesson
+                    if lesson is None:
+                        lesson = Lesson.objects.create(
+                            course=group,
+                            date=form.cleaned_data["date"],
+                            topic=form.cleaned_data["topic"],
+                            created_by=request.user,
+                            attachment=form.cleaned_data.get("attachment"),
+                        )
+                    else:
+                        lesson.date = form.cleaned_data["date"]
+                        lesson.topic = form.cleaned_data["topic"]
+                        update_fields = ["date", "topic"]
+                        attachment = form.cleaned_data.get("attachment")
+                        if attachment:
+                            lesson.attachment = attachment
+                            update_fields.append("attachment")
+                        lesson.save(update_fields=update_fields)
+
+                    for student in students:
+                        attended = (request.POST.get(f"attendance-{student.id}") or "PRESENT") == "PRESENT"
+                        lesson_student, _ = LessonStudent.objects.get_or_create(
+                            lesson=lesson,
+                            student=student,
+                            defaults={"attended": attended, "result": ""},
+                        )
+                        if lesson_student.attended != attended:
+                            lesson_student.attended = attended
+                            lesson_student.save(update_fields=["attended"])
+
+                messages.success(request, "Посещаемость сохранена.")
+                return redirect(f"/teacher/groups/{group.id}/attendance/?lesson={lesson.id}")
+    else:
+        form = GroupAttendanceSessionForm(
+            initial={
+                "date": selected_lesson.date if selected_lesson else timezone.localdate(),
+                "topic": selected_lesson.topic if selected_lesson else "",
+            }
+        )
+
+    attendance_map = {}
+    if selected_lesson:
+        attendance_map = {
+            entry.student_id: entry.attended
+            for entry in LessonStudent.objects.filter(lesson=selected_lesson).select_related("student")
+        }
+    student_rows = [
+        {
+            "student": student,
+            "attended": attendance_map.get(student.id, True),
+        }
+        for student in students
+    ]
+
+    return render(
+        request,
+        "lessons/group_attendance.html",
+        {
+            "group": group,
+            "form": form,
+            "students": students,
+            "student_rows": student_rows,
+            "recent_lessons": recent_lessons,
+            "selected_lesson": selected_lesson,
         },
     )
 

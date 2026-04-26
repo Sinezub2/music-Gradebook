@@ -5,6 +5,7 @@ from .views import (
     lesson_create_for_student,
     lesson_detail,
     attendance_journal,
+    group_attendance,
     lesson_bulk_delete,
     slot_report_fill,
     slot_reschedule,
@@ -19,6 +20,11 @@ urlpatterns = [
         "teacher/students/<int:student_id>/lessons/create/",
         lesson_create_for_student,
         name="teacher_student_lesson_create",
+    ),
+    path(
+        "teacher/groups/<int:group_id>/attendance/",
+        group_attendance,
+        name="teacher_group_attendance",
     ),
     path(
         "teacher/students/<int:student_id>/schedule/",

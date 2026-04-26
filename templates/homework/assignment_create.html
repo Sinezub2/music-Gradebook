@@ -36,35 +36,31 @@
 
       <hr style="border:0; border-top:1px solid var(--border); margin: 8px 0 12px;"/>
 
-      <div class="form-row">
-        <label>{{ form.title.label }}</label>
-        {{ form.title }}
-        {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
-        <div class="muted small">Если добавлены композиции ниже, для каждой создаётся отдельное задание.</div>
-      </div>
-
-      <div class="form-row">
-        <label>{{ form.description.label }}</label>
-        {{ form.description }}
-        {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
-      </div>
-
       <h2 style="margin: 0;">Композиции</h2>
+      <div class="muted small">Для каждой композиции укажите задание на текущий урок.</div>
       <div id="composition-list">
-        {% for composition in initial_compositions %}
-          <div class="card" style="margin-bottom: 10px;" data-composition-row>
+        {% for entry in initial_entries %}
+          <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;" data-composition-row>
             <div class="form-row">
               <label>Название композиции</label>
-              <input class="input" type="text" name="composition_name" value="{{ composition }}" placeholder="Например, Этюд №5">
+              <input class="input" type="text" name="composition_name" value="{{ entry.title }}" placeholder="Например, Этюд №5">
+            </div>
+            <div class="form-row">
+              <label>Задание</label>
+              <textarea class="input" name="composition_task" rows="3" placeholder="Например, разобрать правую руку до 16 такта">{{ entry.task_text }}</textarea>
             </div>
           </div>
         {% endfor %}
       </div>
       <template id="composition-row-template">
-        <div class="card" style="margin-bottom: 10px;" data-composition-row>
+        <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;" data-composition-row>
           <div class="form-row">
             <label>Название композиции</label>
             <input class="input" type="text" name="composition_name" placeholder="Например, Этюд №5">
+          </div>
+          <div class="form-row">
+            <label>Задание</label>
+            <textarea class="input" name="composition_task" rows="3" placeholder="Например, разобрать правую руку до 16 такта"></textarea>
           </div>
         </div>
       </template>

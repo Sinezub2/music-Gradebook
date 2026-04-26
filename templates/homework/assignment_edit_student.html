@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Редактировать задание{% endblock %}
+{% block content %}
+  <h1>Редактировать задание</h1>
+  <p class="muted">Ученик: {{ student.get_full_name|default:"Без имени" }} · Курс: {{ assignment.course.name }}</p>
+
+  <div class="card">
+    <form method="post" class="form" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="form-row">
+        <label for="{{ form.composition_name.id_for_label }}">{{ form.composition_name.label }}</label>
+        {{ form.composition_name }}
+        {% if form.composition_name.errors %}<div class="error">{{ form.composition_name.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label for="{{ form.task_text.id_for_label }}">{{ form.task_text.label }}</label>
+        {{ form.task_text }}
+        {% if form.task_text.errors %}<div class="error">{{ form.task_text.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label for="{{ form.due_date.id_for_label }}">{{ form.due_date.label }}</label>
+        {{ form.due_date }}
+        {% if form.due_date.errors %}<div class="error">{{ form.due_date.errors }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label for="{{ form.attachment.id_for_label }}">{{ form.attachment.label }}</label>
+        {% if assignment.attachment %}
+          <div class="muted small">Текущий файл: <a href="{{ assignment.attachment.url }}">Материалы</a></div>
+        {% endif %}
+        {{ form.attachment }}
+        {% if form.attachment.errors %}<div class="error">{{ form.attachment.errors }}</div>{% endif %}
+      </div>
+
+      {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+
+      <button class="btn" type="submit">Сохранить</button>
+      <a class="btn" href="/teacher/students/{{ student.id }}/assignments/">Отмена</a>
+    </form>
+  </div>
+{% endblock %}

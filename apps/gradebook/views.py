@@ -12,7 +12,8 @@ from apps.accounts.models import Profile
 from apps.accounts.utils import get_user_display_name
 from apps.homework.models import AssignmentTarget
 from apps.school.models import Course, Enrollment, ParentChild
-from apps.school.utils import get_teacher_student_or_404, resolve_teacher_course_for_student
+from apps.school.utils import get_teacher_group_or_404, get_teacher_student_or_404, resolve_teacher_course_for_student
+from apps.text_limits import TEXT_CHAR_LIMIT, char_limit_error, exceeds_char_limit
 from .models import Assessment, Grade
 from .services import compute_average_percent
 
@@ -52,11 +53,11 @@ def teacher_course_grades(request, course_id: int):
                     comment_key = f"comment-{student.id}-{a.id}"
                     raw_score = (request.POST.get(score_key) or "").strip()
                     raw_comment = (request.POST.get(comment_key) or "").strip()
-                    if raw_comment and len(raw_comment) >= 50:
+                    if raw_comment and exceeds_char_limit(raw_comment, TEXT_CHAR_LIMIT):
                         student_name = get_user_display_name(student)
                         messages.error(
                             request,
-                            f"Комментарий слишком длинный (короче 50 символов): {student_name} / {a.title}",
+                            f"{char_limit_error(TEXT_CHAR_LIMIT)}: {student_name} / {a.title}",
                         )
                         continue
 
@@ -104,6 +105,81 @@ def teacher_course_grades(request, course_id: int):
             "select_mode": select_mode,
             "clear_select_url": f"{_build_teacher_grades_url(course.id, cycle)}{'&' if cycle else '?'}select=1",
             "cancel_select_url": _build_teacher_grades_url(course.id, cycle),
+        },
+    )
+
+
+@role_required(Profile.Role.TEACHER)
+def teacher_group_grades(request, group_id: int):
+    if not request.user.profile.can_access_group_teacher_flow:
+        return redirect("/teacher/class/")
+
+    group = get_teacher_group_or_404(request.user, group_id)
+    assessments = list(Assessment.objects.filter(course=group).order_by("id"))
+    enrollments = list(
+        Enrollment.objects.filter(course=group)
+        .select_related("student", "student__profile")
+        .order_by("student__first_name", "student__last_name", "student__username")
+    )
+    students = [enrollment.student for enrollment in enrollments]
+    grades = Grade.objects.filter(assessment__course=group, student__in=students).select_related("assessment", "student")
+    grade_map: dict[tuple[int, int], Grade] = {(grade.student_id, grade.assessment_id): grade for grade in grades}
+
+    if request.method == "POST":
+        with transaction.atomic():
+            for student in students:
+                for assessment in assessments:
+                    score_key = f"grade-{student.id}-{assessment.id}"
+                    comment_key = f"comment-{student.id}-{assessment.id}"
+                    raw_score = (request.POST.get(score_key) or "").strip()
+                    raw_comment = (request.POST.get(comment_key) or "").strip()
+                    if raw_comment and exceeds_char_limit(raw_comment, TEXT_CHAR_LIMIT):
+                        student_name = get_user_display_name(student)
+                        messages.error(
+                            request,
+                            f"{char_limit_error(TEXT_CHAR_LIMIT)}: {student_name} / {assessment.title}",
+                        )
+                        continue
+
+                    score_val = None
+                    if raw_score != "":
+                        student_name = get_user_display_name(student)
+                        if not raw_score.isdigit():
+                            messages.error(request, f"Некорректный результат: {student_name} / {assessment.title}")
+                            continue
+                        try:
+                            score_int = int(raw_score)
+                        except ValueError:
+                            messages.error(request, f"Некорректный результат: {student_name} / {assessment.title}")
+                            continue
+                        if score_int < 0 or score_int > 100:
+                            messages.error(request, f"Результат вне диапазона 0–100: {student_name} / {assessment.title}")
+                            continue
+                        score_val = Decimal(score_int)
+
+                    obj, _created = Grade.objects.get_or_create(assessment=assessment, student=student)
+                    obj.score = score_val
+                    obj.comment = raw_comment
+                    obj.save()
+
+        messages.success(request, "Результаты сохранены.")
+        return redirect(f"/teacher/groups/{group.id}/grades/")
+
+    table_rows = []
+    for student in students:
+        cells = []
+        for assessment in assessments:
+            cells.append({"assessment": assessment, "grade": grade_map.get((student.id, assessment.id))})
+        table_rows.append({"student": student, "cells": cells})
+
+    return render(
+        request,
+        "gradebook/group_grades.html",
+        {
+            "group": group,
+            "assessments": assessments,
+            "students": students,
+            "table_rows": table_rows,
         },
     )
 
@@ -297,8 +373,8 @@ def teacher_student_results(request, student_id: int):
                 comment_key = f"comment-{a.id}"
                 raw_score = (request.POST.get(score_key) or "").strip()
                 raw_comment = (request.POST.get(comment_key) or "").strip()
-                if raw_comment and len(raw_comment) >= 50:
-                    messages.error(request, f"Комментарий слишком длинный: {a.title}")
+                if raw_comment and exceeds_char_limit(raw_comment, TEXT_CHAR_LIMIT):
+                    messages.error(request, f"{char_limit_error(TEXT_CHAR_LIMIT)}: {a.title}")
                     continue
 
                 score_val = None

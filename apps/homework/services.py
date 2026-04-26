@@ -5,19 +5,23 @@ from apps.school.models import Course, Enrollment
 from .models import Assignment, AssignmentTarget
 
 
-def _build_unique_assessment_title(*, course: Course, base_title: str, due_date) -> str:
+def build_unique_assessment_title(*, course: Course, base_title: str, due_date, exclude_assessment_id=None) -> str:
     normalized_title = (base_title or "").strip() or "Домашнее задание"
-    if not Assessment.objects.filter(course=course, title=normalized_title).exists():
+    qs = Assessment.objects.filter(course=course)
+    if exclude_assessment_id:
+        qs = qs.exclude(id=exclude_assessment_id)
+
+    if not qs.filter(title=normalized_title).exists():
         return normalized_title
 
     dated_title = f"{normalized_title} ({due_date:%d.%m.%Y})"
-    if not Assessment.objects.filter(course=course, title=dated_title).exists():
+    if not qs.filter(title=dated_title).exists():
         return dated_title
 
     suffix = 2
     while True:
         candidate = f"{dated_title} #{suffix}"
-        if not Assessment.objects.filter(course=course, title=candidate).exists():
+        if not qs.filter(title=candidate).exists():
             return candidate
         suffix += 1
 
@@ -28,7 +32,7 @@ def create_assignment_with_targets_and_gradebook(
     teacher,
     course: Course,
     title: str,
-    description: str,
+    task_text: str,
     due_date,
     attachment,
     student_ids: list[int],
@@ -46,13 +50,13 @@ def create_assignment_with_targets_and_gradebook(
     assignment = Assignment.objects.create(
         course=course,
         title=title,
-        description=description or "",
+        description=task_text or "",
         due_date=due_date,
         attachment=attachment,
         created_by=teacher,
     )
 
-    assessment_title = _build_unique_assessment_title(course=course, base_title=assignment.title, due_date=due_date)
+    assessment_title = build_unique_assessment_title(course=course, base_title=assignment.title, due_date=due_date)
 
     # One Assessment per Assignment
     assessment, _ = Assessment.objects.get_or_create(

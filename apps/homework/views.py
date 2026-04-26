@@ -15,10 +15,23 @@ from apps.accounts.models import LibraryVideo, Profile
 from apps.gradebook.models import Assessment
 from apps.goals.models import Goal
 from apps.school.models import Course, ParentChild
-from apps.school.utils import get_teacher_student_or_404, get_user_single_class, resolve_teacher_course_for_student
-from .forms import AssignmentCreateForm, AssignmentSubmissionForm, StudentAssignmentCreateForm
+from apps.school.utils import (
+    get_group_student_enrollments,
+    get_teacher_group_or_404,
+    get_teacher_student_or_404,
+    get_user_single_class,
+    resolve_teacher_course_for_student,
+)
+from apps.text_limits import TEXT_CHAR_LIMIT, char_limit_error, exceeds_char_limit
+from .forms import (
+    AssignmentCreateForm,
+    AssignmentSubmissionForm,
+    GroupAssignmentCreateForm,
+    StudentAssignmentCreateForm,
+    StudentAssignmentEditForm,
+)
 from .models import Assignment, AssignmentTarget
-from .services import create_assignment_with_targets_and_gradebook
+from .services import build_unique_assessment_title, create_assignment_with_targets_and_gradebook
 
 HALF_YEAR_I = "H1"
 HALF_YEAR_II = "H2"
@@ -53,16 +66,22 @@ def _build_assignments_url(cycle: str) -> str:
     return f"/assignments/?{urlencode(params)}" if params else "/assignments/"
 
 
-def _collect_compositions(post_data) -> list[str]:
-    items = []
-    seen = set()
-    for raw_value in post_data.getlist("composition_name"):
-        value = (raw_value or "").strip()
-        if not value or value in seen:
+def _composition_entries_from_post(post_data, *, include_empty: bool = False) -> list[dict[str, str]]:
+    names = post_data.getlist("composition_name")
+    tasks = post_data.getlist("composition_task")
+    count = max(len(names), len(tasks))
+    entries = []
+    for index in range(count):
+        title = " ".join(((names[index] if index < len(names) else "") or "").split()).strip()
+        task_text = ((tasks[index] if index < len(tasks) else "") or "").strip()
+        if not include_empty and not title and not task_text:
             continue
-        items.append(value)
-        seen.add(value)
-    return items
+        entries.append({"title": title, "task_text": task_text})
+    return entries
+
+
+def _composition_entries_from_titles(titles: list[str]) -> list[dict[str, str]]:
+    return [{"title": title, "task_text": ""} for title in titles] or [{"title": "", "task_text": ""}]
 
 
 def _normalize_title_key(value: str) -> str:
@@ -83,6 +102,67 @@ def _merge_unique_titles(*groups) -> list[str]:
             items.append(value)
             seen.add(key)
     return items
+
+
+def _merge_unique_composition_entries(entries: list[dict[str, str]]) -> list[dict[str, str]]:
+    items = []
+    index_by_key = {}
+    for entry in entries:
+        title = " ".join((entry.get("title") or "").split()).strip()
+        task_text = (entry.get("task_text") or "").strip()
+        if not title:
+            continue
+        key = _normalize_title_key(title)
+        if key in index_by_key:
+            existing = items[index_by_key[key]]
+            if not existing["task_text"] and task_text:
+                existing["task_text"] = task_text
+            continue
+        index_by_key[key] = len(items)
+        items.append({"title": title, "task_text": task_text})
+    return items
+
+
+def _collect_selected_plan_entries(post_data, plan_titles: list[str]) -> list[dict[str, str]]:
+    selected_keys = {_normalize_title_key(value) for value in post_data.getlist("plan_compositions")}
+    entries = []
+    for index, plan_title in enumerate(plan_titles):
+        key = _normalize_title_key(plan_title)
+        if not key or key not in selected_keys:
+            continue
+        entries.append(
+            {
+                "title": plan_title,
+                "task_text": (post_data.get(f"plan_composition_task_{index}") or "").strip(),
+            }
+        )
+    return entries
+
+
+def _build_plan_compositions_context(plan_titles: list[str], selected_plan_entries: list[dict[str, str]]):
+    selected_lookup = {
+        _normalize_title_key(entry.get("title")): (entry.get("task_text") or "")
+        for entry in selected_plan_entries
+        if _normalize_title_key(entry.get("title"))
+    }
+    return [
+        {
+            "index": index,
+            "title": plan_title,
+            "checked": _normalize_title_key(plan_title) in selected_lookup,
+            "task_text": selected_lookup.get(_normalize_title_key(plan_title), ""),
+        }
+        for index, plan_title in enumerate(plan_titles)
+    ]
+
+
+def _prepare_composition_entries(
+    composition_entries: list[dict[str, str]],
+    selected_plan_entries: list[dict[str, str]] | None = None,
+) -> tuple[list[dict[str, str]], bool]:
+    all_entries = list(composition_entries) + list(selected_plan_entries or [])
+    has_missing_title = any((entry.get("task_text") or "").strip() and not (entry.get("title") or "").strip() for entry in all_entries)
+    return _merge_unique_composition_entries(all_entries), has_missing_title
 
 
 def _current_half_year_code() -> str:
@@ -123,19 +203,6 @@ def _get_half_year_plan_titles(*, student, selected_half_year: str) -> list[str]
     return _merge_unique_titles(goals.values_list("title", flat=True))
 
 
-def _filter_selected_plan_titles(raw_values: list[str], plan_titles: list[str]) -> list[str]:
-    plan_lookup = {_normalize_title_key(title): title for title in plan_titles}
-    selected = []
-    seen = set()
-    for raw_value in raw_values:
-        key = _normalize_title_key(raw_value)
-        if not key or key not in plan_lookup or key in seen:
-            continue
-        selected.append(plan_lookup[key])
-        seen.add(key)
-    return selected
-
-
 def _sync_submission_video(*, target: AssignmentTarget, video_file):
     if not video_file:
         return None
@@ -167,20 +234,19 @@ def _create_assignments(
     *,
     teacher,
     course: Course,
-    titles: list[str],
-    description: str,
+    composition_entries: list[dict[str, str]],
     due_date,
     attachment,
     student_ids: list[int],
 ) -> int:
     copied_attachment_bytes = None
     copied_attachment_name = ""
-    if attachment and len(titles) > 1:
+    if attachment and len(composition_entries) > 1:
         copied_attachment_bytes = attachment.read()
         copied_attachment_name = attachment.name
 
     created_count = 0
-    for title in titles:
+    for entry in composition_entries:
         prepared_attachment = attachment
         if copied_attachment_bytes is not None:
             prepared_attachment = ContentFile(copied_attachment_bytes, name=copied_attachment_name)
@@ -188,8 +254,8 @@ def _create_assignments(
         create_assignment_with_targets_and_gradebook(
             teacher=teacher,
             course=course,
-            title=title,
-            description=description,
+            title=entry["title"],
+            task_text=entry["task_text"],
             due_date=due_date,
             attachment=prepared_attachment,
             student_ids=student_ids,
@@ -198,11 +264,40 @@ def _create_assignments(
     return created_count
 
 
-def _validate_homework_titles(titles: list[str]) -> list[str]:
+def _validate_composition_entries(composition_entries: list[dict[str, str]], *, has_missing_title: bool = False) -> list[str]:
     errors = []
-    if any(len(title) > 200 for title in titles):
+    if not composition_entries and not has_missing_title:
+        errors.append("Добавьте хотя бы одну композицию.")
+    if has_missing_title:
+        errors.append("Укажите название композиции для каждой заполненной строки.")
+    if any(len(entry["title"]) > 200 for entry in composition_entries):
         errors.append("Название композиции должно быть не длиннее 200 символов.")
+    if any(not entry["task_text"] for entry in composition_entries):
+        errors.append("Укажите задание для каждой композиции.")
+    if any(exceeds_char_limit(entry["task_text"], TEXT_CHAR_LIMIT) for entry in composition_entries):
+        errors.append(char_limit_error(TEXT_CHAR_LIMIT))
     return errors
+
+
+def _sync_assignment_assessment_title(assignment: Assignment) -> None:
+    assessment = getattr(assignment, "assessment", None)
+    if not assessment:
+        return
+    assessment_title = build_unique_assessment_title(
+        course=assignment.course,
+        base_title=assignment.title,
+        due_date=assignment.due_date,
+        exclude_assessment_id=assessment.id,
+    )
+    fields_to_update = []
+    if assessment.title != assessment_title:
+        assessment.title = assessment_title
+        fields_to_update.append("title")
+    if assessment.course_id != assignment.course_id:
+        assessment.course = assignment.course
+        fields_to_update.append("course")
+    if fields_to_update:
+        assessment.save(update_fields=fields_to_update)
 
 
 @login_required
@@ -373,11 +468,11 @@ def assignment_create(request):
                 selected_course = None
 
     course_queryset = Course.objects.filter(id=fixed_course.id) if fixed_course else None
-    initial_compositions = [""]
+    initial_entries = [{"title": "", "task_text": ""}]
     composition_errors = []
 
     if request.method == "POST":
-        initial_compositions = request.POST.getlist("composition_name") or [""]
+        initial_entries = _composition_entries_from_post(request.POST, include_empty=True) or [{"title": "", "task_text": ""}]
         form = AssignmentCreateForm(
             request.POST,
             request.FILES,
@@ -387,25 +482,22 @@ def assignment_create(request):
         )
         if form.is_valid():
             course = fixed_course or form.cleaned_data["course"]
-            title = (form.cleaned_data.get("title") or "").strip()
-            compositions = _collect_compositions(request.POST)
-            titles = compositions or ([title] if title else [])
-            description = form.cleaned_data.get("description", "")
+            composition_entries, has_missing_title = _prepare_composition_entries(
+                _composition_entries_from_post(request.POST)
+            )
             due_date = form.cleaned_data["due_date"]
             attachment = form.cleaned_data.get("attachment")
             student_ids = [int(x) for x in form.cleaned_data.get("students", [])]
-
-            if not titles:
-                composition_errors = ["Укажите название задания или добавьте хотя бы одну композицию."]
-            else:
-                composition_errors = _validate_homework_titles(titles)
+            composition_errors = _validate_composition_entries(
+                composition_entries,
+                has_missing_title=has_missing_title,
+            )
 
             if not composition_errors:
                 created_count = _create_assignments(
                     teacher=request.user,
                     course=course,
-                    titles=titles,
-                    description=description,
+                    composition_entries=composition_entries,
                     due_date=due_date,
                     attachment=attachment,
                     student_ids=student_ids,
@@ -429,7 +521,7 @@ def assignment_create(request):
             "form": form,
             "selected_course": selected_course,
             "fixed_course": fixed_course,
-            "initial_compositions": initial_compositions,
+            "initial_entries": initial_entries,
             "composition_errors": composition_errors,
         },
     )
@@ -449,36 +541,35 @@ def assignment_create_for_student(request, student_id: int):
     selected_half_year = _normalize_half_year(request.GET.get("half_year") or request.POST.get("half_year") or "")
     carried_over_titles = _get_carried_over_compositions(student=student, course=course)
     plan_titles = _get_half_year_plan_titles(student=student, selected_half_year=selected_half_year)
-    selected_plan_titles = []
-    initial_compositions = carried_over_titles or [""]
+    selected_plan_entries = []
+    initial_entries = _composition_entries_from_titles(carried_over_titles)
     composition_errors = []
 
     if request.method == "POST":
-        initial_compositions = request.POST.getlist("composition_name") or carried_over_titles or [""]
-        selected_plan_titles = _filter_selected_plan_titles(request.POST.getlist("plan_compositions"), plan_titles)
+        initial_entries = _composition_entries_from_post(request.POST, include_empty=True) or _composition_entries_from_titles(carried_over_titles)
+        selected_plan_entries = _collect_selected_plan_entries(request.POST, plan_titles)
         form = StudentAssignmentCreateForm(request.POST, request.FILES)
         if form.is_valid():
-            title = (form.cleaned_data.get("title") or "").strip()
-            compositions = _collect_compositions(request.POST)
-            titles = _merge_unique_titles(compositions, selected_plan_titles) or ([title] if title else [])
-
-            if not titles:
-                composition_errors = ["Укажите название задания или добавьте хотя бы одну композицию."]
-            else:
-                composition_errors = _validate_homework_titles(titles)
+            composition_entries, has_missing_title = _prepare_composition_entries(
+                _composition_entries_from_post(request.POST),
+                selected_plan_entries,
+            )
+            composition_errors = _validate_composition_entries(
+                composition_entries,
+                has_missing_title=has_missing_title,
+            )
 
             if not composition_errors:
                 created_count = _create_assignments(
                     teacher=request.user,
                     course=course,
-                    titles=titles,
-                    description=form.cleaned_data.get("description", ""),
+                    composition_entries=composition_entries,
                     due_date=form.cleaned_data["due_date"],
                     attachment=form.cleaned_data.get("attachment"),
                     student_ids=[student.id],
                 )
                 messages.success(request, f"Создано заданий: {created_count}.")
-                return redirect(f"/teacher/students/{student.id}/")
+                return redirect(f"/teacher/students/{student.id}/assignments/")
     else:
         form = StudentAssignmentCreateForm()
 
@@ -489,7 +580,7 @@ def assignment_create_for_student(request, student_id: int):
             "form": form,
             "student": student,
             "course": course,
-            "initial_compositions": initial_compositions,
+            "initial_entries": initial_entries,
             "composition_errors": composition_errors,
             "carried_over_titles": carried_over_titles,
             "selected_half_year": selected_half_year,
@@ -507,15 +598,177 @@ def assignment_create_for_student(request, student_id: int):
                     "active": selected_half_year == HALF_YEAR_II,
                 },
             ],
-            "plan_compositions": [
-                {
-                    "title": plan_title,
-                    "checked": _normalize_title_key(plan_title) in {_normalize_title_key(value) for value in selected_plan_titles},
-                }
-                for plan_title in plan_titles
-            ],
+            "plan_compositions": _build_plan_compositions_context(plan_titles, selected_plan_entries),
         },
     )
+
+
+@role_required(Profile.Role.TEACHER)
+def assignment_list_for_student(request, student_id: int):
+    student = get_teacher_student_or_404(request.user, student_id)
+    course_for_actions, course_status = resolve_teacher_course_for_student(request.user, student)
+    targets = (
+        AssignmentTarget.objects.filter(student=student, assignment__course__teacher=request.user)
+        .select_related("assignment", "assignment__course")
+        .order_by("-assignment__due_date", "-assignment_id")
+    )
+    rows = [
+        {
+            "target": target,
+            "assignment": target.assignment,
+            "status": _effective_status(target.assignment, target),
+            "can_delete": _can_delete_assignment(request.user, Profile.Role.TEACHER, target.assignment),
+        }
+        for target in targets
+    ]
+    return render(
+        request,
+        "homework/assignment_student_list.html",
+        {
+            "student": student,
+            "course_for_actions": course_for_actions,
+            "course_status": course_status,
+            "rows": rows,
+        },
+    )
+
+
+@role_required(Profile.Role.TEACHER)
+def group_assignment_list(request, group_id: int):
+    if not request.user.profile.can_access_group_teacher_flow:
+        return redirect("/teacher/class/")
+
+    group = get_teacher_group_or_404(request.user, group_id)
+    assignments = list(
+        Assignment.objects.filter(course=group)
+        .prefetch_related("targets")
+        .order_by("-due_date", "-id")
+    )
+    rows = []
+    for assignment in assignments:
+        total_targets = assignment.targets.count()
+        done_targets = assignment.targets.filter(status=AssignmentTarget.Status.DONE).count()
+        rows.append(
+            {
+                "assignment": assignment,
+                "done_targets": done_targets,
+                "total_targets": total_targets,
+            }
+        )
+
+    return render(
+        request,
+        "homework/group_assignment_list.html",
+        {
+            "group": group,
+            "rows": rows,
+        },
+    )
+
+
+@role_required(Profile.Role.TEACHER)
+def group_assignment_create(request, group_id: int):
+    if not request.user.profile.can_access_group_teacher_flow:
+        return redirect("/teacher/class/")
+
+    group = get_teacher_group_or_404(request.user, group_id)
+    enrollments = list(get_group_student_enrollments(group))
+    student_ids = [enrollment.student_id for enrollment in enrollments]
+
+    if request.method == "POST":
+        form = GroupAssignmentCreateForm(request.POST, request.FILES)
+        if form.is_valid():
+            if not student_ids:
+                messages.error(request, "В группе пока нет учеников.")
+            else:
+                create_assignment_with_targets_and_gradebook(
+                    teacher=request.user,
+                    course=group,
+                    title=form.cleaned_data["title"],
+                    task_text=form.cleaned_data["description"],
+                    due_date=form.cleaned_data["due_date"],
+                    attachment=form.cleaned_data.get("attachment"),
+                    student_ids=student_ids,
+                )
+                messages.success(request, "Групповое задание создано.")
+                return redirect(f"/teacher/groups/{group.id}/assignments/")
+    else:
+        form = GroupAssignmentCreateForm()
+
+    return render(
+        request,
+        "homework/group_assignment_create.html",
+        {
+            "group": group,
+            "student_total": len(student_ids),
+            "form": form,
+        },
+    )
+
+
+def _get_teacher_student_assignment_or_404(teacher, student, assignment_id: int) -> Assignment:
+    return get_object_or_404(
+        Assignment.objects.select_related("course", "created_by", "assessment"),
+        id=assignment_id,
+        targets__student=student,
+        course__teacher=teacher,
+    )
+
+
+@role_required(Profile.Role.TEACHER)
+def assignment_edit_for_student(request, student_id: int, assignment_id: int):
+    student = get_teacher_student_or_404(request.user, student_id)
+    assignment = _get_teacher_student_assignment_or_404(request.user, student, assignment_id)
+    if not _can_delete_assignment(request.user, Profile.Role.TEACHER, assignment):
+        return HttpResponseForbidden("Нет доступа к редактированию задания.")
+
+    if request.method == "POST":
+        form = StudentAssignmentEditForm(request.POST, request.FILES)
+        if form.is_valid():
+            assignment.title = form.cleaned_data["composition_name"]
+            assignment.description = form.cleaned_data["task_text"]
+            assignment.due_date = form.cleaned_data["due_date"]
+            attachment = form.cleaned_data.get("attachment")
+            update_fields = ["title", "description", "due_date"]
+            if attachment:
+                assignment.attachment = attachment
+                update_fields.append("attachment")
+            assignment.save(update_fields=update_fields)
+            _sync_assignment_assessment_title(assignment)
+            messages.success(request, "Задание обновлено.")
+            return redirect(f"/teacher/students/{student.id}/assignments/")
+    else:
+        form = StudentAssignmentEditForm(
+            initial={
+                "composition_name": assignment.title,
+                "task_text": assignment.description,
+                "due_date": assignment.due_date,
+            }
+        )
+
+    return render(
+        request,
+        "homework/assignment_edit_student.html",
+        {
+            "form": form,
+            "student": student,
+            "assignment": assignment,
+        },
+    )
+
+
+@require_POST
+@role_required(Profile.Role.TEACHER)
+def assignment_delete_for_student(request, student_id: int, assignment_id: int):
+    student = get_teacher_student_or_404(request.user, student_id)
+    assignment = _get_teacher_student_assignment_or_404(request.user, student, assignment_id)
+    if not _can_delete_assignment(request.user, Profile.Role.TEACHER, assignment):
+        return HttpResponseForbidden("Нет доступа к удалению задания.")
+
+    Assessment.objects.filter(source_assignment=assignment).delete()
+    assignment.delete()
+    messages.success(request, "Задание удалено.")
+    return redirect(f"/teacher/students/{student.id}/assignments/")
 
 
 @require_POST

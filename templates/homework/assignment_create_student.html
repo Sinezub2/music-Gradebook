@@ -8,38 +8,35 @@
     <form method="post" class="form" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="half_year" value="{{ selected_half_year }}">
-      <div class="form-row">
-        <label>{{ form.title.label }}</label>
-        {{ form.title }}
-        {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
-        <div class="muted small">Если добавлены композиции ниже, для каждой создаётся отдельное задание.</div>
-      </div>
-
-      <div class="form-row">
-        <label>{{ form.description.label }}</label>
-        {{ form.description }}
-        {% if form.description.errors %}<div class="error">{{ form.description.errors }}</div>{% endif %}
-      </div>
 
       <h2 style="margin: 0;">Композиции</h2>
+      <div class="muted small">Для каждой композиции укажите задание на текущий урок. В следующую сессию переносится только название композиции.</div>
       {% if carried_over_titles %}
-        <div class="muted small">Активные композиции из предыдущего домашнего задания уже подставлены ниже. При необходимости их можно удалить или изменить.</div>
+        <div class="muted small">Активные композиции из предыдущего домашнего задания уже подставлены ниже без текста задания.</div>
       {% endif %}
       <div id="composition-list">
-        {% for composition in initial_compositions %}
-          <div class="card" style="margin-bottom: 10px;" data-composition-row>
+        {% for entry in initial_entries %}
+          <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;" data-composition-row>
             <div class="form-row">
               <label>Название композиции</label>
-              <input class="input" type="text" name="composition_name" value="{{ composition }}" placeholder="Например, Этюд №5">
+              <input class="input" type="text" name="composition_name" value="{{ entry.title }}" placeholder="Например, Этюд №5">
+            </div>
+            <div class="form-row">
+              <label>Задание</label>
+              <textarea class="input" name="composition_task" rows="3" placeholder="Например, разобрать правую руку до 16 такта">{{ entry.task_text }}</textarea>
             </div>
           </div>
         {% endfor %}
       </div>
       <template id="student-composition-row-template">
-        <div class="card" style="margin-bottom: 10px;" data-composition-row>
+        <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;" data-composition-row>
           <div class="form-row">
             <label>Название композиции</label>
             <input class="input" type="text" name="composition_name" placeholder="Например, Этюд №5">
+          </div>
+          <div class="form-row">
+            <label>Задание</label>
+            <textarea class="input" name="composition_task" rows="3" placeholder="Например, разобрать правую руку до 16 такта"></textarea>
           </div>
         </div>
       </template>
@@ -68,6 +65,10 @@
                   <input type="checkbox" name="plan_compositions" value="{{ plan.title }}"{% if plan.checked %} checked{% endif %}>
                   <span>{{ plan.title }}</span>
                 </label>
+                <div class="form-row" style="margin:6px 0 12px 24px;">
+                  <label>Задание</label>
+                  <textarea class="input" name="plan_composition_task_{{ plan.index }}" rows="2" placeholder="Задание для этой композиции">{{ plan.task_text }}</textarea>
+                </div>
               {% endfor %}
             </div>
           </div>

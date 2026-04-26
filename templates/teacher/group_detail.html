@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Группа{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>{{ group.name }}</h1>
+    <p>{{ group.course_type.name }}</p>
+  </section>
+
+  <section class="panel" style="margin-bottom: 12px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/">Ученики</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/assignments/">Задания</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/attendance/">Посещаемость</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/grades/">Оценки</a>
+      <a class="btn btn-small" href="/lessons/?course={{ group.id }}">Материалы</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/attendance/">План / темы</a>
+    </div>
+  </section>
+
+  <section class="stats-grid" style="margin-bottom: 12px;">
+    <article class="stat-card">
+      <p class="small muted">Ученики</p>
+      <div class="value">{{ summary_stats.students_total }}</div>
+    </article>
+    <article class="stat-card">
+      <p class="small muted">Задания</p>
+      <div class="value">{{ summary_stats.assignments_total }}</div>
+    </article>
+    <article class="stat-card">
+      <p class="small muted">Выполнено</p>
+      <div class="value">{{ summary_stats.done_targets }}/{{ summary_stats.total_targets }}</div>
+    </article>
+    <article class="stat-card">
+      <p class="small muted">Темы</p>
+      <div class="value">{{ summary_stats.topics_total }}</div>
+    </article>
+  </section>
+
+  <section class="panel" style="margin-bottom: 12px;">
+    <h2>Ученики</h2>
+    {% if student_rows %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Ученик</th>
+              <th>Цикл</th>
+              <th>Прогресс по заданиям</th>
+              <th>Средний балл</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in student_rows %}
+              <tr>
+                <td>{{ row.student.get_full_name|default:"Без имени" }}</td>
+                <td>{{ row.student.profile.get_cycle_display }}</td>
+                <td>{{ row.done_targets }}/{{ row.total_targets }}</td>
+                <td>
+                  {% if row.avg_score != None %}
+                    {{ row.avg_score|floatformat:1 }}
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
+                <td><a class="btn btn-small" href="/teacher/groups/{{ group.id }}/students/{{ row.student.id }}/">Открыть</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">В этой группе пока нет учеников.</p>
+    {% endif %}
+  </section>
+
+  <section class="announcement-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+    <article class="announcement-card">
+      <h3>Задания</h3>
+      {% if recent_assignments %}
+        <ul class="list">
+          {% for row in recent_assignments %}
+            <li>
+              <div>
+                <strong>{{ row.assignment.title }}</strong>
+                <div class="muted small">до {{ row.assignment.due_date|date:"d.m.Y" }}</div>
+                {% if row.assignment.description %}
+                  <div class="muted small">{{ row.assignment.description }}</div>
+                {% endif %}
+              </div>
+              <span class="tag">{{ row.done_targets }}/{{ row.total_targets }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет групповых заданий.</p>
+      {% endif %}
+    </article>
+
+    <article class="announcement-card">
+      <h3>План / темы</h3>
+      {% if recent_lessons %}
+        <ul class="list">
+          {% for lesson in recent_lessons %}
+            <li>
+              <div>
+                <strong>{{ lesson.topic }}</strong>
+                <div class="muted small">{{ lesson.date|date:"d.m.Y" }}</div>
+              </div>
+              {% if lesson == latest_lesson %}
+                <span class="tag">Последняя</span>
+              {% else %}
+                <span class="muted small">Тема</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Темы занятий пока не добавлены.</p>
+      {% endif %}
+    </article>
+
+    <article class="announcement-card">
+      <h3>Материалы</h3>
+      {% if recent_materials %}
+        <ul class="list">
+          {% for lesson in recent_materials %}
+            <li>
+              <div>
+                <strong>{{ lesson.topic }}</strong>
+                <div class="muted small">{{ lesson.date|date:"d.m.Y" }}</div>
+              </div>
+              <a class="btn btn-small" href="{{ lesson.attachment.url }}">Открыть</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Материалы пока не прикреплены.</p>
+      {% endif %}
+    </article>
+
+    <article class="announcement-card">
+      <h3>Быстрые действия</h3>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/assignments/create/">Новое задание</a>
+        <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/attendance/">Отметить посещаемость</a>
+        <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/grades/">Открыть журнал оценок</a>
+      </div>
+    </article>
+  </section>
+{% endblock %}

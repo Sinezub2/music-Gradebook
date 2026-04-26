@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.db.models import Count, Q
 
 from apps.accounts.models import Profile
 
@@ -53,6 +53,15 @@ def _teacher_courses_queryset(user):
             | Q(student_invitations__teacher=user)
         )
         .distinct()
+        .order_by("name", "id")
+    )
+
+
+def get_teacher_group_courses(user):
+    return (
+        Course.objects.filter(teacher=user)
+        .select_related("course_type")
+        .annotate(student_total=Count("enrollments", distinct=True))
         .order_by("name", "id")
     )
 
@@ -109,6 +118,29 @@ def get_teacher_student_or_404(teacher, student_id: int):
     from django.shortcuts import get_object_or_404
 
     return get_object_or_404(get_teacher_students(teacher), id=student_id)
+
+
+def get_teacher_group_or_404(teacher, group_id: int):
+    from django.shortcuts import get_object_or_404
+
+    return get_object_or_404(get_teacher_group_courses(teacher), id=group_id)
+
+
+def get_group_student_enrollments(course: Course):
+    return (
+        course.enrollments.filter(student__profile__role=Profile.Role.STUDENT)
+        .select_related("student", "student__profile")
+        .order_by("student__first_name", "student__last_name", "student__username", "student_id")
+    )
+
+
+def get_teacher_group_student_or_404(teacher, course: Course, student_id: int):
+    from django.http import Http404
+    from django.shortcuts import get_object_or_404
+
+    if course.teacher_id != teacher.id:
+        raise Http404
+    return get_object_or_404(get_group_student_enrollments(course), student_id=student_id)
 
 
 def resolve_teacher_course_for_student(teacher, student):

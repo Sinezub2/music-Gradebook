@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Посещаемость группы{% endblock %}
+{% block content %}
+  <section class="page-head">
+    <h1>Посещаемость группы</h1>
+    <p>{{ group.name }} · {{ group.course_type.name }}</p>
+  </section>
+
+  <section class="panel" style="margin-bottom: 12px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/">Назад к группе</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/assignments/">Задания</a>
+      <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/grades/">Оценки</a>
+    </div>
+  </section>
+
+  {% if recent_lessons %}
+    <section class="panel" style="margin-bottom: 12px;">
+      <h2>Выбрать занятие</h2>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        {% for lesson in recent_lessons %}
+          <a class="btn btn-small {% if selected_lesson and selected_lesson.id == lesson.id %}btn-accent{% endif %}" href="/teacher/groups/{{ group.id }}/attendance/?lesson={{ lesson.id }}">
+            {{ lesson.date|date:"d.m.Y" }} · {{ lesson.topic }}
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="panel">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if selected_lesson %}<input type="hidden" name="lesson_id" value="{{ selected_lesson.id }}">{% endif %}
+
+      <div class="form-row" style="margin-bottom: 12px;">
+        <div>
+          <label>{{ form.date.label }}</label>
+          {{ form.date }}
+          {% if form.date.errors %}<div class="error">{{ form.date.errors }}</div>{% endif %}
+        </div>
+        <div style="min-width: 260px; flex: 1;">
+          <label>{{ form.topic.label }}</label>
+          {{ form.topic }}
+          {% if form.topic.errors %}<div class="error">{{ form.topic.errors }}</div>{% endif %}
+        </div>
+        <div>
+          <label>{{ form.attachment.label }}</label>
+          {{ form.attachment }}
+          {% if form.attachment.errors %}<div class="error">{{ form.attachment.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      {% if selected_lesson and selected_lesson.attachment %}
+        <p class="muted small" style="margin-top: 0;">Текущие материалы: <a href="{{ selected_lesson.attachment.url }}">Открыть файл</a></p>
+      {% endif %}
+
+      {% if student_rows %}
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Ученик</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in student_rows %}
+                <tr>
+                  <td>{{ row.student.get_full_name|default:"Без имени" }}</td>
+                  <td>
+                    <label style="margin-right: 12px;">
+                      <input type="radio" name="attendance-{{ row.student.id }}" value="PRESENT"{% if row.attended %} checked{% endif %}>
+                      Присутствовал
+                    </label>
+                    <label>
+                      <input type="radio" name="attendance-{{ row.student.id }}" value="ABSENT"{% if not row.attended %} checked{% endif %}>
+                      Отсутствовал
+                    </label>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <button class="btn btn-accent" type="submit">Сохранить посещаемость</button>
+      {% else %}
+        <p class="muted">В этой группе пока нет учеников.</p>
+      {% endif %}
+    </form>
+  </section>
+{% endblock %}

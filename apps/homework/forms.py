@@ -1,26 +1,14 @@
 from django import forms
-from django.utils import timezone
 
 from apps.accounts.forms import validate_library_video_upload
 from apps.accounts.utils import get_user_display_name
 from apps.school.models import Course
+from apps.text_limits import TEXT_CHAR_LIMIT, char_limit_error, exceeds_char_limit
 
 
 class AssignmentCreateForm(forms.Form):
-    max_input_length = 50
     course = forms.ModelChoiceField(label="Курс", queryset=Course.objects.none())
-    title = forms.CharField(
-        label="Название (опционально)",
-        max_length=200,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "input"}),
-    )
-    description = forms.CharField(
-        label="Описание",
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 4, "class": "input"}),
-    )
-    due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
+    due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
 
     # Students чекбоксы подставляем динамически
@@ -55,38 +43,68 @@ class AssignmentCreateForm(forms.Form):
         else:
             self.fields["students"].choices = []
 
-    def clean(self):
-        cleaned_data = super().clean()
-        for field_name in ("title", "description"):
-            value = cleaned_data.get(field_name)
-            if value and len(value) >= self.max_input_length:
-                self.add_error(field_name, "Введите значение короче 50 символов.")
-        return cleaned_data
-
 
 class StudentAssignmentCreateForm(forms.Form):
-    max_input_length = 50
+    due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}))
+    attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
+
+
+class GroupAssignmentCreateForm(forms.Form):
+    max_input_length = TEXT_CHAR_LIMIT
     title = forms.CharField(
-        label="Название (опционально)",
+        label="Название задания",
         max_length=200,
-        required=False,
         widget=forms.TextInput(attrs={"class": "input"}),
     )
     description = forms.CharField(
         label="Описание",
-        required=False,
         widget=forms.Textarea(attrs={"rows": 4, "class": "input"}),
     )
-    due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(attrs={"type": "date"}))
+    due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
 
-    def clean(self):
-        cleaned_data = super().clean()
-        for field_name in ("title", "description"):
-            value = cleaned_data.get(field_name)
-            if value and len(value) >= self.max_input_length:
-                self.add_error(field_name, "Введите значение короче 50 символов.")
-        return cleaned_data
+    def clean_title(self):
+        value = " ".join((self.cleaned_data.get("title") or "").split()).strip()
+        if not value:
+            raise forms.ValidationError("Укажите название задания.")
+        return value
+
+    def clean_description(self):
+        value = (self.cleaned_data.get("description") or "").strip()
+        if not value:
+            raise forms.ValidationError("Укажите описание задания.")
+        if exceeds_char_limit(value, self.max_input_length):
+            raise forms.ValidationError(char_limit_error(self.max_input_length))
+        return value
+
+
+class StudentAssignmentEditForm(forms.Form):
+    max_input_length = TEXT_CHAR_LIMIT
+    composition_name = forms.CharField(
+        label="Название композиции",
+        max_length=200,
+        widget=forms.TextInput(attrs={"class": "input"}),
+    )
+    task_text = forms.CharField(
+        label="Задание",
+        widget=forms.Textarea(attrs={"rows": 4, "class": "input"}),
+    )
+    due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}))
+    attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
+
+    def clean_composition_name(self):
+        value = " ".join((self.cleaned_data.get("composition_name") or "").split()).strip()
+        if not value:
+            raise forms.ValidationError("Укажите название композиции.")
+        return value
+
+    def clean_task_text(self):
+        value = (self.cleaned_data.get("task_text") or "").strip()
+        if not value:
+            raise forms.ValidationError("Укажите задание.")
+        if exceeds_char_limit(value, self.max_input_length):
+            raise forms.ValidationError(char_limit_error(self.max_input_length))
+        return value
 
 
 class AssignmentSubmissionForm(forms.Form):
