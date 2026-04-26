@@ -14,10 +14,10 @@ services:
       DJANGO_DEBUG: "0"
       DJANGO_SERVE_MEDIA: "1"
       DJANGO_STATICFILES_COMPRESS: "0"
+      DJANGO_SEED_DEMO: "0"
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
       DJANGO_SQLITE_PATH: /home/sysuser/music-Gradebook/db.sqlite3
     command:
       - sh
-      - -c
-      - python manage.py collectstatic --noinput && python manage.py migrate && python manage.py runserver 0.0.0.0:8000
+      - /home/sysuser/music-Gradebook/docker/start-web.sh

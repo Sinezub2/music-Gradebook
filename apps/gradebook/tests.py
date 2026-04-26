@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.core.management import call_command
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -63,3 +64,15 @@ class TeacherGroupGradesTests(TestCase):
         grade = Grade.objects.get(assessment=assessment, student=self.student)
         self.assertEqual(float(grade.score), 88.0)
         self.assertEqual(grade.comment, "Хорошо")
+
+
+class SeedDemoCommandTests(TestCase):
+    def test_seed_demo_sets_teacher_mode_and_group_ready_data(self):
+        call_command("seed_demo")
+
+        teacher = get_user_model().objects.get(username="teacher1")
+        theory_course = Course.objects.get(name="Теория музыки")
+        student_two = get_user_model().objects.get(username="student2")
+
+        self.assertEqual(teacher.profile.teacher_mode, Profile.TeacherMode.BOTH)
+        self.assertTrue(Enrollment.objects.filter(course=theory_course, student=student_two).exists())
