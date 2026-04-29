@@ -5,4 +5,3 @@ services:
     environment:
       DJANGO_DEBUG: "1"
       DJANGO_SQLITE_PATH: /home/sysuser/music-Gradebook/db.sqlite3
-      DJANGO_SEED_DEMO: "1"
