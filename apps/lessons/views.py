@@ -31,6 +31,7 @@ from apps.school.utils import (
     get_teacher_group_or_404,
     get_teacher_student_or_404,
     resolve_teacher_course_for_student,
+    resolve_course_scope,
 )
 
 
@@ -478,7 +479,9 @@ def group_attendance(request, group_id: int):
 
     group = get_teacher_group_or_404(request.user, group_id)
     enrollments = list(get_group_student_enrollments(group))
-    students = [enrollment.student for enrollment in enrollments]
+    scope_value = (request.POST.get("scope") or request.GET.get("scope") or "").strip()
+    selected_scope, scoped_enrollments, scope_options = resolve_course_scope(group, scope_value, enrollments=enrollments)
+    students = [enrollment.student for enrollment in scoped_enrollments]
     recent_lessons = list(group.lessons.order_by("-date", "-id")[:20])
     selected_lesson = None
 
@@ -527,7 +530,10 @@ def group_attendance(request, group_id: int):
                             lesson_student.save(update_fields=["attended"])
 
                 messages.success(request, "Посещаемость сохранена.")
-                return redirect(f"/teacher/groups/{group.id}/attendance/?lesson={lesson.id}")
+                params = {"lesson": lesson.id}
+                if selected_scope["value"]:
+                    params["scope"] = selected_scope["value"]
+                return redirect(f"/teacher/groups/{group.id}/attendance/?{urlencode(params)}")
     else:
         form = GroupAttendanceSessionForm(
             initial={
@@ -560,6 +566,8 @@ def group_attendance(request, group_id: int):
             "student_rows": student_rows,
             "recent_lessons": recent_lessons,
             "selected_lesson": selected_lesson,
+            "scope_options": scope_options,
+            "selected_scope": selected_scope,
         },
     )
 

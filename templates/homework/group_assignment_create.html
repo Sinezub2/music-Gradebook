@@ -3,12 +3,20 @@
 {% block content %}
   <section class="page-head">
     <h1>Новое задание для группы</h1>
-    <p>{{ group.name }} · учеников: {{ student_total }}</p>
+    <p>{{ group.name }} · выбранный состав: {{ student_total }} из {{ all_student_total }}</p>
   </section>
 
   <section class="panel">
     <form method="post" enctype="multipart/form-data" class="form">
       {% csrf_token %}
+      <div class="form-row">
+        <div>
+          <label>{{ form.scope.label }}</label>
+          {{ form.scope }}
+          <div class="muted small">Состав можно ограничить классом из профиля ученика или сохранённой внутренней группой.</div>
+          {% if form.scope.errors %}<div class="error">{{ form.scope.errors }}</div>{% endif %}
+        </div>
+      </div>
       <div class="form-row">
         <div>
           <label>{{ form.title.label }}</label>
@@ -36,6 +44,7 @@
         </div>
       </div>
       {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+      <p class="muted small" style="margin: 8px 0 0;">Сейчас выбрано: {{ selected_scope.label }} · {{ student_total }} учеников.</p>
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 12px;">
         <button class="btn btn-accent" type="submit">Создать задание</button>
         <a class="btn" href="/teacher/groups/{{ group.id }}/assignments/">Отмена</a>

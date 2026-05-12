@@ -132,6 +132,29 @@ class TeacherEventCreateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Event.objects.filter(title="Попытка чужого ученика").count(), 0)
 
+    def test_event_create_page_prefills_assessment_preset(self):
+        self.client.force_login(self.teacher)
+
+        response = self.client.get(f"/calendar/create/?course={self.course.id}&preset=grade4_final")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Важная оценка для 4 класса")
+        self.assertContains(response, "Сейчас подставлен пресет")
+
+    def test_teacher_can_create_control_event_type(self):
+        self.client.force_login(self.teacher)
+        payload = self._today_payload_base(
+            event_type=Event.EventType.CONTROL,
+            title="Контроль по ритму",
+            course=str(self.course.id),
+        )
+
+        response = self.client.post("/calendar/create/", data=payload)
+
+        self.assertEqual(response.status_code, 302)
+        event = Event.objects.get(title="Контроль по ритму")
+        self.assertEqual(event.event_type, Event.EventType.CONTROL)
+
     def test_calendar_shows_events_for_teacher_and_participant_student(self):
         event = Event.objects.create(
             title="Виден в календаре",

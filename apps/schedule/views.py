@@ -26,6 +26,66 @@ WEEKDAY_LABELS = [
     "Воскресенье",
 ]
 
+EVENT_PRESETS = {
+    "quiz": {
+        "event_type": Event.EventType.QUIZ,
+        "title": "Квиз по текущей теме",
+        "description": "Короткая проверка по текущей теме занятия.",
+        "label": "Квиз",
+    },
+    "control": {
+        "event_type": Event.EventType.CONTROL,
+        "title": "Контрольная работа",
+        "description": "Контрольная проверка с фиксацией результата в журнале.",
+        "label": "Контроль",
+    },
+    "final": {
+        "event_type": Event.EventType.FINAL,
+        "title": "Итоговая оценка",
+        "description": "Итоговая оценка по теме или блоку программы.",
+        "label": "Итоговая",
+    },
+    "milestone": {
+        "event_type": Event.EventType.MILESTONE,
+        "title": "Промежуточная проверка",
+        "description": "Промежуточная проверка для отслеживания учебной динамики.",
+        "label": "Промежуточная проверка",
+    },
+    "grade4_final": {
+        "event_type": Event.EventType.FINAL,
+        "title": "Важная оценка для 4 класса",
+        "description": "Проверка для учеников 4 класса. Уточните программу и критерии заранее.",
+        "label": "Оценка 4 класса",
+    },
+    "grade7_final": {
+        "event_type": Event.EventType.FINAL,
+        "title": "Важная оценка для 7 класса",
+        "description": "Проверка для учеников 7 класса. Уточните программу и критерии заранее.",
+        "label": "Оценка 7 класса",
+    },
+}
+
+
+def _build_event_create_url(*, preset: str, course_id: int | None = None):
+    params = {"preset": preset}
+    if course_id:
+        params["course"] = course_id
+    query = "&".join(f"{key}={value}" for key, value in params.items())
+    return f"/calendar/create/?{query}"
+
+
+def _parse_student_ids(raw_value: str) -> list[int]:
+    student_ids = []
+    for chunk in (raw_value or "").split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        try:
+            student_ids.append(int(chunk))
+        except ValueError:
+            continue
+    return student_ids
+
 
 def _events_for_role(request, qs):
     role = request.user.profile.role
@@ -201,7 +261,33 @@ def calendar_list(request):
 
 @role_required(Profile.Role.TEACHER)
 def teacher_event_create(request):
+    initial = {}
+    selected_preset_key = (request.GET.get("preset") or "").strip()
+    selected_preset = EVENT_PRESETS.get(selected_preset_key)
     form = TeacherEventCreateForm(request.POST or None, teacher_user=request.user)
+    if request.method == "GET":
+        if selected_preset:
+            initial.update(
+                {
+                    "event_type": selected_preset["event_type"],
+                    "title": selected_preset["title"],
+                    "description": selected_preset["description"],
+                }
+            )
+        if request.GET.get("course"):
+            try:
+                requested_course_id = int(request.GET["course"])
+            except ValueError:
+                requested_course_id = None
+            if requested_course_id and form.fields["course"].queryset.filter(id=requested_course_id).exists():
+                initial["course"] = requested_course_id
+        if request.GET.get("students"):
+            allowed_student_ids = set(form.fields["students"].queryset.values_list("id", flat=True))
+            requested_student_ids = [student_id for student_id in _parse_student_ids(request.GET["students"]) if student_id in allowed_student_ids]
+            if requested_student_ids:
+                initial["students"] = requested_student_ids
+        if initial:
+            form = TeacherEventCreateForm(teacher_user=request.user, initial=initial)
     has_courses = form.fields["course"].queryset.exists()
     has_students = form.fields["students"].queryset.exists()
 
@@ -249,6 +335,17 @@ def teacher_event_create(request):
             "form": form,
             "has_courses": has_courses,
             "has_students": has_students,
+            "prefill_note": selected_preset["label"] if selected_preset else "",
+            "preset_links": [
+                {
+                    "label": preset["label"],
+                    "url": _build_event_create_url(
+                        preset=key,
+                        course_id=(form.initial.get("course") or None),
+                    ),
+                }
+                for key, preset in EVENT_PRESETS.items()
+            ],
         },
     )
 

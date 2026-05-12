@@ -20,6 +20,7 @@ from apps.school.utils import (
     get_teacher_group_or_404,
     get_teacher_student_or_404,
     get_user_single_class,
+    resolve_course_scope,
     resolve_teacher_course_for_student,
 )
 from apps.text_limits import TEXT_CHAR_LIMIT, char_limit_error, exceeds_char_limit
@@ -673,13 +674,21 @@ def group_assignment_create(request, group_id: int):
 
     group = get_teacher_group_or_404(request.user, group_id)
     enrollments = list(get_group_student_enrollments(group))
-    student_ids = [enrollment.student_id for enrollment in enrollments]
+    scope_value = (request.POST.get("scope") or request.GET.get("scope") or "").strip()
+    selected_scope, scoped_enrollments, scope_options = resolve_course_scope(group, scope_value, enrollments=enrollments)
+    student_ids = [enrollment.student_id for enrollment in scoped_enrollments]
 
     if request.method == "POST":
-        form = GroupAssignmentCreateForm(request.POST, request.FILES)
+        form = GroupAssignmentCreateForm(request.POST, request.FILES, scope_choices=scope_options)
         if form.is_valid():
+            selected_scope, scoped_enrollments, scope_options = resolve_course_scope(
+                group,
+                form.cleaned_data["scope"],
+                enrollments=enrollments,
+            )
+            student_ids = [enrollment.student_id for enrollment in scoped_enrollments]
             if not student_ids:
-                messages.error(request, "В группе пока нет учеников.")
+                messages.error(request, "В выбранной группе пока нет учеников.")
             else:
                 create_assignment_with_targets_and_gradebook(
                     teacher=request.user,
@@ -693,7 +702,10 @@ def group_assignment_create(request, group_id: int):
                 messages.success(request, "Групповое задание создано.")
                 return redirect(f"/teacher/groups/{group.id}/assignments/")
     else:
-        form = GroupAssignmentCreateForm()
+        form = GroupAssignmentCreateForm(
+            initial={"scope": selected_scope["value"]},
+            scope_choices=scope_options,
+        )
 
     return render(
         request,
@@ -701,6 +713,8 @@ def group_assignment_create(request, group_id: int):
         {
             "group": group,
             "student_total": len(student_ids),
+            "all_student_total": len(enrollments),
+            "selected_scope": selected_scope,
             "form": form,
         },
     )

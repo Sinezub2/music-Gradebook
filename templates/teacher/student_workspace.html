@@ -36,6 +36,38 @@
     </div>
   </section>
 
+  {% if shared_course_rows %}
+    <section class="panel" style="margin-bottom: 12px;">
+      <h2>Общий учебный контекст</h2>
+      <p class="muted small" style="margin-top: 0;">Здесь видны другие курсы ученика, чтобы индивидуальный и групповой циклы шли синхронно.</p>
+      <div class="announcement-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+        {% for row in shared_course_rows %}
+          <article class="announcement-card">
+            <h3>{{ row.course.name }}</h3>
+            <p class="muted small">{{ row.course.course_type.name }} · {{ row.teacher_label }}</p>
+            {% if row.latest_lesson %}
+              <p class="small"><strong>Тема:</strong> {{ row.latest_lesson.topic }} · {{ row.latest_lesson.date|date:"d.m.Y" }}</p>
+            {% else %}
+              <p class="muted small">Темы пока не зафиксированы.</p>
+            {% endif %}
+            {% if row.recent_grades %}
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                {% for grade in row.recent_grades %}
+                  <span class="tag">{{ grade.assessment.title }}{% if grade.score != None %}: {{ grade.score }}{% else %}: —{% endif %}</span>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="muted small">Оценок пока нет.</p>
+            {% endif %}
+            {% if row.next_event %}
+              <p class="small" style="margin-bottom: 0;"><strong>Следующая важная дата:</strong> {{ row.next_event.title }} · {{ row.next_event.start_datetime|date:"d.m.Y H:i" }}</p>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
   <section class="announcement-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
     <article class="announcement-card">
       <h3>Недавние задания</h3>

@@ -27,10 +27,26 @@
     </section>
   {% endif %}
 
+  <section class="panel" style="margin-bottom: 12px;">
+    <h2>Кого отмечаем</h2>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      {% for option in scope_options %}
+        <a
+          class="btn btn-small {% if selected_scope.value == option.value %}btn-accent{% endif %}"
+          href="/teacher/groups/{{ group.id }}/attendance/{% if option.value %}?scope={{ option.value|urlencode }}{% endif %}"
+        >
+          {{ option.label }} · {{ option.count }}
+        </a>
+      {% endfor %}
+    </div>
+    <p class="muted small" style="margin: 10px 0 0;">Если отмечаете подгруппу, отсутствие не ставится ученикам вне выбранного состава.</p>
+  </section>
+
   <section class="panel">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
       {% if selected_lesson %}<input type="hidden" name="lesson_id" value="{{ selected_lesson.id }}">{% endif %}
+      <input type="hidden" name="scope" value="{{ selected_scope.value }}">
 
       <div class="form-row" style="margin-bottom: 12px;">
         <div>

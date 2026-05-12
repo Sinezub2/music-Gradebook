@@ -9,6 +9,10 @@ class Event(models.Model):
         LESSON = "LESSON", "Урок"
         EXAM = "EXAM", "Экзамен"
         CONCERT = "CONCERT", "Концерт"
+        QUIZ = "QUIZ", "Квиз"
+        CONTROL = "CONTROL", "Контрольная работа"
+        FINAL = "FINAL", "Итоговая оценка"
+        MILESTONE = "MILESTONE", "Промежуточная проверка"
 
     title = models.CharField(max_length=200)
     event_type = models.CharField(max_length=16, choices=EventType.choices)

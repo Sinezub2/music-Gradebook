@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.models import Profile
-from apps.school.models import Course, CourseType, Enrollment
+from apps.school.models import Course, CourseInternalGroup, CourseType, Enrollment
 
 from .models import Lesson, LessonStudent
 
@@ -53,3 +53,27 @@ class GroupAttendanceTests(TestCase):
             for entry in LessonStudent.objects.filter(lesson=lesson)
         }
         self.assertEqual(entries, {self.student_a.id: True, self.student_b.id: False})
+
+    def test_group_attendance_scope_marks_only_selected_internal_group(self):
+        internal_group = CourseInternalGroup.objects.create(
+            course=self.group,
+            name="Подгруппа А",
+            group_type=CourseInternalGroup.GroupType.SPLIT,
+        )
+        internal_group.students.add(self.student_a)
+        self.client.force_login(self.teacher)
+
+        response = self.client.post(
+            reverse("teacher_group_attendance", args=[self.group.id]),
+            data={
+                "scope": f"internal:{internal_group.id}",
+                "date": "2026-04-22",
+                "topic": "Ритм подгруппы",
+                f"attendance-{self.student_a.id}": "PRESENT",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        lesson = Lesson.objects.get(course=self.group, topic="Ритм подгруппы")
+        entries = list(LessonStudent.objects.filter(lesson=lesson).values_list("student_id", "attended"))
+        self.assertEqual(entries, [(self.student_a.id, True)])

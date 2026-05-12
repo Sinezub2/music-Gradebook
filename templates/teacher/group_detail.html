@@ -3,7 +3,7 @@
 {% block content %}
   <section class="page-head">
     <h1>{{ group.name }}</h1>
-    <p>{{ group.course_type.name }}</p>
+    <p>{{ group.course_type.name }}{% if selected_scope.value %} · Показаны: {{ selected_scope.label }}{% endif %}</p>
   </section>
 
   <section class="panel" style="margin-bottom: 12px;">
@@ -37,6 +37,60 @@
   </section>
 
   <section class="panel" style="margin-bottom: 12px;">
+    <h2>Состав группы</h2>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 10px;">
+      {% for option in scope_options %}
+        <a
+          class="btn btn-small {% if selected_scope.value == option.value %}btn-accent{% endif %}"
+          href="{% if option.value %}/teacher/groups/{{ group.id }}/?scope={{ option.value|urlencode }}{% else %}/teacher/groups/{{ group.id }}/{% endif %}"
+        >
+          {{ option.label }} · {{ option.count }}
+        </a>
+      {% endfor %}
+    </div>
+    <p class="muted small" style="margin: 0;">Классы берутся из профиля ученика, а внутренние группы помогают быстро работать с подгруппами, поддержкой и продвинутыми учениками.</p>
+  </section>
+
+  <section class="panel" style="margin-bottom: 12px;">
+    <h2>Внутренние группы</h2>
+    {% if scope_options|length > 1 %}
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 12px;">
+        {% for option in scope_options %}
+          {% if option.kind == "internal" %}
+            <span class="tag">{{ option.label }} · {{ option.count }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+    <form method="post" class="form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_internal_group">
+      <input type="hidden" name="scope" value="{{ selected_scope.value }}">
+      <div class="form-row">
+        <div>
+          <label>{{ internal_group_form.group_type.label }}</label>
+          {{ internal_group_form.group_type }}
+          {% if internal_group_form.group_type.errors %}<div class="error">{{ internal_group_form.group_type.errors }}</div>{% endif %}
+        </div>
+        <div style="min-width: 240px; flex: 1;">
+          <label>{{ internal_group_form.name.label }}</label>
+          {{ internal_group_form.name }}
+          {% if internal_group_form.name.errors %}<div class="error">{{ internal_group_form.name.errors }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="form-row">
+        <div style="width: 100%;">
+          <label>{{ internal_group_form.students.label }}</label>
+          {{ internal_group_form.students }}
+          {% if internal_group_form.students.errors %}<div class="error">{{ internal_group_form.students.errors }}</div>{% endif %}
+        </div>
+      </div>
+      {% if internal_group_form.non_field_errors %}<div class="error">{{ internal_group_form.non_field_errors }}</div>{% endif %}
+      <button class="btn btn-small btn-accent" type="submit">Сохранить внутреннюю группу</button>
+    </form>
+  </section>
+
+  <section class="panel" style="margin-bottom: 12px;">
     <h2>Ученики</h2>
     {% if student_rows %}
       <div class="table-wrap">
@@ -44,7 +98,9 @@
           <thead>
             <tr>
               <th>Ученик</th>
+              <th>Класс</th>
               <th>Цикл</th>
+              <th>Внутренние группы</th>
               <th>Прогресс по заданиям</th>
               <th>Средний балл</th>
               <th></th>
@@ -54,7 +110,17 @@
             {% for row in student_rows %}
               <tr>
                 <td>{{ row.student.get_full_name|default:"Без имени" }}</td>
+                <td>{% if row.school_grade %}{{ row.school_grade }}{% else %}<span class="muted">—</span>{% endif %}</td>
                 <td>{{ row.student.profile.get_cycle_display }}</td>
+                <td>
+                  {% if row.internal_groups %}
+                    {% for internal_group in row.internal_groups %}
+                      <span class="tag">{{ internal_group.name }}</span>
+                    {% endfor %}
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
                 <td>{{ row.done_targets }}/{{ row.total_targets }}</td>
                 <td>
                   {% if row.avg_score != None %}
@@ -140,11 +206,40 @@
     </article>
 
     <article class="announcement-card">
+      <h3>Важные даты</h3>
+      {% if upcoming_events %}
+        <ul class="list">
+          {% for event in upcoming_events %}
+            <li>
+              <div>
+                <strong>{{ event.title }}</strong>
+                <div class="muted small">{{ event.start_datetime|date:"d.m.Y H:i" }} · {{ event.get_event_type_display }}</div>
+              </div>
+              {% if event.external_url %}
+                <a class="btn btn-small" href="{{ event.external_url }}" target="_blank" rel="noopener noreferrer">Ссылка</a>
+              {% else %}
+                <span class="tag">{{ event.get_event_type_display }}</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет важных дат.</p>
+      {% endif %}
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top: 10px;">
+        {% for shortcut in event_shortcuts %}
+          <a class="btn btn-small" href="{{ shortcut.url }}">{{ shortcut.label }}</a>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="announcement-card">
       <h3>Быстрые действия</h3>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/assignments/create/">Новое задание</a>
-        <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/attendance/">Отметить посещаемость</a>
+        <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/assignments/create/{% if selected_scope.value %}?scope={{ selected_scope.value|urlencode }}{% endif %}">Новое задание</a>
+        <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/attendance/{% if selected_scope.value %}?scope={{ selected_scope.value|urlencode }}{% endif %}">Отметить посещаемость</a>
         <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/grades/">Открыть журнал оценок</a>
+        <a class="btn btn-small" href="/calendar/create/?course={{ group.id }}">Создать событие</a>
       </div>
     </article>
   </section>

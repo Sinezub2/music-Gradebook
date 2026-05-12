@@ -40,6 +40,28 @@ class Enrollment(models.Model):
         return f"{student_name} -> {self.course.name}"
 
 
+class CourseInternalGroup(models.Model):
+    class GroupType(models.TextChoices):
+        SPLIT = "SPLIT", "Подгруппа"
+        REMEDIAL = "REMEDIAL", "Нужна поддержка"
+        ADVANCED = "ADVANCED", "Продвинутые"
+        CUSTOM = "CUSTOM", "Своя группа"
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="internal_groups")
+    name = models.CharField(max_length=120)
+    group_type = models.CharField(max_length=16, choices=GroupType.choices, default=GroupType.CUSTOM)
+    students = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="course_internal_groups")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("name", "id")
+        unique_together = ("course", "name")
+
+    def __str__(self) -> str:
+        return f"{self.course.name} / {self.name}"
+
+
 class ParentChild(models.Model):
     parent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="children_links")
     child = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="parent_links")

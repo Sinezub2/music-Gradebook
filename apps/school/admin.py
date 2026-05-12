@@ -1,6 +1,6 @@
 # apps/school/admin.py
 from django.contrib import admin
-from .models import Course, CourseType, Enrollment, ParentChild
+from .models import Course, CourseInternalGroup, CourseType, Enrollment, ParentChild
 
 
 @admin.register(CourseType)
@@ -20,6 +20,14 @@ class CourseAdmin(admin.ModelAdmin):
 class EnrollmentAdmin(admin.ModelAdmin):
     list_display = ("course", "student")
     search_fields = ("course__name", "student__username")
+
+
+@admin.register(CourseInternalGroup)
+class CourseInternalGroupAdmin(admin.ModelAdmin):
+    list_display = ("name", "course", "group_type")
+    list_filter = ("group_type", "course")
+    search_fields = ("name", "course__name", "students__username")
+    filter_horizontal = ("students",)
 
 
 @admin.register(ParentChild)

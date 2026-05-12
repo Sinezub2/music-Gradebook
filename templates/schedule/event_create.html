@@ -6,6 +6,18 @@
     <p>Добавьте событие в календарь и выберите участников.</p>
   </section>
 
+  <section class="panel" style="margin-bottom: 12px;">
+    <h2>Быстрые пресеты</h2>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      {% for preset in preset_links %}
+        <a class="btn btn-small" href="{{ preset.url }}">{{ preset.label }}</a>
+      {% endfor %}
+    </div>
+    {% if prefill_note %}
+      <p class="muted small" style="margin-bottom: 0;">Сейчас подставлен пресет: {{ prefill_note }}.</p>
+    {% endif %}
+  </section>
+
   <div class="card">
     <form method="post" class="form">
       {% csrf_token %}

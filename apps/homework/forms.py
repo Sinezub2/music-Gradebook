@@ -51,6 +51,11 @@ class StudentAssignmentCreateForm(forms.Form):
 
 class GroupAssignmentCreateForm(forms.Form):
     max_input_length = TEXT_CHAR_LIMIT
+    scope = forms.ChoiceField(
+        label="Кому назначить",
+        required=False,
+        choices=(("", "Все ученики"),),
+    )
     title = forms.CharField(
         label="Название задания",
         max_length=200,
@@ -62,6 +67,14 @@ class GroupAssignmentCreateForm(forms.Form):
     )
     due_date = forms.DateField(label="Дедлайн", widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}))
     attachment = forms.FileField(label="Прикрепить фото / видео", required=False)
+
+    def __init__(self, *args, scope_choices=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if scope_choices:
+            self.fields["scope"].choices = [
+                (choice["value"], f"{choice['label']} ({choice['count']})")
+                for choice in scope_choices
+            ]
 
     def clean_title(self):
         value = " ".join((self.cleaned_data.get("title") or "").split()).strip()

@@ -245,3 +245,27 @@ class HomeworkFlowTests(TestCase):
         self.assertEqual(target_student_ids, {self.student.id, self.second_student.id})
         grade_student_ids = set(Grade.objects.filter(assessment=assignment.assessment).values_list("student_id", flat=True))
         self.assertEqual(grade_student_ids, {self.student.id, self.second_student.id})
+
+    def test_group_assignment_create_can_target_single_class_scope(self):
+        self.teacher.profile.teacher_mode = Profile.TeacherMode.GROUP
+        self.teacher.profile.save(update_fields=["teacher_mode"])
+        self.student.profile.school_grade = "4Б"
+        self.student.profile.save(update_fields=["school_grade"])
+        self.second_student.profile.school_grade = "5В"
+        self.second_student.profile.save(update_fields=["school_grade"])
+        self.client.force_login(self.teacher)
+
+        response = self.client.post(
+            f"/teacher/groups/{self.course.id}/assignments/create/",
+            data={
+                "scope": "classroom:4Б",
+                "title": "Проверка для 4Б",
+                "description": "Подготовить письменный разбор.",
+                "due_date": "2026-05-02",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        assignment = Assignment.objects.get(title="Проверка для 4Б")
+        target_student_ids = set(AssignmentTarget.objects.filter(assignment=assignment).values_list("student_id", flat=True))
+        self.assertEqual(target_student_ids, {self.student.id})

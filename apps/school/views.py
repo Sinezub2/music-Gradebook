@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
+from urllib.parse import urlencode
 
 from apps.accounts.forms import TeacherStudentCycleForm
 from apps.accounts.models import Profile
@@ -11,17 +12,119 @@ from apps.gradebook.models import Grade
 from apps.goals.models import Goal
 from apps.homework.models import AssignmentTarget
 from apps.lessons.models import LessonReport, LessonStudent
-from .models import Course, Enrollment, ParentChild
+from apps.lessons.models import Lesson
+from apps.schedule.models import Event
+from .forms import CourseInternalGroupForm
+from .models import Course, CourseInternalGroup, Enrollment, ParentChild
 from .utils import (
+    extract_school_grade_number,
     get_group_student_enrollments,
+    get_student_internal_groups_for_course,
     get_teacher_group_courses,
     get_teacher_group_or_404,
     get_teacher_group_student_or_404,
     get_teacher_student_or_404,
     get_teacher_students,
     get_user_single_class,
+    normalize_school_grade_label,
+    resolve_course_scope,
     resolve_teacher_course_for_student,
 )
+
+
+INTERNAL_GROUP_DEFAULT_NAMES = {
+    CourseInternalGroup.GroupType.SPLIT: "Подгруппа",
+    CourseInternalGroup.GroupType.REMEDIAL: "Нужна поддержка",
+    CourseInternalGroup.GroupType.ADVANCED: "Продвинутые",
+}
+
+
+def _build_internal_group_name(course: Course, group_type: str, raw_name: str) -> str:
+    base_name = (raw_name or "").strip() or INTERNAL_GROUP_DEFAULT_NAMES.get(group_type, "Своя группа")
+    if not course.internal_groups.filter(name=base_name).exists():
+        return base_name
+
+    suffix = 2
+    while True:
+        candidate = f"{base_name} {suffix}"
+        if not course.internal_groups.filter(name=candidate).exists():
+            return candidate
+        suffix += 1
+
+
+def _build_event_create_url(*, course_id: int, preset: str, student_id: int | None = None) -> str:
+    params = {"course": course_id, "preset": preset}
+    if student_id:
+        params["students"] = str(student_id)
+    return f"/calendar/create/?{urlencode(params)}"
+
+
+def _build_group_event_shortcuts(group: Course, *, include_grade_4: bool, include_grade_7: bool) -> list[dict]:
+    rows = [
+        {"label": "Квиз", "url": _build_event_create_url(course_id=group.id, preset="quiz")},
+        {"label": "Контроль", "url": _build_event_create_url(course_id=group.id, preset="control")},
+        {"label": "Итоговая", "url": _build_event_create_url(course_id=group.id, preset="final")},
+        {"label": "Промежуточная проверка", "url": _build_event_create_url(course_id=group.id, preset="milestone")},
+    ]
+    if include_grade_4:
+        rows.append({"label": "Оценка 4 класса", "url": _build_event_create_url(course_id=group.id, preset="grade4_final")})
+    if include_grade_7:
+        rows.append({"label": "Оценка 7 класса", "url": _build_event_create_url(course_id=group.id, preset="grade7_final")})
+    return rows
+
+
+def _build_shared_course_rows(student, *, exclude_teacher=None) -> list[dict]:
+    enrollments = list(
+        Enrollment.objects.filter(student=student)
+        .exclude(course__teacher=exclude_teacher)
+        .select_related("course", "course__course_type", "course__teacher")
+        .order_by("course__name", "course_id")
+    )
+    if not enrollments:
+        return []
+
+    course_ids = [enrollment.course_id for enrollment in enrollments]
+    latest_lessons = {}
+    for lesson in Lesson.objects.filter(course_id__in=course_ids).select_related("course").order_by("course_id", "-date", "-id"):
+        latest_lessons.setdefault(lesson.course_id, lesson)
+
+    recent_grades_map = {}
+    grades_qs = (
+        Grade.objects.filter(student=student, assessment__course_id__in=course_ids)
+        .select_related("assessment", "assessment__course")
+        .order_by("assessment__course_id", "-assessment_id")
+    )
+    for grade in grades_qs:
+        bucket = recent_grades_map.setdefault(grade.assessment.course_id, [])
+        if len(bucket) < 3:
+            bucket.append(grade)
+
+    next_events = {}
+    events_qs = (
+        Event.objects.exclude(event_type=Event.EventType.LESSON)
+        .filter(course_id__in=course_ids, start_datetime__gte=timezone.now())
+        .select_related("course")
+        .order_by("start_datetime", "id")
+    )
+    for event in events_qs:
+        next_events.setdefault(event.course_id, event)
+
+    rows = []
+    for enrollment in enrollments:
+        course = enrollment.course
+        latest_lesson = latest_lessons.get(course.id)
+        next_event = next_events.get(course.id)
+        rows.append(
+            {
+                "course": course,
+                "teacher_label": (course.teacher.get_full_name() or "").strip() or getattr(course.teacher, "username", "") or "Преподаватель не назначен",
+                "latest_lesson": latest_lesson,
+                "recent_grades": recent_grades_map.get(course.id, []),
+                "next_event": next_event,
+                "school_grade": normalize_school_grade_label(student.profile.school_grade),
+            }
+        )
+    return rows
 
 
 @login_required
@@ -258,8 +361,33 @@ def teacher_group_detail(request, group_id: int):
 
     group = get_teacher_group_or_404(request.user, group_id)
     enrollments = list(get_group_student_enrollments(group))
-    students = [enrollment.student for enrollment in enrollments]
+    scope_value = (request.POST.get("scope") or request.GET.get("scope") or "").strip()
+    selected_scope, scoped_enrollments, scope_options = resolve_course_scope(group, scope_value, enrollments=enrollments)
+    students = [enrollment.student for enrollment in scoped_enrollments]
     student_ids = [student.id for student in students]
+    student_id_set = set(student_ids)
+    classroom_options = [option for option in scope_options if option["kind"] == "classroom"]
+    has_grade_4 = any(extract_school_grade_number(option["label"]) == "4" for option in classroom_options)
+    has_grade_7 = any(extract_school_grade_number(option["label"]) == "7" for option in classroom_options)
+
+    internal_group_form = CourseInternalGroupForm(course=group)
+    if request.method == "POST" and request.POST.get("action") == "create_internal_group":
+        internal_group_form = CourseInternalGroupForm(request.POST, course=group)
+        if internal_group_form.is_valid():
+            chosen_name = _build_internal_group_name(
+                group,
+                internal_group_form.cleaned_data["group_type"],
+                internal_group_form.cleaned_data["name"],
+            )
+            internal_group = CourseInternalGroup.objects.create(
+                course=group,
+                name=chosen_name,
+                group_type=internal_group_form.cleaned_data["group_type"],
+            )
+            valid_student_ids = [student_id for student_id in internal_group_form.cleaned_data["students"] if student_id in student_id_set or student_id in {row.student_id for row in enrollments}]
+            internal_group.students.set(valid_student_ids)
+            messages.success(request, "Внутренняя группа сохранена.")
+            return redirect(f"/teacher/groups/{group.id}/?scope=internal:{internal_group.id}")
 
     recent_assignment_rows = []
     assignments = list(
@@ -268,8 +396,11 @@ def teacher_group_detail(request, group_id: int):
         .order_by("-due_date", "-id")[:5]
     )
     for assignment in assignments:
-        total = assignment.targets.count()
-        done = assignment.targets.filter(status=AssignmentTarget.Status.DONE).count()
+        targets_qs = assignment.targets.all()
+        if student_ids:
+            targets_qs = targets_qs.filter(student_id__in=student_ids)
+        total = targets_qs.count()
+        done = targets_qs.filter(status=AssignmentTarget.Status.DONE).count()
         recent_assignment_rows.append(
             {
                 "assignment": assignment,
@@ -287,7 +418,15 @@ def teacher_group_detail(request, group_id: int):
     grade_map = {row["student_id"]: row["avg_score"] for row in grade_rows}
 
     student_rows = []
+    internal_groups = list(group.internal_groups.prefetch_related("students").order_by("name", "id"))
+    internal_group_map = {}
+    for internal_group in internal_groups:
+        for student in internal_group.students.all():
+            internal_group_map.setdefault(student.id, []).append(internal_group)
+
     for enrollment in enrollments:
+        if enrollment.student_id not in student_id_set:
+            continue
         student = enrollment.student
         targets_qs = AssignmentTarget.objects.filter(student=student, assignment__course=group)
         total_targets = targets_qs.count()
@@ -298,15 +437,28 @@ def teacher_group_detail(request, group_id: int):
                 "avg_score": grade_map.get(student.id),
                 "done_targets": done_targets,
                 "total_targets": total_targets,
+                "school_grade": normalize_school_grade_label(student.profile.school_grade),
+                "internal_groups": internal_group_map.get(student.id, []),
             }
         )
 
-    total_targets = AssignmentTarget.objects.filter(assignment__course=group).count()
+    total_targets_qs = AssignmentTarget.objects.filter(assignment__course=group)
+    if student_ids:
+        total_targets_qs = total_targets_qs.filter(student_id__in=student_ids)
+    total_targets = total_targets_qs.count()
     done_targets = AssignmentTarget.objects.filter(
         assignment__course=group,
         status=AssignmentTarget.Status.DONE,
-    ).count()
+    )
+    if student_ids:
+        done_targets = done_targets.filter(student_id__in=student_ids)
+    done_targets = done_targets.count()
     latest_lesson = recent_lessons[0] if recent_lessons else None
+    upcoming_events = list(
+        Event.objects.exclude(event_type=Event.EventType.LESSON)
+        .filter(course=group, start_datetime__gte=timezone.now())
+        .order_by("start_datetime", "id")[:4]
+    )
 
     return render(
         request,
@@ -317,6 +469,15 @@ def teacher_group_detail(request, group_id: int):
             "recent_assignments": recent_assignment_rows,
             "recent_lessons": recent_lessons,
             "recent_materials": recent_materials,
+            "scope_options": scope_options,
+            "selected_scope": selected_scope,
+            "internal_group_form": internal_group_form,
+            "upcoming_events": upcoming_events,
+            "event_shortcuts": _build_group_event_shortcuts(
+                group,
+                include_grade_4=has_grade_4,
+                include_grade_7=has_grade_7,
+            ),
             "summary_stats": {
                 "students_total": len(students),
                 "assignments_total": group.assignments.count(),
@@ -356,6 +517,14 @@ def teacher_group_student_detail(request, group_id: int, student_id: int):
         .select_related("lesson")
         .order_by("-lesson__date", "-lesson_id")[:8]
     )
+    latest_lesson_entry = attendance_rows[0] if attendance_rows else None
+    student_internal_groups = list(get_student_internal_groups_for_course(student, group))
+    upcoming_events = list(
+        Event.objects.exclude(event_type=Event.EventType.LESSON)
+        .filter(Q(course=group) | Q(participants=student), start_datetime__gte=timezone.now())
+        .distinct()
+        .order_by("start_datetime", "id")[:4]
+    )
 
     return render(
         request,
@@ -366,6 +535,9 @@ def teacher_group_student_detail(request, group_id: int, student_id: int):
             "recent_assignments": recent_assignments,
             "recent_grades": recent_grades,
             "attendance_rows": attendance_rows,
+            "latest_lesson_entry": latest_lesson_entry,
+            "student_internal_groups": student_internal_groups,
+            "upcoming_events": upcoming_events,
         },
     )
 
@@ -411,6 +583,7 @@ def teacher_student_workspace(request, student_id: int):
         .order_by("-assessment_id")[:5]
     )
     goals = list(Goal.objects.filter(student=student).select_related("teacher").order_by("-created_at")[:5])
+    shared_course_rows = _build_shared_course_rows(student, exclude_teacher=request.user)
     current_half_year = "H1" if timezone.localdate().month <= 6 else "H2"
 
     return render(
@@ -426,6 +599,7 @@ def teacher_student_workspace(request, student_id: int):
             "recent_reports": recent_reports,
             "recent_grades": recent_grades,
             "goals": goals,
+            "shared_course_rows": shared_course_rows,
             "current_half_year": current_half_year,
             "cycle_form": cycle_form,
         },

@@ -4,6 +4,21 @@
   <section class="page-head">
     <h1>{{ student.get_full_name|default:"Без имени" }}</h1>
     <p>Группа: {{ group.name }} · {{ group.course_type.name }}</p>
+    <p class="muted">
+      Класс:
+      {% if student.profile.school_grade %}
+        {{ student.profile.school_grade }}
+      {% else %}
+        не указан
+      {% endif %}
+    </p>
+    {% if student_internal_groups %}
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        {% for internal_group in student_internal_groups %}
+          <span class="tag">{{ internal_group.name }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
   </section>
 
   <section class="panel" style="margin-bottom: 12px;">
@@ -12,10 +27,22 @@
       <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/assignments/">Задания группы</a>
       <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/grades/">Оценки группы</a>
       <a class="btn btn-small" href="/teacher/groups/{{ group.id }}/attendance/">Посещаемость</a>
+      <a class="btn btn-small" href="/teacher/students/{{ student.id }}/">Общая карточка</a>
+      <a class="btn btn-small" href="/calendar/create/?course={{ group.id }}&students={{ student.id }}&preset=milestone">Важная дата</a>
     </div>
   </section>
 
-  <section class="announcement-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+  <section class="announcement-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+    <article class="announcement-card">
+      <h3>Текущая тема</h3>
+      {% if latest_lesson_entry %}
+        <strong>{{ latest_lesson_entry.lesson.topic }}</strong>
+        <p class="muted small">{{ latest_lesson_entry.lesson.date|date:"d.m.Y" }}</p>
+      {% else %}
+        <p class="muted">Тема пока не зафиксирована.</p>
+      {% endif %}
+    </article>
+
     <article class="announcement-card">
       <h3>Задания</h3>
       {% if recent_assignments %}
@@ -54,6 +81,29 @@
         </ul>
       {% else %}
         <p class="muted">Пока нет оценок.</p>
+      {% endif %}
+    </article>
+
+    <article class="announcement-card">
+      <h3>Важные даты</h3>
+      {% if upcoming_events %}
+        <ul class="list">
+          {% for event in upcoming_events %}
+            <li>
+              <div>
+                <strong>{{ event.title }}</strong>
+                <div class="muted small">{{ event.start_datetime|date:"d.m.Y H:i" }} · {{ event.get_event_type_display }}</div>
+              </div>
+              {% if event.external_url %}
+                <a class="btn btn-small" href="{{ event.external_url }}" target="_blank" rel="noopener noreferrer">Ссылка</a>
+              {% else %}
+                <span class="tag">{{ event.get_event_type_display }}</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Пока нет важных дат.</p>
       {% endif %}
     </article>
 
