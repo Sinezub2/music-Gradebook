@@ -14,5 +14,6 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
 
 COPY --chown=sysuser:sysuser . /home/sysuser/music-Gradebook
+RUN chmod +x /home/sysuser/music-Gradebook/docker/start-web.sh
 
 USER sysuser

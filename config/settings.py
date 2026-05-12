@@ -118,9 +118,10 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 SERVE_MEDIA = _env_bool("DJANGO_SERVE_MEDIA", DEBUG)
 
-# Use plain static paths in local debug, fingerprinted assets in production.
+# Use plain static paths for live source-mounted development, fingerprinted assets otherwise.
+live_static = _env_bool("DJANGO_LIVE_STATIC", False)
 use_compressed_static = _env_bool("DJANGO_STATICFILES_COMPRESS", not DEBUG)
-if DEBUG:
+if DEBUG or live_static:
     staticfiles_backend = "django.contrib.staticfiles.storage.StaticFilesStorage"
 elif use_compressed_static and HAS_WHITENOISE:
     staticfiles_backend = "whitenoise.storage.CompressedManifestStaticFilesStorage"

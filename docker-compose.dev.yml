@@ -3,5 +3,7 @@ services:
     volumes:
       - .:/home/sysuser/music-Gradebook
     environment:
-      DJANGO_DEBUG: "1"
+      DJANGO_DEBUG: "0"
+      DJANGO_COLLECTSTATIC: "0"
+      DJANGO_LIVE_STATIC: "1"
       DJANGO_SQLITE_PATH: /home/sysuser/music-Gradebook/db.sqlite3
